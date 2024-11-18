@@ -21,8 +21,9 @@ export default class PluginMemo extends Plugin {
 
     private isMobile: boolean;
     private settingUtils: SettingUtils;
+    private memoRangeMap: Map<string, Range> = new Map(); // 存储脚注id与原文range的映射
     // 添加自定义svg
-    
+
     // 添加工具栏按钮
     updateProtyleToolbar(toolbar: Array<string | IMenuItem>) {
         toolbar.push(
@@ -172,12 +173,12 @@ export default class PluginMemo extends Plugin {
 
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
 
-        
+
         this.eventBus.on("open-menu-blockref", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
 
-        // 添加悬浮事件监听
-        this.eventBus.on("mouseenter-block-ref", this.highlightMemo);
-        this.eventBus.on("mouseleave-block-ref", this.unhighlightMemo);
+        // 删除不��在的事件监听
+        // this.eventBus.on("mouseenter-block-ref", this.highlightMemo);
+        // this.eventBus.on("mouseleave-block-ref", this.unhighlightMemo);
     }
 
     onLayoutReady() {
@@ -188,7 +189,7 @@ export default class PluginMemo extends Plugin {
 
 
     private deleteMemo = ({ detail }: any) => {
-        if (detail.element && detail.element.style.cssText.indexOf("memo") !=-1) {
+        if (detail.element && detail.element.style.cssText.indexOf("memo") != -1) {
             detail.menu.addItem({
                 icon: "iconTrashcan",
                 label: this.i18n.deleteFootnote,
@@ -200,6 +201,21 @@ export default class PluginMemo extends Plugin {
             });
         }
     }
+    private saveSelectionRange(id: string) {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0).cloneRange();
+            this.memoRangeMap.set(id, range);
+        }
+    }
+
+    private highlightRange(range: Range) {
+        const span = document.createElement('span');
+        span.style.backgroundColor = "var(--b3-theme-primary-light)";
+        range.surroundContents(span);
+        return span;
+    }
+
     private async addMemoBlock(protyle: IProtyle) {
 
         await this.settingUtils.load(); //导入配置
@@ -260,7 +276,7 @@ export default class PluginMemo extends Plugin {
         if (query_res.length == 0) {
             // 添加h2标题
             headingID = (await appendBlock("markdown", `
-## ${this.settingUtils.get("footnoteTitle")}`, docID))[0].doOperations[0].id; 
+## ${this.settingUtils.get("footnoteTitle")}`, docID))[0].doOperations[0].id;
             // 添加脚注标题属性
             await setBlockAttrs(headingID, { "custom-plugin-memo-parent": "true" });
         } else {
@@ -320,7 +336,29 @@ export default class PluginMemo extends Plugin {
         let memoELement = protyle.element.querySelector(`span[data-id="${newBlockId}"]`)
         if (memoELement) {
             memoELement.setAttribute("style", "--memo: 1");
+            let highlightSpan: HTMLElement = null;
+
+            memoELement.addEventListener('mouseenter', () => {
+                const savedRange = this.memoRangeMap.get(newBlockId);
+                if (savedRange) {
+                    highlightSpan = this.highlightRange(savedRange.cloneRange());
+                }
+            });
+
+            memoELement.addEventListener('mouseleave', () => {
+                if (highlightSpan) {
+                    // 移除高亮span,保留内容
+                    const parent = highlightSpan.parentNode;
+                    while (highlightSpan.firstChild) {
+                        parent.insertBefore(highlightSpan.firstChild, highlightSpan);
+                    }
+                    parent.removeChild(highlightSpan);
+                    highlightSpan = null;
+                }
+            });
         }
+        // 在创建blockref前保存选中文本的range
+        this.saveSelectionRange(newBlockId);
         // 保存
         saveViaTransaction(memoELement)
         // 关闭工具栏
@@ -367,23 +405,6 @@ export default class PluginMemo extends Plugin {
         // 清空选区
         selection.removeAllRanges();
         return null;
-    }
-
-    private highlightMemo = ({ detail }: any) => {
-        const element = detail.target;
-        // 检查是否是脚注引用
-        if (element && element.style.cssText.indexOf("memo") !== -1) {
-            // 给引用添加高亮样式
-            element.style.backgroundColor = "var(--b3-theme-primary-light)";
-        }
-    }
-
-    private unhighlightMemo = ({ detail }: any) => {
-        const element = detail.target; 
-        if (element && element.style.cssText.indexOf("memo") !== -1) {
-            // 移除高亮样式
-            element.style.backgroundColor = "";
-        }
     }
 }
 
