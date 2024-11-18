@@ -26,15 +26,24 @@
             "asc": "Ascending",
             "desc": "Descending"
         },
+        "footnoteTitle":{
+            "title": "Footnote Title",
+            "description": "Custom title for footnote",
+            "value": "Footnote"
+        },
+        
+        "footnoteBlockref": {
+            "title": "Footnote Blockref Anchor Text",
+            "description": "Custom anchor text",
+            "value": "Footnote"
+        },
         "template": {
             "title": "Footnote Template",
             "description": "<code>${selection}</code> for selected text, <code>${content}</code> for footnote content"
         }
     },
-    "deleteMemo": "Delete Footnote",
+    "deleteFootnote": "Delete Footnote",
     "errors": {
         "noDocId": "[Block Ref Footnote Plugin] Please fill in the specified document ID"
-    },
-    "footnoteBlockref": "footnote",
-    "footnoteTitle": "Footnote"
+    }
 }

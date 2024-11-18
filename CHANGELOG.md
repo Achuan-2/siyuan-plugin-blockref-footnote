@@ -1,3 +1,6 @@
+TODO
+- [ ] 支持对块进行脚注
+
 
 ## v1.0.0 / 2024.11.18
 
@@ -8,3 +11,5 @@
   - 脚注模板：设置脚注的模板，推荐使用引述块或超级块组合，保证脚注内容属于同一个块，默认使用嵌套引述块模板，可以自行更改，`${selection}`表示选中文本的内容，`${content}`代表脚注内容占位
 - 支持使用界面设置
     ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-18_13-15-16-2024-11-18.png)
+- 支持删除脚注
+  ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-18_15-35-31-2024-11-18.png)

@@ -26,15 +26,24 @@
             "asc": "顺序",
             "desc": "逆序"
         },
+        "footnoteTitle":{
+            "title": "脚注标题",
+            "description": "自定义存放脚注的标题",
+            "value": "脚注"
+
+        },
+        "footnoteBlockref": {
+            "title": "脚注块引锚文本",
+            "description": "自定义锚文本",
+            "value": "注"
+        },
         "template": {
-            "title": "脚注模版",
+            "title": "脚注内容模版",
             "description": "<code>${selection}</code>为选中文本的内容，<code>${content}</code>为脚注内容占位"
         }
     },
-    "deleteMemo": "删除脚注",
+    "deleteFootnote": "删除脚注",
     "errors": {
         "noDocId": "【块引脚注插件】请填写指定文档ID"
-    },
-    "footnoteBlockref": "注",
-    "footnoteTitle": "脚注"
+    }
 }

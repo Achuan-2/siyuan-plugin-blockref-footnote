@@ -124,6 +124,32 @@ export default class PluginMemo extends Plugin {
             }
         });
         this.settingUtils.addItem({
+            key: "footnoteTitle",
+            value: this.i18n.settings.footnoteTitle.value,
+            type: "textinput",
+            title: this.i18n.settings.footnoteTitle.title,
+            description: this.i18n.settings.footnoteTitle.description,
+            action: {
+                // Called when focus is lost and content changes
+                callback: () => {
+                    // Return data and save it in real time
+                }
+            }
+        });
+        this.settingUtils.addItem({
+            key: "footnoteBlockref",
+            value: this.i18n.settings.footnoteBlockref.value,
+            type: "textinput",
+            title: this.i18n.settings.footnoteBlockref.title,
+            description: this.i18n.settings.footnoteBlockref.description,
+            action: {
+                // Called when focus is lost and content changes
+                callback: () => {
+                    // Return data and save it in real time
+                }
+            }
+        });
+        this.settingUtils.addItem({
             key: "templates",
             value: `>> \${selection}
 >> 
@@ -139,15 +165,19 @@ export default class PluginMemo extends Plugin {
             }
         });
 
-        let data = await this.settingUtils.load(); //导入配置并合并
-        console.log(data);
+        await this.settingUtils.load(); //导入配置并合并
 
 
         const frontEnd = getFrontend();
 
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
 
-        this.eventBus.on("open-menu-blockref", this.deleteMemo)
+        
+        this.eventBus.on("open-menu-blockref", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
+
+        // 添加悬浮事件监听
+        this.eventBus.on("mouseenter-block-ref", this.highlightMemo);
+        this.eventBus.on("mouseleave-block-ref", this.unhighlightMemo);
     }
 
     onLayoutReady() {
@@ -157,32 +187,22 @@ export default class PluginMemo extends Plugin {
     }
 
 
-    private deleteMemo({ detail }: any) {
-        // console.log(detail)
-        if (detail.element && detail.element.getAttribute("data-memo")) {
+    private deleteMemo = ({ detail }: any) => {
+        if (detail.element && detail.element.style.cssText.indexOf("memo") !=-1) {
             detail.menu.addItem({
                 icon: "iconTrashcan",
-                label: this.i18n.deleteMemo,
+                label: this.i18n.deleteFootnote,
                 click: () => {
                     deleteBlock(detail.element.getAttribute("data-id"));
-                    detail.element.outerHTML = detail.element.innerText
+                    // 删除detail element
+                    detail.element.remove();
                 }
             });
         }
     }
     private async addMemoBlock(protyle: IProtyle) {
 
-        await this.settingUtils.load(); //导入配置并合并
-//         // 如果data为空，则设置默认值
-//         if (!data) {
-//             data.save_location = 1;
-//             data.order = 1;
-//             data.select_font_style = 1;
-//             templates = `>> \${selection}
-// >>
-// > 💡\${content}`;
-//         }
-        console.log();
+        await this.settingUtils.load(); //导入配置
         let docID;
         if (this.settingUtils.get("save_location") == 1) {
             docID = protyle.block.id;
@@ -198,33 +218,49 @@ export default class PluginMemo extends Plugin {
 
         // 先复制选中内容
         document.execCommand('copy')
-        // 选中的文本是否添加样式
-        switch (this.settingUtils.get("select_font_style") ) {
+        // 获取选中文本的样式，避免重复添加样式而导致样式被清除
+        const selectedInfo = this.getSelectedParentHtml();
+        let formatData;
+        if (selectedInfo) {
+            formatData = {
+                datatype: selectedInfo.datatype,
+                style: selectedInfo.style
+            };
+        }
+        // 选中的文本添加样式
+        switch (this.settingUtils.get("select_font_style")) {
             case '2':
-                protyle.toolbar.setInlineMark(protyle, "u", "range");
+                // 使用正则表达式精确匹配 u 标签
+                if (!formatData?.datatype?.match(/\bu\b/)) {
+                    protyle.toolbar.setInlineMark(protyle, "u", "range");
+                }
                 break;
             case '3':
-                protyle.toolbar.setInlineMark(protyle, "mark", "range");
+                if (!formatData?.datatype?.match(/\bmark\b/)) {
+                    protyle.toolbar.setInlineMark(protyle, "mark", "range");
+                }
                 break;
             case '4':
-                protyle.toolbar.setInlineMark(protyle, "strong", "range");
+                if (!formatData?.datatype?.match(/\bstrong\b/)) {
+                    protyle.toolbar.setInlineMark(protyle, "strong", "range");
+                }
                 break;
             case '5':
-                protyle.toolbar.setInlineMark(protyle, "em", "range");
+                if (!formatData?.datatype?.match(/\bem\b/)) {
+                    protyle.toolbar.setInlineMark(protyle, "em", "range");
+                }
                 break;
             default:
-                console.log("无");
+                // 默认选中文本不添加样式
                 break;
         }
-
         // 查询docID下有没有脚注标题，脚注标题属性为custom-plugin-footnote-parent=true
         let query_res = await sql(`SELECT * FROM blocks AS b WHERE root_id = '${docID}' AND b.type='h' AND b.ial like "%custom-plugin-memo-parent%"  limit 1`);
-        // console.log(query_res);
         let headingID;
         if (query_res.length == 0) {
             // 添加h2标题
             headingID = (await appendBlock("markdown", `
-## ${this.i18n.footnoteTitle}`, docID))[0].doOperations[0].id; 
+## ${this.settingUtils.get("footnoteTitle")}`, docID))[0].doOperations[0].id; 
             // 添加脚注标题属性
             await setBlockAttrs(headingID, { "custom-plugin-memo-parent": "true" });
         } else {
@@ -240,7 +276,6 @@ export default class PluginMemo extends Plugin {
         // 插入脚注
         let children = await getChildBlocks(headingID);
         let back;
-        console.log(this.settingUtils.get("order"));
         switch (this.settingUtils.get("order")) {
             case '2':
                 // 倒序
@@ -280,12 +315,13 @@ export default class PluginMemo extends Plugin {
         protyle.toolbar.setInlineMark(protyle, "clear", "toolbar");
         protyle.toolbar.setInlineMark(protyle, "block-ref sup", "range", {
             type: "id",
-            color: `${newBlockId + zeroWhite + "" + zeroWhite + this.i18n.footnoteBlockref}`
+            color: `${newBlockId + zeroWhite + "s" + zeroWhite + this.settingUtils.get("footnoteBlockref")}`
         });
         let memoELement = protyle.element.querySelector(`span[data-id="${newBlockId}"]`)
         if (memoELement) {
-            memoELement.setAttribute('data-memo', '1');
+            memoELement.setAttribute("style", "--memo: 1");
         }
+        // 保存
         saveViaTransaction(memoELement)
         // 关闭工具栏
         protyle.toolbar.element.classList.add("fn__none")
@@ -295,6 +331,59 @@ export default class PluginMemo extends Plugin {
             x: x,
             y: y - 70
         });
+    }
+
+    private getSelectedParentHtml() {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            let selectedNode = range.startContainer;
+            const endNode = range.endContainer;
+
+            // 检查 endNode 的 previousSibling
+            if (endNode.previousSibling && endNode.previousSibling.nodeType === Node.ELEMENT_NODE) {
+                const previousSibling = endNode.previousSibling;
+                if (previousSibling.tagName.toLowerCase() === "span" && previousSibling.classList.contains("render-node")) {
+                    selectedNode = previousSibling;
+                }
+            }
+
+            let parentElement = selectedNode.nodeType === Node.TEXT_NODE ? selectedNode.parentNode : selectedNode;
+            while (parentElement && !parentElement.hasAttribute("data-type")) {
+                parentElement = parentElement.parentElement;
+            }
+
+            if (parentElement && parentElement.tagName.toLowerCase() === "span") {
+                const result = {
+                    html: parentElement.outerHTML,
+                    datatype: parentElement.getAttribute("data-type"),
+                    style: parentElement.getAttribute("style")
+                };
+                // 清空选区
+                selection.removeAllRanges();
+                return result;
+            }
+        }
+        // 清空选区
+        selection.removeAllRanges();
+        return null;
+    }
+
+    private highlightMemo = ({ detail }: any) => {
+        const element = detail.target;
+        // 检查是否是脚注引用
+        if (element && element.style.cssText.indexOf("memo") !== -1) {
+            // 给引用添加高亮样式
+            element.style.backgroundColor = "var(--b3-theme-primary-light)";
+        }
+    }
+
+    private unhighlightMemo = ({ detail }: any) => {
+        const element = detail.target; 
+        if (element && element.style.cssText.indexOf("memo") !== -1) {
+            // 移除高亮样式
+            element.style.backgroundColor = "";
+        }
     }
 }
 
