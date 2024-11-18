@@ -28,7 +28,7 @@
         },
         "template": {
             "title": "脚注模版",
-            "description": "<code>${selection}</code>为选中文本，<code>${content}</code>为脚注内容占位"
+            "description": "<code>${selection}</code>为选中文本的内容，<code>${content}</code>为脚注内容占位"
         }
     },
     "deleteMemo": "删除脚注",

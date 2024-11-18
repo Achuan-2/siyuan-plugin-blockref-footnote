@@ -12,22 +12,23 @@ import { IMenuItem } from "siyuan/types";
 import { appendBlock, deleteBlock, setBlockAttrs, pushErrMsg, sql, getChildBlocks, insertBlock } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
 
-const STORAGE_NAME = "menu-config";
+const STORAGE_NAME = "config";
 const zeroWhite = "​"
 
 
 
-let addFloatLayer
 export default class PluginMemo extends Plugin {
 
     private isMobile: boolean;
     private settingUtils: SettingUtils;
+    // 添加自定义svg
+    
     // 添加工具栏按钮
     updateProtyleToolbar(toolbar: Array<string | IMenuItem>) {
         toolbar.push(
             {
                 name: "footnote",
-                icon: "iconInfo",
+                icon: "iconFootnote",
                 tipPosition: "n",
                 tip: this.i18n.tips,
                 click: (protyle: Protyle) => {
@@ -40,10 +41,19 @@ export default class PluginMemo extends Plugin {
     }
 
     async onload() {
-        console.log(this.i18n.tips);
+
+
+
         this.settingUtils = new SettingUtils({
             plugin: this, name: STORAGE_NAME
         });
+
+        // 添加自定义图标
+        this.addIcons(`<symbol id="iconFootnote"  viewBox="0 0 32 32">
+  <path d="M1.42,26.38V4.85h6.57v2.53h-3.05v16.46h3.05v2.53H1.42Z" />
+  <path d="M19.12,21.65h-3.71v-12.13c-1.35,1.1-2.95,1.91-4.79,2.44v-2.92c.97-.27,2.02-.8,3.15-1.56s1.91-1.66,2.33-2.69h3.01v16.86Z" />
+  <path d="M30.58,4.85v21.53h-6.57v-2.53h3.05V7.36h-3.05v-2.51h6.57Z" />
+</symbol>`);
 
         /*
           通过 type 自动指定 action 元素类型； value 填写默认值
@@ -132,7 +142,6 @@ export default class PluginMemo extends Plugin {
         let data = await this.settingUtils.load(); //导入配置并合并
         console.log(data);
 
-        addFloatLayer = this.addFloatLayer
 
         const frontEnd = getFrontend();
 
@@ -163,13 +172,23 @@ export default class PluginMemo extends Plugin {
     }
     private async addMemoBlock(protyle: IProtyle) {
 
-        let data = await this.settingUtils.load(); //导入配置并合并
+        await this.settingUtils.load(); //导入配置并合并
+//         // 如果data为空，则设置默认值
+//         if (!data) {
+//             data.save_location = 1;
+//             data.order = 1;
+//             data.select_font_style = 1;
+//             templates = `>> \${selection}
+// >>
+// > 💡\${content}`;
+//         }
+        console.log();
         let docID;
-        if (data.save_location == 1) {
+        if (this.settingUtils.get("save_location") == 1) {
             docID = protyle.block.id;
         }
         else {
-            docID = data.docID;
+            docID = this.settingUtils.get("docID");
             // 如果docID为空，提示用户
             if (!docID) {
                 pushErrMsg(this.i18n.errors.noDocId);
@@ -180,7 +199,7 @@ export default class PluginMemo extends Plugin {
         // 先复制选中内容
         document.execCommand('copy')
         // 选中的文本是否添加样式
-        switch (data.select_font_style) {
+        switch (this.settingUtils.get("select_font_style") ) {
             case '2':
                 protyle.toolbar.setInlineMark(protyle, "u", "range");
                 break;
@@ -200,7 +219,7 @@ export default class PluginMemo extends Plugin {
 
         // 查询docID下有没有脚注标题，脚注标题属性为custom-plugin-footnote-parent=true
         let query_res = await sql(`SELECT * FROM blocks AS b WHERE root_id = '${docID}' AND b.type='h' AND b.ial like "%custom-plugin-memo-parent%"  limit 1`);
-        console.log(query_res);
+        // console.log(query_res);
         let headingID;
         if (query_res.length == 0) {
             // 添加h2标题
@@ -214,33 +233,34 @@ export default class PluginMemo extends Plugin {
 
         // 获取脚注模板
         const selection = await navigator.clipboard.readText(); // 获取选中文本
-        data.templates = data.templates.replace("${selection}", selection);
-        data.templates = data.templates.replace("${content}", zeroWhite);
+        let templates = this.settingUtils.get("templates");
+        templates = templates.replace("${selection}", selection);
+        templates = templates.replace("${content}", zeroWhite);
 
         // 插入脚注
         let children = await getChildBlocks(headingID);
         let back;
-        switch (data.order) {
-            case '1':
+        console.log(this.settingUtils.get("order"));
+        switch (this.settingUtils.get("order")) {
+            case '2':
+                // 倒序
+                back = await appendBlock("markdown", templates, headingID);
+                break;
+            default:
                 if (children.length > 0) {
                     // 在最后一个子块后面添加(使用 insertBlock 并指定 previousID)
                     back = await insertBlock(
                         "markdown",
-                        data.templates,
+                        templates,
                         undefined, // nextID 
                         children[children.length - 1].id, // previousID - 放在最后一个子块后面
                         undefined // parentID
                     );
                 } else {
                     // 如果没有子块,直接在标题下添加
-                    back = await appendBlock("markdown", data.templates, headingID);
+                    back = await appendBlock("markdown", templates, headingID);
                 }
                 break;
-            case '2':
-                back = await appendBlock("markdown", data.templates, headingID);
-                break;
-            default:
-                back = await appendBlock("markdown", data.templates, headingID);
         }
 
         let newBlockId = back[0].doOperations[0].id
@@ -269,7 +289,7 @@ export default class PluginMemo extends Plugin {
         saveViaTransaction(memoELement)
         // 关闭工具栏
         protyle.toolbar.element.classList.add("fn__none")
-        addFloatLayer({
+        this.addFloatLayer({
             ids: [newBlockId],
             defIds: [],
             x: x,
