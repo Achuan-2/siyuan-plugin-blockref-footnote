@@ -8,10 +8,10 @@
 
 ## 📝使用介绍
 
-**设置**
+**本插件支持高度自定义化，支持的设置如下：**
 
 - **脚注存放位置**：可以设置存放在当前文档或者指定文档，默认为`当前文档`
-- **选中文本的样式**：可以选中加粗、高亮、斜体、下划线样式，默认：`无样式`
+- **选中文本的样式**：可以为选中文本添加加粗、高亮、斜体、下划线样式，默认：`无样式`
 - **插入脚注的顺序**：顺序或者倒序，默认：`顺序`
 - **脚注标题**：设置存放脚注的标题名，默认：`脚注`
 - **脚注块引锚文本**：设置脚注引用的锚文本，默认：`注`
@@ -44,9 +44,8 @@
 
 ## 🙏致谢
 
-- https://github.com/zxhd863943427/siyuan-plugin-memo
-- https://github.com/siyuan-note/plugin-sample-vite-svelte
-
+* [https://github.com/zxhd863943427/siyuan-plugin-memo](https://github.com/zxhd863943427/siyuan-plugin-memo)：基于该插件进行改进，添加了更多功能和配置项
+* [https://github.com/siyuan-note/plugin-sample-vite-svelte](https://github.com/siyuan-note/plugin-sample-vite-svelte)：使用的插件模板，大幅提高开发效率
 
 ## ❤️ 用爱发电
 
