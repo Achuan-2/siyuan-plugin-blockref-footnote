@@ -32,7 +32,7 @@ Implement footnotes and remarks using SiYuan's blockref.
     }}}
     ```
 
-![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-18_13-15-16-2024-11-18.png)
+![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-18_14-10-26-2024-11-18.png)
 
 ## 🐛Known Issues
 
