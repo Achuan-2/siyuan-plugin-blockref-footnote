@@ -1,15 +1,12 @@
 import {
     Plugin,
-    showMessage,
-    Dialog,
     getFrontend,
-    getBackend,
     Protyle
 } from "siyuan";
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
-import { appendBlock, deleteBlock, setBlockAttrs, pushErrMsg, sql, getChildBlocks, insertBlock } from "./api";
+import { appendBlock, deleteBlock, setBlockAttrs, pushErrMsg, sql, getChildBlocks, insertBlock, updateBlock } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
 
 const STORAGE_NAME = "config";
@@ -175,10 +172,6 @@ export default class PluginMemo extends Plugin {
 
 
         this.eventBus.on("open-menu-blockref", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
-
-        // 删除不��在的事件监听
-        // this.eventBus.on("mouseenter-block-ref", this.highlightMemo);
-        // this.eventBus.on("mouseleave-block-ref", this.unhighlightMemo);
     }
 
     onLayoutReady() {
@@ -200,20 +193,6 @@ export default class PluginMemo extends Plugin {
                 }
             });
         }
-    }
-    private saveSelectionRange(id: string) {
-        const selection = window.getSelection();
-        if (selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0).cloneRange();
-            this.memoRangeMap.set(id, range);
-        }
-    }
-
-    private highlightRange(range: Range) {
-        const span = document.createElement('span');
-        span.style.backgroundColor = "var(--b3-theme-primary-light)";
-        range.surroundContents(span);
-        return span;
     }
 
     private async addMemoBlock(protyle: IProtyle) {
@@ -271,17 +250,39 @@ export default class PluginMemo extends Plugin {
                 break;
         }
         // 查询docID下有没有脚注标题，脚注标题属性为custom-plugin-footnote-parent=true
-        let query_res = await sql(`SELECT * FROM blocks AS b WHERE root_id = '${docID}' AND b.type='h' AND b.ial like "%custom-plugin-memo-parent%"  limit 1`);
+        let query_res = await sql(`SELECT * FROM blocks AS b WHERE root_id = '${docID}' AND b.type='h' AND b.ial like '%custom-plugin-footnote-parent="${protyle.block.id}"%'  limit 1`);
         let headingID;
-        if (query_res.length == 0) {
-            // 添加h2标题
-            headingID = (await appendBlock("markdown", `
-## ${this.settingUtils.get("footnoteTitle")}`, docID))[0].doOperations[0].id;
-            // 添加脚注标题属性
-            await setBlockAttrs(headingID, { "custom-plugin-memo-parent": "true" });
-        } else {
-            headingID = query_res[0].id
+        // 如果脚注保存在当前文档
+        if (this.settingUtils.get("save_location") == 1) {
         }
+        if (query_res.length == 0) { // 如果标题不存在
+            // 添加h2标题
+            // 如果脚注保存在指定文档，那么标题需要添加当前文档的title
+            let footnoteTitle = this.settingUtils.get("footnoteTitle");
+            if (this.settingUtils.get("save_location") == 2) {
+                // 获取当前文档的标题
+                let currentDocTitle = (await sql(`SELECT * FROM blocks AS b WHERE id = '${protyle.block.id}' limit 1`))[0].content;
+                footnoteTitle = currentDocTitle +" "+ footnoteTitle;
+            }
+            headingID = (await appendBlock("markdown", `
+## ${footnoteTitle}`, docID))[0].doOperations[0].id;
+            // 添加脚注标题属性
+            await setBlockAttrs(headingID, { "custom-plugin-footnote-parent": protyle.block.id });
+        } else {
+            // 如果已经存在标题
+            headingID = query_res[0].id
+            // 如果脚注保存在指定文档，标题已经存在，需要更新为当前标题
+            if (this.settingUtils.get("save_location") == 2) {
+                // 获取当前文档的标题
+                let currentDocTitle = (await sql(`SELECT * FROM blocks AS b WHERE id = '${protyle.block.id}' limit 1`))[0].content;
+                // updateBlock for h2
+                await updateBlock("markdown", "## "+currentDocTitle + " " + this.settingUtils.get("footnoteTitle"), headingID);
+                await setBlockAttrs(headingID, { "custom-plugin-footnote-parent": protyle.block.id })
+
+            }
+
+        }
+
 
         // 获取脚注模板
         const selection = await navigator.clipboard.readText(); // 获取选中文本
@@ -336,29 +337,8 @@ export default class PluginMemo extends Plugin {
         let memoELement = protyle.element.querySelector(`span[data-id="${newBlockId}"]`)
         if (memoELement) {
             memoELement.setAttribute("style", "--memo: 1");
-            let highlightSpan: HTMLElement = null;
-
-            memoELement.addEventListener('mouseenter', () => {
-                const savedRange = this.memoRangeMap.get(newBlockId);
-                if (savedRange) {
-                    highlightSpan = this.highlightRange(savedRange.cloneRange());
-                }
-            });
-
-            memoELement.addEventListener('mouseleave', () => {
-                if (highlightSpan) {
-                    // 移除高亮span,保留内容
-                    const parent = highlightSpan.parentNode;
-                    while (highlightSpan.firstChild) {
-                        parent.insertBefore(highlightSpan.firstChild, highlightSpan);
-                    }
-                    parent.removeChild(highlightSpan);
-                    highlightSpan = null;
-                }
-            });
         }
-        // 在创建blockref前保存选中文本的range
-        this.saveSelectionRange(newBlockId);
+
         // 保存
         saveViaTransaction(memoELement)
         // 关闭工具栏
