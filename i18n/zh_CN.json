@@ -1,0 +1,39 @@
+{
+    "tips": "添加脚注",
+    "settings": {
+        "saveLocation": {
+            "title": "脚注存放位置",
+            "description": "当前文档 or 指定文档",
+            "current": "当前文档",
+            "specified": "指定文档"
+        },
+        "docId": {
+            "title": "指定文档ID",
+            "description": "当选择脚注存放位置为指定文档时，生效"
+        },
+        "fontStyle": {
+            "title": "选中文本的样式",
+            "description": "选中文本是否添加样式",
+            "none": "无",
+            "underline": "下划线",
+            "highlight": "高亮",
+            "bold": "加粗",
+            "italic": "斜体"
+        },
+        "order": {
+            "title": "插入脚注的顺序",
+            "description": "顺序插入 or 逆序插入",
+            "asc": "顺序",
+            "desc": "逆序"
+        },
+        "template": {
+            "title": "脚注模版",
+            "description": "<code>${selection}</code>为选中文本，<code>${content}</code>为脚注内容占位"
+        }
+    },
+    "deleteMemo": "删除脚注",
+    "errors": {
+        "noDocId": "【块引脚注插件】请填写指定文档ID"
+    },
+    "footnoteBlockref": "注"
+}

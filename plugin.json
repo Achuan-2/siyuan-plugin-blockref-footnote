@@ -1,0 +1,44 @@
+{
+  "name": "siyuan-plugin-memo",
+  "author": "frostime",
+  "url": "https://github.com/siyuan-note/plugin-sample-vite-svelte",
+  "version": "0.3.6",
+  "minAppVersion": "3.0.12",
+  "backends": [
+    "windows",
+    "linux",
+    "darwin",
+    "docker",
+    "ios",
+    "android"
+  ],
+  "frontends": [
+    "desktop",
+    "mobile",
+    "browser-desktop",
+    "browser-mobile",
+    "desktop-window"
+  ],
+  "displayName": {
+    "en_US": "Plugin sample with vite and svelte",
+    "zh_CN": "块引脚注"
+  },
+  "description": {
+    "en_US": "SiYuan plugin sample with vite and svelte",
+    "zh_CN": "使用思源的块引实现脚注和备注功能"
+  },
+  "readme": {
+    "en_US": "README.md",
+    "zh_CN": "README_zh_CN.md"
+  },
+  "funding": {
+    "custom": [
+      ""
+    ]
+  },
+  "keywords": [
+    "plugin",
+    "sample",
+    "插件样例"
+  ]
+}
