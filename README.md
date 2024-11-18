@@ -37,3 +37,9 @@ Implement footnotes and remarks using SiYuan's blockref.
 ## 🐛Known Issues
 
 Applying styles like highlight or bold to selected text is not suitable for adding footnotes to the same text multiple times, as it will remove the previous styles.
+
+
+
+## ❤️Acknowledge
+
+- https://github.com/zxhd863943427/siyuan-plugin-memo
