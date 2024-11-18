@@ -9,6 +9,8 @@ Implement footnotes and remarks using SiYuan's blockref.
 
 ## 📝Usage Instructions
 
+the requirement of SiYuan minAppVersion：v3.1.12
+
 **Settings**
 
 Here's the translation of the provided text into English:
@@ -18,7 +20,7 @@ Here's the translation of the provided text into English:
 - **Order of Inserting Footnotes**: ascending  or descending order. The default is `ascending `.
 - **Footnote Title**: Set the title for storing footnotes. The default is `Footnote`.
 - **Footnote Anchor Text**: Set the anchor text for footnote references. The default is `Footnote`.
-- **Footnote Template**: Set the template for footnotes. It is recommended to use a blockquote or superblock combination to ensure the input content belongs to the same block. The default is a nested blockquote template, which can be changed. `${selection}` represents the content of the selected text, and `${content}` represents the placeholder for footnote content.
+- **Footnote Template**: Set the template for footnotes. It is recommended to use a blockquote or superblock combination to ensure the input content belongs to the same block.  `${selection}` represents the content of the selected text, and `${content}` represents the placeholder for footnote content.
   - **Nested Quote Block Template**
 
     ```markdown

@@ -1,6 +1,6 @@
 import {
     Plugin,
-    getFrontend,
+    // getFrontend,
     Protyle
 } from "siyuan";
 import "@/index.scss";
@@ -16,10 +16,8 @@ const zeroWhite = "​"
 
 export default class PluginMemo extends Plugin {
 
-    private isMobile: boolean;
+    // private isMobile: boolean;
     private settingUtils: SettingUtils;
-    private memoRangeMap: Map<string, Range> = new Map(); // 存储脚注id与原文range的映射
-    // 添加自定义svg
 
     // 添加工具栏按钮
     updateProtyleToolbar(toolbar: Array<string | IMenuItem>) {
@@ -149,9 +147,11 @@ export default class PluginMemo extends Plugin {
         });
         this.settingUtils.addItem({
             key: "templates",
-            value: `>> \${selection}
->> 
-> 💡\${content}`,
+            value: `{{{ row
+> \${selection}
+>
+💡\${content}
+}}}`,
             type: "textarea",
             title: this.i18n.settings.template.title,
             description: this.i18n.settings.template.description,
@@ -166,9 +166,9 @@ export default class PluginMemo extends Plugin {
         await this.settingUtils.load(); //导入配置并合并
 
 
-        const frontEnd = getFrontend();
+        // const frontEnd = getFrontend();
 
-        this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
+        // this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
 
 
         this.eventBus.on("open-menu-blockref", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
@@ -187,8 +187,9 @@ export default class PluginMemo extends Plugin {
                 icon: "iconTrashcan",
                 label: this.i18n.deleteFootnote,
                 click: () => {
+                    // 删除脚注
                     deleteBlock(detail.element.getAttribute("data-id"));
-                    // 删除detail element
+                    // 删除块引
                     detail.element.remove();
                 }
             });
@@ -284,11 +285,11 @@ export default class PluginMemo extends Plugin {
         }
 
 
-        // 获取脚注模板
+        // 获取脚注模板并替换为具体变量值
         const selection = await navigator.clipboard.readText(); // 获取选中文本
         let templates = this.settingUtils.get("templates");
-        templates = templates.replace("${selection}", selection);
-        templates = templates.replace("${content}", zeroWhite);
+        templates = templates.replace(/\$\{selection\}/g, selection);
+        templates = templates.replace(/\$\{content\}/g, zeroWhite);
 
         // 插入脚注
         let children = await getChildBlocks(headingID);
@@ -316,13 +317,15 @@ export default class PluginMemo extends Plugin {
         }
 
         let newBlockId = back[0].doOperations[0].id
+        // 添加脚注属性
+        await setBlockAttrs(newBlockId, { "custom-plugin-footnote-content": 'true' });
+        // 添加脚注引用
         const { x, y } = protyle.toolbar.range.getClientRects()[0]
         let range = protyle.toolbar.range;
 
-        //
+        // 将range的起始点和结束点都移动到选中文本的末尾
         const str = ""
         const textNode = document.createTextNode(str);
-        // 将范围的起始点和结束点都移动到选中文本的末尾
         range.collapse(false);
         protyle.toolbar.range.insertNode(textNode);
         protyle.toolbar.range.setEndAfter(textNode);
