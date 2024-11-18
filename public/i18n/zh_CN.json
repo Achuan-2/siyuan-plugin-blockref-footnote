@@ -28,7 +28,7 @@
         },
         "footnoteTitle":{
             "title": "脚注标题",
-            "description": "自定义存放脚注的标题",
+            "description": "脚注会存放在h2标题下",
             "value": "脚注"
 
         },
