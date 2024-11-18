@@ -3,7 +3,7 @@
 
 Implement footnotes and remarks using SiYuan's blockref.
 
-![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/思源笔记脚注插件-2024-11-18.gif)
+![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/思源笔记脚注插件2-2024-11-18.gif)
 
 ## 📝Usage Instructions
 
