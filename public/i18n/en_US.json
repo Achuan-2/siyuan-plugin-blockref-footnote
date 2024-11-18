@@ -28,7 +28,7 @@
         },
         "footnoteTitle":{
             "title": "Footnote Title",
-            "description": "Custom title for footnote",
+            "description": "Footnotes will be placed under the h2 heading",
             "value": "Footnote"
         },
         
