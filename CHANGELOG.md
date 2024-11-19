@@ -15,6 +15,9 @@ TODO
 - [ ] 自定义选中文本的样式
   - [ ] 参考<https://github.com/zxhd863943427/siyuan-plugin-memo>，添加css样式
   
+## v1.0.3 / 2024.11.19
+
+- ✨ 脚注块引用自定义属性custom-footnote实现，不用style
 
 ## v1.0.2 / 2024.11.19
 
