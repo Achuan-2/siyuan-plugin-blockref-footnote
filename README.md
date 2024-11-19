@@ -9,7 +9,7 @@ Implement footnotes and remarks using SiYuan's blockref.
 
 ## 📝Usage Instructions
 
-the requirement of SiYuan minAppVersion：v3.1.12
+The requirement of SiYuan minAppVersion：v3.1.12
 
 **Settings**
 
