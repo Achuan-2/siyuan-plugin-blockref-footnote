@@ -15,6 +15,9 @@ TODO
   - [ ] 参考<https://github.com/zxhd863943427/siyuan-plugin-memo>，添加css样式
   
 
+## v1.0.1 / 2024.11.19
+
+- 📝更新README
 
 ## v1.0.0 / 2024.11.18
 
