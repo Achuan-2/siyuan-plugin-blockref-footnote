@@ -182,7 +182,7 @@ export default class PluginMemo extends Plugin {
 
 
     private deleteMemo = ({ detail }: any) => {
-        if (detail.element && detail.element.style.cssText.indexOf("memo") != -1) {
+        if (detail.element && detail.element.getAttribute("custom-footnote") === "true") {
             detail.menu.addItem({
                 icon: "iconTrashcan",
                 label: this.i18n.deleteFootnote,
@@ -339,7 +339,7 @@ export default class PluginMemo extends Plugin {
         });
         let memoELement = protyle.element.querySelector(`span[data-id="${newBlockId}"]`)
         if (memoELement) {
-            memoELement.setAttribute("style", "--memo: 1");
+            memoELement.setAttribute("custom-footnote", "true");
         }
 
         // 保存
