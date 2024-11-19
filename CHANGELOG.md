@@ -15,6 +15,10 @@ TODO
   - [ ] 参考<https://github.com/zxhd863943427/siyuan-plugin-memo>，添加css样式
   
 
+## v1.0.2 / 2024.11.19
+
+- ✨对选中文本（变量：selection）进行过滤，不包含脚注锚文本，这样方便对重叠的内容进行脚注
+
 ## v1.0.1 / 2024.11.19
 
 - 📝更新README

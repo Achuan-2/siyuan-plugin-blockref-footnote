@@ -286,9 +286,13 @@ export default class PluginMemo extends Plugin {
 
 
         // 获取脚注模板并替换为具体变量值
+        // 获取脚注模板并替换为具体变量值
         const selection = await navigator.clipboard.readText(); // 获取选中文本
+        // 过滤掉脚注文本 <sup>((id "text"))</sup>
+        const cleanSelection = selection.replace(/<sup>\(\([^)]+\)\)<\/sup>/g, '');
+        console.log(cleanSelection);
         let templates = this.settingUtils.get("templates");
-        templates = templates.replace(/\$\{selection\}/g, selection);
+        templates = templates.replace(/\$\{selection\}/g, cleanSelection);
         templates = templates.replace(/\$\{content\}/g, zeroWhite);
 
         // 插入脚注
