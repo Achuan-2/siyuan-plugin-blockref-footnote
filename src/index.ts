@@ -14,7 +14,7 @@ const zeroWhite = "​"
 
 
 
-export default class PluginMemo extends Plugin {
+export default class PluginFootnote extends Plugin {
 
     // private isMobile: boolean;
     private settingUtils: SettingUtils;
