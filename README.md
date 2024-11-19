@@ -13,8 +13,6 @@ The requirement of SiYuan minAppVersion：v3.1.12
 
 **Settings**
 
-Here's the translation of the provided text into English:
-
 - **Footnote  Location**: You can set the storage location to be in the current document or a specified document. The default is `Current Document`.
 - **Selected Text Style**: You can choose styles such as bold, highlight, italic, or underline for the selected text. The default style is `None`.
 - **Order of Inserting Footnotes**: ascending  or descending order. The default is `ascending `.
