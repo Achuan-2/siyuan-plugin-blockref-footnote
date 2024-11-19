@@ -44,6 +44,10 @@
 ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-18_16-39-18-2024-11-18.png)
 
 
+支持对同一个文本进行多次备注
+
+![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/思源笔记脚注插件支持对同一个文本进行多次备注-2024-11-19.gif)
+
 ## 🙏致谢
 
 * [https://github.com/zxhd863943427/siyuan-plugin-memo](https://github.com/zxhd863943427/siyuan-plugin-memo)：基于该插件进行改进，添加了更多功能和配置项

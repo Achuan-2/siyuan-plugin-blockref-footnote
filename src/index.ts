@@ -328,12 +328,8 @@ export default class PluginMemo extends Plugin {
         let range = protyle.toolbar.range;
 
         // 将range的起始点和结束点都移动到选中文本的末尾
-        const str = ""
-        const textNode = document.createTextNode(str);
         range.collapse(false);
-        protyle.toolbar.range.insertNode(textNode);
-        protyle.toolbar.range.setEndAfter(textNode);
-        protyle.toolbar.range.setStartBefore(textNode);
+
 
         // 添加块引，同时添加上标样式
         protyle.toolbar.setInlineMark(protyle, "clear", "toolbar");
