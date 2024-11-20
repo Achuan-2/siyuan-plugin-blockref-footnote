@@ -342,7 +342,7 @@ export class SettingUtils {
             case 'textarea':
                 let textareaElement: HTMLTextAreaElement = document.createElement('textarea');
                 textareaElement.className = "b3-text-field fn__block";
-                textareaElement.rows = 5;
+                textareaElement.rows = 6;
                 textareaElement.value = item.value;
                 textareaElement.onchange = item.action?.callback ?? (() => { });
                 itemElement = textareaElement;

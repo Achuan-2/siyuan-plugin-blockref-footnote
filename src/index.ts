@@ -147,11 +147,12 @@ export default class PluginFootnote extends Plugin {
         });
         this.settingUtils.addItem({
             key: "templates",
-            value: `{{{ row
+            value: `{{{row
 > \${selection}
->
-💡\${content}
-}}}`,
+
+\${content}
+}}}
+{: style="border: 2px dashed var(--b3-theme-on-background);"}}`,
             type: "textarea",
             title: this.i18n.settings.template.title,
             description: this.i18n.settings.template.description,
@@ -164,11 +165,6 @@ export default class PluginFootnote extends Plugin {
         });
 
         await this.settingUtils.load(); //导入配置并合并
-
-
-        // const frontEnd = getFrontend();
-
-        // this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
 
 
         this.eventBus.on("open-menu-blockref", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
@@ -263,7 +259,7 @@ export default class PluginFootnote extends Plugin {
             if (this.settingUtils.get("save_location") == 2) {
                 // 获取当前文档的标题
                 let currentDocTitle = (await sql(`SELECT * FROM blocks AS b WHERE id = '${protyle.block.id}' limit 1`))[0].content;
-                footnoteTitle = currentDocTitle +" "+ footnoteTitle;
+                footnoteTitle = currentDocTitle + " " + footnoteTitle;
             }
             headingID = (await appendBlock("markdown", `
 ## ${footnoteTitle}`, docID))[0].doOperations[0].id;
@@ -277,7 +273,7 @@ export default class PluginFootnote extends Plugin {
                 // 获取当前文档的标题
                 let currentDocTitle = (await sql(`SELECT * FROM blocks AS b WHERE id = '${protyle.block.id}' limit 1`))[0].content;
                 // updateBlock for h2
-                await updateBlock("markdown", "## "+currentDocTitle + " " + this.settingUtils.get("footnoteTitle"), headingID);
+                await updateBlock("markdown", "## " + currentDocTitle + " " + this.settingUtils.get("footnoteTitle"), headingID);
                 await setBlockAttrs(headingID, { "custom-plugin-footnote-parent": protyle.block.id })
 
             }
@@ -286,11 +282,10 @@ export default class PluginFootnote extends Plugin {
 
 
         // 获取脚注模板并替换为具体变量值
-        // 获取脚注模板并替换为具体变量值
         const selection = await navigator.clipboard.readText(); // 获取选中文本
         // 过滤掉脚注文本 <sup>((id "text"))</sup>
         const cleanSelection = selection.replace(/<sup>\(\([^)]+\)\)<\/sup>/g, '');
-        console.log(cleanSelection);
+        // console.log(cleanSelection);
         let templates = this.settingUtils.get("templates");
         templates = templates.replace(/\$\{selection\}/g, cleanSelection);
         templates = templates.replace(/\$\{content\}/g, zeroWhite);
@@ -304,6 +299,7 @@ export default class PluginFootnote extends Plugin {
                 back = await appendBlock("markdown", templates, headingID);
                 break;
             default:
+                // 默认顺序插入
                 if (children.length > 0) {
                     // 在最后一个子块后面添加(使用 insertBlock 并指定 previousID)
                     back = await insertBlock(
@@ -342,10 +338,13 @@ export default class PluginFootnote extends Plugin {
             memoELement.setAttribute("custom-footnote", "true");
         }
 
-        // 保存
+        // 保存脚注块引添加的自定义属性值
         saveViaTransaction(memoELement)
+        
         // 关闭工具栏
         protyle.toolbar.element.classList.add("fn__none")
+        
+        // 显示块引浮窗，来填写内容
         this.addFloatLayer({
             ids: [newBlockId],
             defIds: [],

@@ -35,11 +35,11 @@
         "footnoteBlockref": {
             "title": "Footnote Blockref Anchor Text",
             "description": "Custom anchor text",
-            "value": "Footnote"
+            "value": "[Footnote]"
         },
         "template": {
             "title": "Footnote Template",
-            "description": "<code>${selection}</code> for selected text, <code>${content}</code> for footnote content"
+            "description": "<code>${selection}</code> for selected text, <code>${content}</code> for footnote content, You can use kramdown syntax to define block styles."
         }
     },
     "deleteFootnote": "Delete Footnote",

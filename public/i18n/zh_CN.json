@@ -27,7 +27,7 @@
             "desc": "逆序"
         },
         "footnoteTitle":{
-            "title": "脚注标题",
+            "title": "脚注标题名",
             "description": "脚注会存放在h2标题下",
             "value": "脚注"
 
@@ -35,11 +35,11 @@
         "footnoteBlockref": {
             "title": "脚注块引锚文本",
             "description": "自定义锚文本",
-            "value": "注"
+            "value": "[注]"
         },
         "template": {
             "title": "脚注内容模版",
-            "description": "<code>${selection}</code>为选中文本的内容，<code>${content}</code>为脚注内容占位"
+            "description": "<code>${selection}</code>为选中文本的内容，<code>${content}</code>为脚注内容占位，可以使用kramdown语法设置块样式"
         }
     },
     "deleteFootnote": "删除脚注",
