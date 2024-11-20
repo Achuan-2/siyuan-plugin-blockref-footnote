@@ -44,7 +44,7 @@ Implement footnotes and remarks function using SiYuan's blockref.
     ```
 
 
-![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-18_16-23-41-2024-11-18.png)
+![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-20_21-24-19-2024-11-20.png)
 
 To simultaneously delete footnote references and footnote content, you can right-click on the footnote reference and select `[Plugin -> Delete Footnote]` from the menu.
 

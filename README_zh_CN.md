@@ -48,7 +48,7 @@
 
 
 
-![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-20_21-08-14-2024-11-20.png)
+![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-20_21-25-20-2024-11-20.png)
 
   
 支持同时删除脚注引用和脚注内容，可以在脚注引用右键菜单，点击【插件-删除脚注】
