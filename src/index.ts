@@ -85,17 +85,33 @@ export default class PluginFootnote extends Plugin {
             }
         });
         this.settingUtils.addItem({
-            key: "select_font_style",
+            key: "footnoteRefStyle",
             value: 1,
             type: "select",
-            title: this.i18n.settings.fontStyle.title,
-            description: this.i18n.settings.fontStyle.description,
+            title: this.i18n.settings.footnoteRefStyle.title,
+            description: this.i18n.settings.footnoteRefStyle.description,
             options: {
-                1: this.i18n.settings.fontStyle.none,
-                2: this.i18n.settings.fontStyle.underline,
-                3: this.i18n.settings.fontStyle.highlight,
-                4: this.i18n.settings.fontStyle.bold,
-                5: this.i18n.settings.fontStyle.italic
+                1: this.i18n.settings.footnoteRefStyle.ref,
+                2: this.i18n.settings.footnoteRefStyle.link,
+            },
+            action: {
+                callback: () => {
+                    // Read data in real time
+                }
+            }
+        });
+        this.settingUtils.addItem({
+            key: "selectFontStyle",
+            value: 1,
+            type: "select",
+            title: this.i18n.settings.selectFontStyle.title,
+            description: this.i18n.settings.selectFontStyle.description,
+            options: {
+                1: this.i18n.settings.selectFontStyle.none,
+                2: this.i18n.settings.selectFontStyle.underline,
+                3: this.i18n.settings.selectFontStyle.highlight,
+                4: this.i18n.settings.selectFontStyle.bold,
+                5: this.i18n.settings.selectFontStyle.italic
             },
             action: {
                 callback: () => {
@@ -220,7 +236,7 @@ export default class PluginFootnote extends Plugin {
             };
         }
         // 选中的文本添加样式
-        switch (this.settingUtils.get("select_font_style")) {
+        switch (this.settingUtils.get("selectFontStyle")) {
             case '2':
                 // 使用正则表达式精确匹配 u 标签
                 if (!formatData?.datatype?.match(/\bu\b/)) {
@@ -329,17 +345,34 @@ export default class PluginFootnote extends Plugin {
 
         // 添加块引，同时添加上标样式
         protyle.toolbar.setInlineMark(protyle, "clear", "toolbar");
-        protyle.toolbar.setInlineMark(protyle, "block-ref sup", "range", {
-            type: "id",
-            color: `${newBlockId + zeroWhite + "s" + zeroWhite + this.settingUtils.get("footnoteBlockref")}`
-        });
-        let memoELement = protyle.element.querySelector(`span[data-id="${newBlockId}"]`)
-        if (memoELement) {
-            memoELement.setAttribute("custom-footnote", "true");
+        let memoELement;
+        switch (this.settingUtils.get("footnoteRefStyle")) {
+            case '2':
+                // 插入块链接
+                protyle.toolbar.setInlineMark(protyle, "a sup", "range", {
+                    type: "a",
+                    color: `${"siyuan://blocks/"+newBlockId + zeroWhite + this.settingUtils.get("footnoteBlockref")}`
+                });
+                memoELement = protyle.element.querySelector(`span[data-href="siyuan://blocks/${newBlockId}"]`);
+                break;
+            default:
+                // 插入块引
+                protyle.toolbar.setInlineMark(protyle, "block-ref sup", "range", {
+                    type: "id",
+                    color: `${newBlockId + zeroWhite + "s" + zeroWhite + this.settingUtils.get("footnoteBlockref")}`
+                });
+                memoELement = protyle.element.querySelector(`span[data-id="${newBlockId}"]`);
+                break;
         }
 
-        // 保存脚注块引添加的自定义属性值
-        saveViaTransaction(memoELement)
+        // 给脚注块引添加属性，方便后续查找，添加其他功能
+        if (memoELement) {
+            memoELement.setAttribute("custom-footnote", "true");
+            // 保存脚注块引添加的自定义属性值
+            saveViaTransaction(memoELement)
+        }
+
+
 
         // 关闭工具栏
         protyle.toolbar.element.classList.add("fn__none")

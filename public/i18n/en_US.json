@@ -11,7 +11,13 @@
             "title": "Specified Document ID",
             "description": "Takes effect when footnote location is set to specified document"
         },
-        "fontStyle": {
+        "footnoteRefStyle": {
+            "title": "Footnote Reference Style",
+            "description": "Style for footnote reference",
+            "ref": "Block Ref",
+            "link": "Block link"
+        },
+        "selectFontStyle": {
             "title": "Selected Text Style",
             "description": "Style for selected text",
             "none": "None",
