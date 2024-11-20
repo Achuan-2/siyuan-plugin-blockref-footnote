@@ -16,6 +16,18 @@ TODO
   - [ ] 参考<https://github.com/zxhd863943427/siyuan-plugin-memo>，添加css样式
   
 
+## v1.0.6 / 2024.11.20
+- ✨脚注内容模板新增`${refID}`，代表选中文本所在的块ID，现在可以通过模板插入选中文本所在的块链接了，方便在脚注内容里直接跳转到原来的块
+    ```markdown
+    {{{row
+    > ${selection} [[↩️]](siyuan://blocks/${refID})
+    
+    ${content}
+    }}}
+    {: style="border: 2px dashed var(--b3-border-color);"}
+  ```
+
+
 ## v1.0.5 / 2024.11.20
 - ✨支持设置脚注块引为块超链接
 - ✨支持设置脚注放在子文档

@@ -54,7 +54,7 @@
         },
         "template": {
             "title": "Footnote Template",
-            "description": "<code>${selection}</code> for selected text, <code>${content}</code> for footnote content, You can use kramdown syntax to define block styles."
+            "description": "Template variables: <code>${selection}</code> is the content of the selected text , <code>${content}</code> is the placeholder for footnote content, and <code>${refID}</code> is the block ID containing the selected text <br/>You can use kramdown syntax to style the block."
         }
     },
     "deleteFootnote": "Delete Footnote",

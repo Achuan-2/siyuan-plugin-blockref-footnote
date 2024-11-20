@@ -192,7 +192,7 @@ export default class PluginFootnote extends Plugin {
         this.settingUtils.addItem({
             key: "templates",
             value: `{{{row
-> \${selection}
+> \${selection} [[↩️]](siyuan://blocks/\${refID})
 
 \${content}
 }}}
@@ -237,9 +237,10 @@ export default class PluginFootnote extends Plugin {
     }
 
     private async addMemoBlock(protyle: IProtyle) {
-
         await this.settingUtils.load(); //导入配置
-
+        // 获取当前光标所在块的 ID
+        const currentBlockId = protyle.toolbar.range.startContainer.parentElement.closest('[data-node-id]')?.getAttribute('data-node-id');
+        console.log(currentBlockId)
         // 先复制选中内容
         document.execCommand('copy')
         // 获取选中文本的样式，避免重复添加样式而导致样式被清除
@@ -388,6 +389,7 @@ export default class PluginFootnote extends Plugin {
         let templates = this.settingUtils.get("templates");
         templates = templates.replace(/\$\{selection\}/g, cleanSelection);
         templates = templates.replace(/\$\{content\}/g, zeroWhite);
+        templates = templates.replace(/\$\{refID\}/g, currentBlockId);
 
         // 插入脚注
         let back;

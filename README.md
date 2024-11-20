@@ -22,12 +22,11 @@ Implement footnotes and remarks function using SiYuan's blockref.
 - **Footnote Blockquote Anchor Text**: Set the anchor text for footnote references. The default is `[Note]`.
 - **Selected Text Style**: You can add styles such as bold, highlight, italic, or underline to the selected text. The default is `None`.
 - **Order of Inserting Footnotes**: Ascending or descending order. The default is `Ascending`.
-- **Footnote Content Template**: Set the template for footnotes. It is recommended to use a blockquote or superblock combination to ensure the footnote content belongs to the same block. `${selection}` represents the content of the selected text, and `${content}` represents the placeholder for footnote content. You can use kramdown syntax to set block styles.
-
+- **Footnote Content Template**: To set up a template for footnotes, it is recommended to use nested quote blocks or a combination of super blocks to store the footnote content. This ensures that the footnote content is contained within a single block. `${selection}` represents the content of the selected text, `${content}` is a placeholder for the footnote content, and `${refID}` is the ID of the block where the selected text is located. And you can use kramdown syntax to define the block styles.
   - **Nested Quote Block Template**
 
     ```markdown
-    >> ${selection}
+    >> ${selection} [[↩️]](siyuan://blocks/${refID})
     >> 
     > 💡${content}
     ```
@@ -36,7 +35,7 @@ Implement footnotes and remarks function using SiYuan's blockref.
 
     ```markdown
     {{{row
-    > ${selection}
+    > ${selection} [[↩️]](siyuan://blocks/${refID})
     
     ${content}
     }}}

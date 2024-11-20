@@ -54,7 +54,7 @@
         },
         "template": {
             "title": "脚注内容模版",
-            "description": "模板变量：选中文本的内容<code>${selection}</code>，脚注内容占位<code>${content}</code><br/>可以使用kramdown语法设置块样式"
+            "description": "模板变量：<code>${selection}</code>选中文本的内容，<code>${content}</code>脚注内容占位，<code>${refID}</code>选中文本所在的块的ID<br/>可以使用kramdown语法设置块样式"
         }
     },
     "deleteFootnote": "删除脚注",
