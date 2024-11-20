@@ -152,7 +152,7 @@ export default class PluginFootnote extends Plugin {
 
 \${content}
 }}}
-{: style="border: 2px dashed var(--b3-theme-on-background);"}}`,
+{: style="border: 2px dashed var(--b3-border-color);"}}`,
             type: "textarea",
             title: this.i18n.settings.template.title,
             description: this.i18n.settings.template.description,
@@ -291,7 +291,6 @@ export default class PluginFootnote extends Plugin {
         templates = templates.replace(/\$\{content\}/g, zeroWhite);
 
         // 插入脚注
-        let children = await getChildBlocks(headingID);
         let back;
         switch (this.settingUtils.get("order")) {
             case '2':
@@ -299,6 +298,7 @@ export default class PluginFootnote extends Plugin {
                 back = await appendBlock("markdown", templates, headingID);
                 break;
             default:
+                let children = await getChildBlocks(headingID);
                 // 默认顺序插入
                 if (children.length > 0) {
                     // 在最后一个子块后面添加(使用 insertBlock 并指定 previousID)
@@ -340,10 +340,10 @@ export default class PluginFootnote extends Plugin {
 
         // 保存脚注块引添加的自定义属性值
         saveViaTransaction(memoELement)
-        
+
         // 关闭工具栏
         protyle.toolbar.element.classList.add("fn__none")
-        
+
         // 显示块引浮窗，来填写内容
         this.addFloatLayer({
             ids: [newBlockId],

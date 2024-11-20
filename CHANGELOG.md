@@ -24,7 +24,7 @@ TODO
     
     ${content}
     }}}
-    {: style="border: 2px dashed var(--b3-theme-on-background);"}
+    {: style="border: 2px dashed var(--b3-border-color);"}
     ```
 - ✨脚注块引默认模板完善，从“注”改为“[注]”
 - 📝完善文档

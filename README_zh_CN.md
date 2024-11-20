@@ -34,7 +34,7 @@
     
     ${content}
     }}}
-    {: style="border: 2px dashed var(--b3-theme-on-background);"}
+    {: style="border: 2px dashed var(--b3-border-color);"}
     ```
 
 ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-18_16-46-42-2024-11-18.png)

@@ -35,7 +35,7 @@ Implement footnotes and remarks function using SiYuan's blockref.
     
     ${content}
     }}}
-    {: style="border: 2px dashed var(--b3-theme-on-background);"}
+    {: style="border: 2px dashed var(--b3-border-color);"}
     ```
 
 
