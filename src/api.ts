@@ -91,6 +91,15 @@ export async function renameDoc(notebook: NotebookId, path: string, title: strin
     return request(url, data);
 }
 
+export async function renameDocByID(id: string, title: string): Promise<DocumentId> {
+    let data = {
+        id: id,
+        title: title
+    };
+    let url = '/api/filetree/renameDocByID';
+    return request(url, data);
+}
+
 
 export async function removeDoc(notebook: NotebookId, path: string) {
     let data = {

@@ -3,13 +3,28 @@
     "settings": {
         "saveLocation": {
             "title": "Footnote Location",
-            "description": "Current document or specified document",
+            "description": "Current document, Specified document or Child Document",
             "current": "Current Document",
-            "specified": "Specified Document"
+            "specified": "Specified Document",
+            "childDoc": "Child Document"
         },
         "docId": {
             "title": "Specified Document ID",
-            "description": "Takes effect when footnote location is set to specified document"
+            "description": "Takes effect when footnote location is set to Specified document"
+        },
+        "footnoteContainerTitle": {
+            "title": "Footnote Container Title",
+            "description": "Set the h2 title to store footnotes when the footnote location is set to Current Document.<br/>Set the document title when the footnote location is set to Child Document.<br/>Template variable: Current document title <code>${filename}</code>",
+            "value": "Footnotes"
+        },
+        "footnoteContainerTitle2": {
+            "title": "Footnote Container Title for Specified Document and Child Document",
+            "description": "Set the h2 title to store footnotes when the footnote location is set to Specified Document.<br/>Set the document title when the footnote location is set to Child Document.<br/>Template variable: Current document title <code>${filename}</code>",
+            "value": "${filename} Footnotes"
+        },
+        "updateFootnoteContainerTitle": {
+            "title": "Auto-update footnote container title?",
+            "description": "Auto-update footnote container title to match template every time a footnote is created?"
         },
         "footnoteRefStyle": {
             "title": "Footnote Reference Style",
@@ -32,12 +47,6 @@
             "asc": "Ascending",
             "desc": "Descending"
         },
-        "footnoteTitle":{
-            "title": "Footnote Title",
-            "description": "Footnotes will be placed under the h2 heading",
-            "value": "Footnote"
-        },
-        
         "footnoteBlockref": {
             "title": "Footnote Blockref Anchor Text",
             "description": "Custom anchor text",

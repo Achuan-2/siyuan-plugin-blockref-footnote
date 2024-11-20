@@ -6,7 +6,7 @@ import {
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
-import { appendBlock, deleteBlock, setBlockAttrs, pushErrMsg, sql, getChildBlocks, insertBlock, updateBlock } from "./api";
+import { appendBlock, deleteBlock, setBlockAttrs, pushErrMsg, sql, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
 
 const STORAGE_NAME = "config";
@@ -56,18 +56,20 @@ export default class PluginFootnote extends Plugin {
         */
 
         this.settingUtils.addItem({
-            key: "save_location",
+            key: "saveLocation",
             value: 1,
             type: "select",
             title: this.i18n.settings.saveLocation.title,
             description: this.i18n.settings.saveLocation.description,
             options: {
                 1: this.i18n.settings.saveLocation.current,
-                2: this.i18n.settings.saveLocation.specified
+                2: this.i18n.settings.saveLocation.specified,
+                3: this.i18n.settings.saveLocation.childDoc
             },
             action: {
                 callback: () => {
                     // Read data in real time
+                    // this.settingUtils.takeAndSave("saveLocation")
                 }
             }
         });
@@ -77,6 +79,45 @@ export default class PluginFootnote extends Plugin {
             type: "textinput",
             title: this.i18n.settings.docId.title,
             description: this.i18n.settings.docId.description,
+            action: {
+                // Called when focus is lost and content changes
+                callback: () => {
+                    // Return data and save it in real time
+                }
+            }
+        });
+        this.settingUtils.addItem({
+            key: "footnoteContainerTitle",
+            value: this.i18n.settings.footnoteContainerTitle.value,
+            type: "textinput",
+            title: this.i18n.settings.footnoteContainerTitle.title,
+            description: this.i18n.settings.footnoteContainerTitle.description,
+            action: {
+                // Called when focus is lost and content changes
+                callback: () => {
+                    // Return data and save it in real time
+                }
+            }
+        });
+        this.settingUtils.addItem({
+            key: "footnoteContainerTitle2",
+            value: this.i18n.settings.footnoteContainerTitle2.value,
+            type: "textinput",
+            title: this.i18n.settings.footnoteContainerTitle2.title,
+            description: this.i18n.settings.footnoteContainerTitle2.description,
+            action: {
+                // Called when focus is lost and content changes
+                callback: () => {
+                    // Return data and save it in real time
+                }
+            }
+        });
+        this.settingUtils.addItem({
+            key: "updateFootnoteContainerTitle",
+            value: true,
+            type: "checkbox",
+            title: this.i18n.settings.updateFootnoteContainerTitle.title,
+            description: this.i18n.settings.updateFootnoteContainerTitle.description,
             action: {
                 // Called when focus is lost and content changes
                 callback: () => {
@@ -97,6 +138,19 @@ export default class PluginFootnote extends Plugin {
             action: {
                 callback: () => {
                     // Read data in real time
+                }
+            }
+        });
+        this.settingUtils.addItem({
+            key: "footnoteBlockref",
+            value: this.i18n.settings.footnoteBlockref.value,
+            type: "textinput",
+            title: this.i18n.settings.footnoteBlockref.title,
+            description: this.i18n.settings.footnoteBlockref.description,
+            action: {
+                // Called when focus is lost and content changes
+                callback: () => {
+                    // Return data and save it in real time
                 }
             }
         });
@@ -132,32 +186,6 @@ export default class PluginFootnote extends Plugin {
             action: {
                 callback: () => {
                     // Read data in real time
-                }
-            }
-        });
-        this.settingUtils.addItem({
-            key: "footnoteTitle",
-            value: this.i18n.settings.footnoteTitle.value,
-            type: "textinput",
-            title: this.i18n.settings.footnoteTitle.title,
-            description: this.i18n.settings.footnoteTitle.description,
-            action: {
-                // Called when focus is lost and content changes
-                callback: () => {
-                    // Return data and save it in real time
-                }
-            }
-        });
-        this.settingUtils.addItem({
-            key: "footnoteBlockref",
-            value: this.i18n.settings.footnoteBlockref.value,
-            type: "textinput",
-            title: this.i18n.settings.footnoteBlockref.title,
-            description: this.i18n.settings.footnoteBlockref.description,
-            action: {
-                // Called when focus is lost and content changes
-                callback: () => {
-                    // Return data and save it in real time
                 }
             }
         });
@@ -211,18 +239,6 @@ export default class PluginFootnote extends Plugin {
     private async addMemoBlock(protyle: IProtyle) {
 
         await this.settingUtils.load(); //导入配置
-        let docID;
-        if (this.settingUtils.get("save_location") == 1) {
-            docID = protyle.block.id;
-        }
-        else {
-            docID = this.settingUtils.get("docID");
-            // 如果docID为空，提示用户
-            if (!docID) {
-                pushErrMsg(this.i18n.errors.noDocId);
-                return;
-            }
-        }
 
         // 先复制选中内容
         document.execCommand('copy')
@@ -235,6 +251,7 @@ export default class PluginFootnote extends Plugin {
                 style: selectedInfo.style
             };
         }
+
         // 选中的文本添加样式
         switch (this.settingUtils.get("selectFontStyle")) {
             case '2':
@@ -262,39 +279,107 @@ export default class PluginFootnote extends Plugin {
                 // 默认选中文本不添加样式
                 break;
         }
-        // 查询docID下有没有脚注标题，脚注标题属性为custom-plugin-footnote-parent=true
-        let query_res = await sql(`SELECT * FROM blocks AS b WHERE root_id = '${docID}' AND b.type='h' AND b.ial like '%custom-plugin-footnote-parent="${protyle.block.id}"%'  limit 1`);
-        let headingID;
-        // 如果脚注保存在当前文档
-        if (this.settingUtils.get("save_location") == 1) {
-        }
-        if (query_res.length == 0) { // 如果标题不存在
-            // 添加h2标题
-            // 如果脚注保存在指定文档，那么标题需要添加当前文档的title
-            let footnoteTitle = this.settingUtils.get("footnoteTitle");
-            if (this.settingUtils.get("save_location") == 2) {
-                // 获取当前文档的标题
-                let currentDocTitle = (await sql(`SELECT * FROM blocks AS b WHERE id = '${protyle.block.id}' limit 1`))[0].content;
-                footnoteTitle = currentDocTitle + " " + footnoteTitle;
-            }
-            headingID = (await appendBlock("markdown", `
-## ${footnoteTitle}`, docID))[0].doOperations[0].id;
-            // 添加脚注标题属性
-            await setBlockAttrs(headingID, { "custom-plugin-footnote-parent": protyle.block.id });
-        } else {
-            // 如果已经存在标题
-            headingID = query_res[0].id
-            // 如果脚注保存在指定文档，标题已经存在，需要更新为当前标题
-            if (this.settingUtils.get("save_location") == 2) {
-                // 获取当前文档的标题
-                let currentDocTitle = (await sql(`SELECT * FROM blocks AS b WHERE id = '${protyle.block.id}' limit 1`))[0].content;
-                // updateBlock for h2
-                await updateBlock("markdown", "## " + currentDocTitle + " " + this.settingUtils.get("footnoteTitle"), headingID);
-                await setBlockAttrs(headingID, { "custom-plugin-footnote-parent": protyle.block.id })
+        // 获取当前文档标题
+        let currentDoc = await sql(`SELECT * FROM blocks WHERE id = '${protyle.block.id}' LIMIT 1`);
+        let currentDocTitle = currentDoc[0].content;
 
-            }
+        // 获取脚注容器标题
+        const footnoteContainerTitle = this.settingUtils.get("saveLocation") == 1
+            ? this.settingUtils.get("footnoteContainerTitle").replace(/\$\{filename\}/g, currentDocTitle)
+            : this.settingUtils.get("footnoteContainerTitle2").replace(/\$\{filename\}/g, currentDocTitle);
+        // 处理文档 ID 和脚注容器 ID
+        let docID;
+        let footnoteContainerID: string;
+        let query_res;
+        switch (this.settingUtils.get("saveLocation")) {
+            case '1': // 当前文档
+                docID = protyle.block.id;
+                query_res = await sql(
+                    `SELECT * FROM blocks AS b 
+         WHERE root_id = '${docID}' 
+         AND b.type='h' 
+         AND b.ial like '%custom-plugin-footnote-parent="${protyle.block.id}"%' 
+         ORDER BY created DESC 
+         limit 1`
+                );
 
+                if (query_res.length === 0) {
+                    footnoteContainerID = (await appendBlock("markdown", `## ${footnoteContainerTitle}`, docID))[0].doOperations[0].id;
+                } else {
+                    footnoteContainerID = query_res[0].id;
+                    if (this.settingUtils.get("updateFootnoteContainerTitle")) {
+                        await updateBlock("markdown", `## ${footnoteContainerTitle}`, footnoteContainerID);
+                    }
+                }
+
+                await setBlockAttrs(footnoteContainerID, {
+                    "custom-plugin-footnote-parent": protyle.block.id
+                });
+                break;
+
+            case '2': // 指定文档
+                docID = this.settingUtils.get("docID");
+                if (!docID) {
+                    pushErrMsg(this.i18n.errors.noDocId);
+                    return;
+                }
+                query_res = await sql(
+                    `SELECT * FROM blocks AS b 
+         WHERE root_id = '${docID}' 
+         AND b.type='h' 
+         AND b.ial like '%custom-plugin-footnote-parent="${protyle.block.id}"%' 
+         ORDER BY created DESC 
+         limit 1`
+                );
+
+                if (query_res.length === 0) {
+                    footnoteContainerID = (await appendBlock("markdown", `## ${footnoteContainerTitle}`, docID))[0].doOperations[0].id;
+                } else {
+                    footnoteContainerID = query_res[0].id;
+                    if (this.settingUtils.get("updateFootnoteContainerTitle")) {
+                        await updateBlock("markdown", `## ${footnoteContainerTitle}`, footnoteContainerID);
+                    }
+                }
+
+                await setBlockAttrs(footnoteContainerID, {
+                    "custom-plugin-footnote-parent": protyle.block.id
+                });
+                break;
+
+            case '3': // 子文档
+                const existingDoc = await sql(
+                    `SELECT * FROM blocks WHERE type='d' AND ial like '%custom-plugin-footnote-parent="${protyle.block.id}"%' LIMIT 1`
+                );
+
+                if (existingDoc?.length > 0) {
+                    docID = existingDoc[0].id;
+                    if (this.settingUtils.get("updateFootnoteContainerTitle")) {
+                        await renameDocByID(docID, footnoteContainerTitle);
+                    }
+
+                } else {
+                    const notebook = currentDoc[0].box;
+                    const parentPath = currentDoc[0].hpath;
+                    docID = await createDocWithMd(notebook, `${parentPath}/${footnoteContainerTitle}`, "");
+
+                    if (!docID) {
+                        pushErrMsg("Failed to create child document");
+                        return;
+                    }
+
+                    await setBlockAttrs(docID, {
+                        "custom-plugin-footnote-parent": protyle.block.id
+                    });
+                }
+                footnoteContainerID = docID;
+                break;
+
+            default:
+                docID = protyle.block.id;
+                await handleFootnoteTitleContainer();
         }
+
+
 
 
         // 获取脚注模板并替换为具体变量值
@@ -311,23 +396,32 @@ export default class PluginFootnote extends Plugin {
         switch (this.settingUtils.get("order")) {
             case '2':
                 // 倒序
-                back = await appendBlock("markdown", templates, headingID);
+                if (this.settingUtils.get("saveLocation") != 3) {
+                    back = await appendBlock("markdown", templates, footnoteContainerID);
+                } else {
+                    back = await prependBlock("markdown", templates, footnoteContainerID);
+                }
                 break;
             default:
-                let children = await getChildBlocks(headingID);
-                // 默认顺序插入
-                if (children.length > 0) {
-                    // 在最后一个子块后面添加(使用 insertBlock 并指定 previousID)
-                    back = await insertBlock(
-                        "markdown",
-                        templates,
-                        undefined, // nextID 
-                        children[children.length - 1].id, // previousID - 放在最后一个子块后面
-                        undefined // parentID
-                    );
-                } else {
-                    // 如果没有子块,直接在标题下添加
-                    back = await appendBlock("markdown", templates, headingID);
+                if (this.settingUtils.get("saveLocation") != 3) {
+                    let children = await getChildBlocks(footnoteContainerID);
+                    // 默认顺序插入
+                    if (children.length > 0) {
+                        // 在最后一个子块后面添加(使用 insertBlock 并指定 previousID)
+                        back = await insertBlock(
+                            "markdown",
+                            templates,
+                            undefined, // nextID 
+                            children[children.length - 1].id, // previousID - 放在最后一个子块后面
+                            undefined // parentID
+                        );
+                    } else {
+                        // 如果没有子块,直接在标题下添加
+                        back = await appendBlock("markdown", templates, footnoteContainerID);
+                    }
+                }
+                else {
+                    back = await appendBlock("markdown", templates, footnoteContainerID);
                 }
                 break;
         }
@@ -351,7 +445,7 @@ export default class PluginFootnote extends Plugin {
                 // 插入块链接
                 protyle.toolbar.setInlineMark(protyle, "a sup", "range", {
                     type: "a",
-                    color: `${"siyuan://blocks/"+newBlockId + zeroWhite + this.settingUtils.get("footnoteBlockref")}`
+                    color: `${"siyuan://blocks/" + newBlockId + zeroWhite + this.settingUtils.get("footnoteBlockref")}`
                 });
                 memoELement = protyle.element.querySelector(`span[data-href="siyuan://blocks/${newBlockId}"]`);
                 break;

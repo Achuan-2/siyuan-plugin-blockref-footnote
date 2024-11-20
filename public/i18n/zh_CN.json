@@ -3,17 +3,32 @@
     "settings": {
         "saveLocation": {
             "title": "脚注存放位置",
-            "description": "当前文档 or 指定文档",
+            "description": "当前文档、指定文档或子文档",
             "current": "当前文档",
-            "specified": "指定文档"
+            "specified": "指定文档",
+            "childDoc": "子文档"
         },
         "docId": {
-            "title": "指定文档ID",
-            "description": "当选择脚注存放位置为指定文档时，生效"
+            "title": "指定文档的文档ID",
+            "description": "当脚注存放位置为“指定文档”时，设置某个文档存放所有的脚注"
+        },
+        "footnoteContainerTitle":{
+            "title": "当前文档的脚注容器标题",
+            "description": "当脚注存放位置为“当前文档”时，设置存放脚注的h2标题<br/>模板变量：当前文档标题<code>${filename}</code>",
+            "value": "脚注"
+        },
+        "footnoteContainerTitle2":{
+            "title": "指定文档和子文档的脚注容器标题",
+            "description": "当脚注存放位置为“指定文档”时，设置存放脚注的h2标题<br/>当脚注存放位置为“子文档”时，设置存放脚注的文档标题名。<br/>模板变量：当前文档标题<code>${filename}</code>",
+            "value": "${filename} 脚注"
+        },
+        "updateFootnoteContainerTitle":{
+            "title": "是否自动更新脚注容器标题",
+            "description": "每次创建脚注是否会自动更新脚注容器标题符合设置的模板"
         },
         "footnoteRefStyle": {
             "title": "脚注引用样式",
-            "description": "脚注引用的样式：块引 or 块链接",
+            "description": "脚注引用的样式：“块引”或“块链接”",
             "ref": "块引",
             "link": "块链接"
         },
@@ -32,20 +47,14 @@
             "asc": "顺序",
             "desc": "逆序"
         },
-        "footnoteTitle":{
-            "title": "脚注标题名",
-            "description": "脚注会存放在h2标题下",
-            "value": "脚注"
-
-        },
         "footnoteBlockref": {
-            "title": "脚注块引锚文本",
+            "title": "脚注引用锚文本",
             "description": "自定义锚文本",
             "value": "[注]"
         },
         "template": {
             "title": "脚注内容模版",
-            "description": "<code>${selection}</code>为选中文本的内容，<code>${content}</code>为脚注内容占位，可以使用kramdown语法设置块样式"
+            "description": "模板变量：选中文本的内容<code>${selection}</code>，脚注内容占位<code>${content}</code><br/>可以使用kramdown语法设置块样式"
         }
     },
     "deleteFootnote": "删除脚注",
