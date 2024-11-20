@@ -212,6 +212,7 @@ export default class PluginFootnote extends Plugin {
 
 
         this.eventBus.on("open-menu-blockref", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
+        this.eventBus.on("open-menu-link", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
     }
 
     onLayoutReady() {
@@ -227,7 +228,7 @@ export default class PluginFootnote extends Plugin {
                 icon: "iconTrashcan",
                 label: this.i18n.deleteFootnote,
                 click: () => {
-                    // 删除脚注
+                    // 删除脚注内容
                     deleteBlock(detail.element.getAttribute("data-id"));
                     // 删除块引
                     detail.element.remove();
@@ -242,7 +243,18 @@ export default class PluginFootnote extends Plugin {
         const currentBlockId = protyle.toolbar.range.startContainer.parentElement.closest('[data-node-id]')?.getAttribute('data-node-id');
         console.log(currentBlockId)
         // 先复制选中内容
-        document.execCommand('copy')
+        const getSelectedHtml = (range: Range): string => {
+            // 创建临时容器
+            const container = document.createElement('div');
+            // 克隆选区内容到容器
+            container.appendChild(range.cloneContents());
+            // 返回HTML字符串
+            return container.innerHTML;
+        }
+
+        const selection = getSelectedHtml(protyle.toolbar.range);
+        console.log(selection)
+        
         // 获取选中文本的样式，避免重复添加样式而导致样式被清除
         const selectedInfo = this.getSelectedParentHtml();
         let formatData;
@@ -381,11 +393,18 @@ export default class PluginFootnote extends Plugin {
 
 
 
-        // 获取脚注模板并替换为具体变量值
-        const selection = await navigator.clipboard.readText(); // 获取选中文本
+
+
         // 过滤掉脚注文本 <sup>((id "text"))</sup>
-        const cleanSelection = selection.replace(/<sup>\(\([^)]+\)\)<\/sup>/g, '');
-        // console.log(cleanSelection);
+        // 正则表达式匹配包含 custom-footnote="true" 的 <span> 标签
+        let customFootnotePattern = /<span[^>]*?custom-footnote="true"[^>]*?>.*?<\/span>/g;
+
+        // 正则表达式匹配 <span class="katex">...</span> 及其内容
+        let katexPattern = /<span class="katex">[\s\S]*?<\/span>(<\/span>)*<\/span>/g;
+
+        // 使用 replace() 方法替换匹配的部分为空字符串
+        let cleanSelection = selection.replace(katexPattern, '').replace(customFootnotePattern, '');
+        console.log(cleanSelection);
         let templates = this.settingUtils.get("templates");
         templates = templates.replace(/\$\{selection\}/g, cleanSelection);
         templates = templates.replace(/\$\{content\}/g, zeroWhite);
