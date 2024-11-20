@@ -26,6 +26,7 @@ TODO
     }}}
     {: style="border: 2px dashed var(--b3-border-color);"}
   ```
+  ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/思源笔记脚注插件支持直接跳转到原来的块-2024-11-20.gif)
 
 
 ## v1.0.5 / 2024.11.20
