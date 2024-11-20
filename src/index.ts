@@ -57,7 +57,7 @@ export default class PluginFootnote extends Plugin {
 
         this.settingUtils.addItem({
             key: "saveLocation",
-            value: 1,
+            value: '1',
             type: "select",
             title: this.i18n.settings.saveLocation.title,
             description: this.i18n.settings.saveLocation.description,
@@ -127,7 +127,7 @@ export default class PluginFootnote extends Plugin {
         });
         this.settingUtils.addItem({
             key: "footnoteRefStyle",
-            value: 1,
+            value: '1',
             type: "select",
             title: this.i18n.settings.footnoteRefStyle.title,
             description: this.i18n.settings.footnoteRefStyle.description,
@@ -156,7 +156,7 @@ export default class PluginFootnote extends Plugin {
         });
         this.settingUtils.addItem({
             key: "selectFontStyle",
-            value: 1,
+            value: '1',
             type: "select",
             title: this.i18n.settings.selectFontStyle.title,
             description: this.i18n.settings.selectFontStyle.description,
@@ -175,7 +175,7 @@ export default class PluginFootnote extends Plugin {
         });
         this.settingUtils.addItem({
             key: "order",
-            value: 1,
+            value: '1',
             type: "select",
             title: this.i18n.settings.order.title,
             description: this.i18n.settings.order.description,
@@ -284,6 +284,7 @@ export default class PluginFootnote extends Plugin {
         let currentDocTitle = currentDoc[0].content;
 
         // 获取脚注容器标题
+        console.log(this.settingUtils.get("saveLocation"))
         const footnoteContainerTitle = this.settingUtils.get("saveLocation") == 1
             ? this.settingUtils.get("footnoteContainerTitle").replace(/\$\{filename\}/g, currentDocTitle)
             : this.settingUtils.get("footnoteContainerTitle2").replace(/\$\{filename\}/g, currentDocTitle);
@@ -292,6 +293,7 @@ export default class PluginFootnote extends Plugin {
         let footnoteContainerID: string;
         let query_res;
         switch (this.settingUtils.get("saveLocation")) {
+            default:
             case '1': // 当前文档
                 docID = protyle.block.id;
                 query_res = await sql(
@@ -373,10 +375,6 @@ export default class PluginFootnote extends Plugin {
                 }
                 footnoteContainerID = docID;
                 break;
-
-            default:
-                docID = protyle.block.id;
-                await handleFootnoteTitleContainer();
         }
 
 
