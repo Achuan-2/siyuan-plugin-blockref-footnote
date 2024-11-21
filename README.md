@@ -8,7 +8,7 @@ Implement footnotes and remarks function using SiYuan's blockref.
 
 ## 📝Usage Instructions
 
-> The minimum required version of Siyuan Notes for this plugin is v3.1.12.
+> The minimum required version of Siyuan Notes for this plugin is v3.1.13.
 
 **This plugin supports high customization with the following settings:**
 

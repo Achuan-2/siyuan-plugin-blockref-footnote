@@ -17,6 +17,10 @@ TODO
   - [ ] 参考<https://github.com/zxhd863943427/siyuan-plugin-memo>，添加css样式
   
 
+## v1.0.8 / 2024.11.21
+- 📝 完善README、优化设置项的表述
+- 🐛 修复脚注引用为块超链接时，无法同时删除脚注内容的问题
+
 ## v1.0.7 / 2024.11.20
 
 - ✨优化获取选中文本的方式，不再污染剪贴板：之前选择的是`document.execCommand('copy')`，现在改用`range.cloneContents())`
