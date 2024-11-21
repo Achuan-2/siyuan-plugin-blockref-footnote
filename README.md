@@ -6,6 +6,11 @@ Implement footnotes and remarks function using SiYuan's blockref.
 
 > Using the Tsundoku theme for demonstration, the style of nested blockquote has been optimized.
 
+## 📝CHANGELOG
+
+See [CHANGELOG.md](CHANGELOG.md)
+
+
 ## 📝Usage Instructions
 
 > The minimum required version of Siyuan Notes for this plugin is v3.1.13.
@@ -49,9 +54,6 @@ To simultaneously delete footnote references and footnote content, you can right
 
 ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-18_16-24-25-2024-11-18.png)
 
-## 📝CHANGELOG
-
-See [CHANGELOG.md](CHANGELOG.md)
 
 ## 🙏 Acknowledge
 
