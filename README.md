@@ -46,6 +46,15 @@ See [CHANGELOG.md](CHANGELOG.md)
     }}}
     {: style="border: 2px dashed var(--b3-border-color);"}
     ```
+  - Use list items to store references to the original block, with the selected text as the anchor text. You can view all footnotes in the backlink panel of the current document.
+    ```
+    -  ((${refID} "${selection}"))
+
+       {{{row
+       ${content}
+       }}}
+
+    ```
 
 
 ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-21_08-53-00-2024-11-21.png)
