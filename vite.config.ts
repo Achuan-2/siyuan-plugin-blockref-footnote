@@ -1,7 +1,6 @@
 import { resolve } from "path"
 import { defineConfig, loadEnv } from "vite"
 import { viteStaticCopy } from "vite-plugin-static-copy"
-import livereload from "rollup-plugin-livereload"
 import { svelte } from "@sveltejs/vite-plugin-svelte"
 import zipPack from "vite-plugin-zip-pack";
 import fg from 'fast-glob';
@@ -63,7 +62,6 @@ export default defineConfig({
         rollupOptions: {
             plugins: [
                 ...(isDev ? [
-                    livereload(outputDir),
                     {
                         name: 'watch-external',
                         async buildStart() {

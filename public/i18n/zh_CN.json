@@ -3,28 +3,28 @@
     "settings": {
         "saveLocation": {
             "title": "脚注存放位置",
-            "description": "当前文档、指定文档或子文档",
+            "description": "将脚注存放于当前文档、指定文档或子文档",
             "current": "当前文档",
             "specified": "指定文档",
             "childDoc": "子文档"
         },
         "docId": {
             "title": "指定文档的文档ID",
-            "description": "当脚注存放位置为“指定文档”时，设置某个文档存放所有的脚注"
+            "description": "当脚注存放位置为“指定文档”时，通过文档ID指定文档，设置这个文档存放所有的脚注，方便导出"
         },
         "footnoteContainerTitle":{
             "title": "当前文档的脚注容器标题",
-            "description": "当脚注存放位置为“当前文档”时，设置存放脚注的h2标题<br/>模板变量：当前文档标题<code>${filename}</code>",
+            "description": "当脚注存放位置为“当前文档”时，设置存放脚注的二级标题名<br/>模板变量：<code>${filename}</code>当前文档标题",
             "value": "脚注"
         },
         "footnoteContainerTitle2":{
             "title": "指定文档和子文档的脚注容器标题",
-            "description": "当脚注存放位置为“指定文档”时，设置存放脚注的h2标题<br/>当脚注存放位置为“子文档”时，设置存放脚注的文档标题名。<br/>模板变量：当前文档标题<code>${filename}</code>",
+            "description": "当脚注存放位置为“指定文档”时，设置存放脚注的二级标题名<br/>当脚注存放位置为“子文档”时，设置存放脚注的文档标题名。<br/>模板变量：<code>${filename}</code>当前文档标题",
             "value": "${filename} 脚注"
         },
         "updateFootnoteContainerTitle":{
             "title": "是否自动更新脚注容器标题",
-            "description": "每次创建脚注是否会自动更新脚注容器标题符合设置的模板"
+            "description": "每次创建脚注是否根据模板自动更新脚注容器标题"
         },
         "footnoteRefStyle": {
             "title": "脚注引用样式",
