@@ -228,8 +228,16 @@ export default class PluginFootnote extends Plugin {
                 icon: "iconTrashcan",
                 label: this.i18n.deleteFootnote,
                 click: () => {
-                    // 删除脚注内容
-                    deleteBlock(detail.element.getAttribute("data-id"));
+                    // 需要判断detail.element有没有data-id选项，如果没有，则获取data-href属性，根据形如"siyuan://blocks/20241121090047-wos8vvf"获取blocks/后面的id
+                    if (detail.element.getAttribute("data-id")) {
+                        // 删除脚注内容
+                        deleteBlock(detail.element.getAttribute("data-id"));
+                    } else {
+                        let id = detail.element.getAttribute("data-href").match(/blocks\/([^\/]+)/)?.[1];
+                        // 删除脚注内容
+                        deleteBlock(id);
+                    }
+
                     // 删除块引
                     detail.element.remove();
                 }
@@ -241,7 +249,6 @@ export default class PluginFootnote extends Plugin {
         await this.settingUtils.load(); //导入配置
         // 获取当前光标所在块的 ID
         const currentBlockId = protyle.toolbar.range.startContainer.parentElement.closest('[data-node-id]')?.getAttribute('data-node-id');
-        console.log(currentBlockId)
         // 先复制选中内容
         const getSelectedHtml = (range: Range): string => {
             // 创建临时容器
@@ -253,7 +260,6 @@ export default class PluginFootnote extends Plugin {
         }
 
         const selection = getSelectedHtml(protyle.toolbar.range);
-        console.log(selection)
         
         // 获取选中文本的样式，避免重复添加样式而导致样式被清除
         const selectedInfo = this.getSelectedParentHtml();
@@ -297,7 +303,6 @@ export default class PluginFootnote extends Plugin {
         let currentDocTitle = currentDoc[0].content;
 
         // 获取脚注容器标题
-        console.log(this.settingUtils.get("saveLocation"))
         const footnoteContainerTitle = this.settingUtils.get("saveLocation") == 1
             ? this.settingUtils.get("footnoteContainerTitle").replace(/\$\{filename\}/g, currentDocTitle)
             : this.settingUtils.get("footnoteContainerTitle2").replace(/\$\{filename\}/g, currentDocTitle);
@@ -404,7 +409,6 @@ export default class PluginFootnote extends Plugin {
 
         // 使用 replace() 方法替换匹配的部分为空字符串
         let cleanSelection = selection.replace(katexPattern, '').replace(customFootnotePattern, '');
-        console.log(cleanSelection);
         let templates = this.settingUtils.get("templates");
         templates = templates.replace(/\$\{selection\}/g, cleanSelection);
         templates = templates.replace(/\$\{content\}/g, zeroWhite);
