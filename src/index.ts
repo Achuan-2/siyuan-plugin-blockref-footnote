@@ -479,7 +479,6 @@ export default class PluginFootnote extends Plugin {
                     break;
                 case '1':
                 default:
-                    // getBlockKramdown
                     
                     function findNextSiblingIdWithoutFootnote(id) {
                         // 首先找到目标块

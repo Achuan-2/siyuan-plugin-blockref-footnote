@@ -11,6 +11,7 @@
 v1.1.0 / 2024.11.23
 
   - ✨支持设置脚注内容放到当前块后
+      ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-23_20-16-16-2024-11-23.png)
 
 v1.0.9 / 2024.11.23
 
