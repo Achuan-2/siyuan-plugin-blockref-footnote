@@ -12,7 +12,7 @@ v1.1.1 / 2024.11.24
 
 - ✨ 添加脚注引用css样式
     ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-24_01-39-40-2024-11-24.png)
-- ✨ 脚注块引的自定义属性值改为脚注内容块id，方便删除和后面的数字编号功能 `custom-footnote="20241124013624-9oq7jfl"`
+- ✨ 脚注块引的自定义属性值改为脚注内容块id `custom-footnote="20241124013624-9oq7jfl"`，方便删除脚注内容块和为后面的脚注数字编号功能做准备
 - ✨ 选中文本的样式设置，取消加粗、高亮等原生样式，改用自定义样式。注意：所以如果有对重叠文字重复添加脚注的需求，请不要开启自定义样式，会有样式冲突问题。
     ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-24_01-40-52-2024-11-24.png)
 
