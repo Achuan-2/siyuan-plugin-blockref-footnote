@@ -495,10 +495,8 @@ export default class PluginFootnote extends Plugin {
 
                         // 使用nextElementSibling获取下一个兄弟元素
                         let nextSibling = targetBlock.nextElementSibling;
-                        console.log(nextSibling);
                         // 遍历所有后续兄弟元素，直到找到符合条件的元素
                         while (nextSibling) {
-                            console.log(nextSibling.getAttribute('data-node-id'));
                             // 检查是否没有custom-plugin-footnote-content="true"属性
                             if (!nextSibling.hasAttribute('custom-plugin-footnote-content')) {
                                 // 返回找到的元素的data-node-id属性值
@@ -512,6 +510,7 @@ export default class PluginFootnote extends Plugin {
 
 
                     let nextID = findNextSiblingIdWithoutFootnote(footnoteContainerID);
+                    console.log(nextID);
                     if (nextID == null) {
                         back = await insertBlock(
                             "markdown",
