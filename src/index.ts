@@ -484,34 +484,33 @@ export default class PluginFootnote extends Plugin {
                 case '1':
                 default:
                     
-                    function findNextSiblingIdWithoutFootnote(id) {
-                        console.log(id);
+                    function findLastFootnoteId(id) {
                         // 首先找到目标块
                         const targetBlock = document.querySelector(`.protyle-wysiwyg [data-node-id="${id}"]`);
-                        console.log(targetBlock);
                         if (!targetBlock) {
                             return null;
                         }
 
-                        // 使用nextElementSibling获取下一个兄弟元素
+                        let lastFootnoteId = null;
                         let nextSibling = targetBlock.nextElementSibling;
-                        // 遍历所有后续兄弟元素，直到找到符合条件的元素
+
+                        // 遍历所有后续兄弟元素
                         while (nextSibling) {
-                            // 检查是否没有custom-plugin-footnote-content="true"属性
-                            if (!nextSibling.hasAttribute('custom-plugin-footnote-content')) {
-                                // 返回找到的元素的data-node-id属性值
-                                return nextSibling.getAttribute('data-node-id');
+                            // 检查是否是脚注元素
+                            if (nextSibling.hasAttribute('custom-plugin-footnote-content')) {
+                                lastFootnoteId = nextSibling.getAttribute('data-node-id');
+                            } else {
+                                // 如果遇到非脚注元素，跳出循环
+                                break;
                             }
                             nextSibling = nextSibling.nextElementSibling;
                         }
 
-                        return null; // 如果没找到符合条件的元素，返回null
+                        return lastFootnoteId; // 返回最后一个脚注的id，如果没有脚注则返回null
                     }
 
-
-                    let nextID = findNextSiblingIdWithoutFootnote(footnoteContainerID);
-                    console.log(nextID);
-                    if (nextID == null) {
+                    let lastFootnoteID = findLastFootnoteId(footnoteContainerID);
+                    if (lastFootnoteID == null) {
                         back = await insertBlock(
                             "markdown",
                             templates,
@@ -521,13 +520,13 @@ export default class PluginFootnote extends Plugin {
                         );
                     }
                     else {
-                            back = await insertBlock(
-                                "markdown",
-                                templates,
-                                nextID, // nextID 
-                                undefined, // previousID
-                                undefined // parentID
-                            );
+                        back = await insertBlock(
+                            "markdown",
+                            templates,
+                            undefined, // nextID 
+                            lastFootnoteID, // previousID
+                            undefined // parentID
+                        );
                         }
                     break;
             }
