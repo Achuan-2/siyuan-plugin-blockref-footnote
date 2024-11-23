@@ -247,21 +247,28 @@ export default class PluginFootnote extends Plugin {
 
 
     private deleteMemo = ({ detail }: any) => {
-        if (detail.element && detail.element.getAttribute("custom-footnote") === "true") {
+        if (detail.element && detail.element.getAttribute("custom-footnote") ) {
             detail.menu.addItem({
                 icon: "iconTrashcan",
                 label: this.i18n.deleteFootnote,
                 click: () => {
                     // 需要判断detail.element有没有data-id选项，如果没有，则获取data-href属性，根据形如"siyuan://blocks/20241121090047-wos8vvf"获取blocks/后面的id
-                    if (detail.element.getAttribute("data-id")) {
+                    const footnote_content_id = detail.element.getAttribute("custom-footnote");
+                    if (footnote_content_id && footnote_content_id != "true") {
                         // 删除脚注内容
-                        deleteBlock(detail.element.getAttribute("data-id"));
+                        deleteBlock(detail.element.getAttribute("custom-footnote"));
                     } else {
-                        let id = detail.element.getAttribute("data-href").match(/blocks\/([^\/]+)/)?.[1];
-                        // 删除脚注内容
-                        deleteBlock(id);
+                        // 兼容下过去的格式
+                        if (detail.element.getAttribute("data-id")) {
+                            // 删除脚注内容
+                            deleteBlock(detail.element.getAttribute("data-id"));
+                        } else {
+                            let id = detail.element.getAttribute("data-href").match(/blocks\/([^\/]+)/)?.[1];
+                            // 删除脚注内容
+                            deleteBlock(id);
+                        }
                     }
-
+                    
                     // 删除块引
                     detail.element.remove();
                 }
@@ -602,7 +609,7 @@ export default class PluginFootnote extends Plugin {
 
         // 给脚注块引添加属性，方便后续查找，添加其他功能
         if (memoELement) {
-            memoELement.setAttribute("custom-footnote", "true");
+            memoELement.setAttribute("custom-footnote", newBlockId);
             // 保存脚注块引添加的自定义属性值
             saveViaTransaction(memoELement)
         }
