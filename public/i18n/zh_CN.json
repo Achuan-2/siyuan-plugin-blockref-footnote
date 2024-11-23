@@ -10,7 +10,8 @@
             "description": "将脚注存放于当前文档、指定文档或子文档",
             "current": "当前文档",
             "specified": "指定文档",
-            "childDoc": "子文档"
+            "childDoc": "子文档",
+            "afterParent": "父块后"
         },
         "docId": {
             "title": "指定文档的文档ID",

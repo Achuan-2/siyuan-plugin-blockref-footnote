@@ -6,7 +6,7 @@ import {
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
-import { appendBlock, deleteBlock, setBlockAttrs, pushErrMsg, sql, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd } from "./api";
+import { appendBlock, deleteBlock, setBlockAttrs, pushErrMsg, sql, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd, getBlockKramdown } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
 
 const STORAGE_NAME = "config";
@@ -94,7 +94,8 @@ export default class PluginFootnote extends Plugin {
             options: {
                 1: this.i18n.settings.saveLocation.current,
                 2: this.i18n.settings.saveLocation.specified,
-                3: this.i18n.settings.saveLocation.childDoc
+                3: this.i18n.settings.saveLocation.childDoc,
+                4: this.i18n.settings.saveLocation.afterParent
             }
         });
 
@@ -272,6 +273,8 @@ export default class PluginFootnote extends Plugin {
         await this.settingUtils.load(); //导入配置
         // 获取当前光标所在块的 ID
         const currentBlockId = protyle.toolbar.range.startContainer.parentElement.closest('[data-node-id]')?.getAttribute('data-node-id');
+        const currentParentBlockId = protyle.toolbar.range.startContainer.parentElement.closest('.protyle-wysiwyg > [data-node-id]')?.getAttribute('data-node-id');
+        console.log(currentBlockId, currentParentBlockId);
         // 先复制选中内容
         const getSelectedHtml = (range: Range): string => {
             // 创建临时容器
@@ -433,6 +436,11 @@ export default class PluginFootnote extends Plugin {
                 }
                 footnoteContainerID = docID;
                 break;
+
+            case '4': // 父块后
+                docID = protyle.block.id;
+                footnoteContainerID = currentParentBlockId;
+                break;
         }
 
 
@@ -456,37 +464,104 @@ export default class PluginFootnote extends Plugin {
 
         // 插入脚注
         let back;
-        switch (this.settingUtils.get("order")) {
-            case '2':
-                // 倒序
-                if (this.settingUtils.get("saveLocation") != 3) {
-                    back = await appendBlock("markdown", templates, footnoteContainerID);
-                } else {
-                    back = await prependBlock("markdown", templates, footnoteContainerID);
-                }
-                break;
-            default:
-                if (this.settingUtils.get("saveLocation") != 3) {
-                    let children = await getChildBlocks(footnoteContainerID);
-                    // 默认顺序插入
-                    if (children.length > 0) {
-                        // 在最后一个子块后面添加(使用 insertBlock 并指定 previousID)
+        // 如果this.settingUtils.get("saveLocation")不等于4，则按照设置来插入，否则直接在父块后插入
+        if (this.settingUtils.get("saveLocation") == '4') {
+            switch (this.settingUtils.get("order")) {
+                case '2':
+                    // 逆序
+                    back = await insertBlock(
+                        "markdown",
+                        templates,
+                        undefined, // nextID 
+                        footnoteContainerID, // previousID
+                        undefined // parentID
+                    );
+                    break;
+                case '1':
+                default:
+                    // getBlockKramdown
+                    
+                    function findNextSiblingIdWithoutFootnote(id) {
+                        // 首先找到目标块
+                        const targetBlock = document.querySelector(`[data-node-id="${id}"]`);
+
+                        if (!targetBlock) {
+                            return null;
+                        }
+
+                        // 使用nextElementSibling获取下一个兄弟元素
+                        let nextSibling = targetBlock.nextElementSibling;
+
+                        // 遍历所有后续兄弟元素，直到找到符合条件的元素
+                        while (nextSibling) {
+                            // 检查是否没有custom-plugin-footnote-content="true"属性
+                            if (!nextSibling.hasAttribute('custom-plugin-footnote-content')) {
+                                // 返回找到的元素的data-node-id属性值
+                                return nextSibling.getAttribute('data-node-id');
+                            }
+                            nextSibling = nextSibling.nextElementSibling;
+                        }
+
+                        return null; // 如果没找到符合条件的元素，返回null
+                    }
+
+
+                    let nextID = findNextSiblingIdWithoutFootnote(footnoteContainerID);
+                    if (nextID == null) {
                         back = await insertBlock(
                             "markdown",
                             templates,
                             undefined, // nextID 
-                            children[children.length - 1].id, // previousID - 放在最后一个子块后面
+                            footnoteContainerID, // previousID
                             undefined // parentID
                         );
+                    }
+                    else {
+                            back = await insertBlock(
+                                "markdown",
+                                templates,
+                                nextID, // nextID 
+                                undefined, // previousID
+                                undefined // parentID
+                            );
+                        }
+                    break;
+            }
+        }
+        else {
+            switch (this.settingUtils.get("order")) {
+                case '2':
+                    // 倒序
+                    if (this.settingUtils.get("saveLocation") != 3) {
+                        back = await appendBlock("markdown", templates, footnoteContainerID);
                     } else {
-                        // 如果没有子块,直接在标题下添加
+                        back = await prependBlock("markdown", templates, footnoteContainerID);
+                    }
+                    break;
+                case '1':
+                default:
+                    if (this.settingUtils.get("saveLocation") != 3) {
+                        let children = await getChildBlocks(footnoteContainerID);
+                        // 默认顺序插入
+                        if (children.length > 0) {
+                            // 在最后一个子块后面添加(使用 insertBlock 并指定 previousID)
+                            back = await insertBlock(
+                                "markdown",
+                                templates,
+                                undefined, // nextID 
+                                children[children.length - 1].id, // previousID - 放在最后一个子块后面
+                                undefined // parentID
+                            );
+                        } else {
+                            // 如果没有子块,直接在标题下添加
+                            back = await appendBlock("markdown", templates, footnoteContainerID);
+                        }
+                    }
+                    else {
                         back = await appendBlock("markdown", templates, footnoteContainerID);
                     }
-                }
-                else {
-                    back = await appendBlock("markdown", templates, footnoteContainerID);
-                }
-                break;
+                    break;
+            }
         }
 
         let newBlockId = back[0].doOperations[0].id

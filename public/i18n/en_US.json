@@ -10,7 +10,8 @@
             "description": "Current document, Specified document or Child Document",
             "current": "Current Document",
             "specified": "Specified Document",
-            "childDoc": "Child Document"
+            "childDoc": "Child Document",
+            "afterParent": "After Parent Block"
         },
         "docId": {
             "title": "Specified Document ID",
