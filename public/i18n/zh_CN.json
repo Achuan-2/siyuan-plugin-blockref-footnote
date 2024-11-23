@@ -14,12 +14,17 @@
         },
         "footnoteContainerTitle":{
             "title": "当前文档的脚注容器标题",
-            "description": "当脚注存放位置为“当前文档”时，设置存放脚注的二级标题名<br/>模板变量：<code>${filename}</code>当前文档标题",
-            "value": "脚注"
+            "description": "当脚注存放位置为“当前文档”时，设置存放脚注的标题名（如果不用#指定标题级别，默认为二级标题）<br/>模板变量：<code>${filename}</code>当前文档标题",
+            "value": "## 脚注"
         },
         "footnoteContainerTitle2":{
-            "title": "指定文档和子文档的脚注容器标题",
-            "description": "当脚注存放位置为“指定文档”时，设置存放脚注的二级标题名<br/>当脚注存放位置为“子文档”时，设置存放脚注的文档标题名。<br/>模板变量：<code>${filename}</code>当前文档标题",
+            "title": "指定文档的脚注容器标题",
+            "description": "当脚注存放位置为“指定文档”时，设置存放脚注的标题名（如果不用#指定标题级别，默认为二级标题）<br/>模板变量：<code>${filename}</code>当前文档标题",
+            "value": "## ${filename} 脚注"
+        },
+        "footnoteContainerTitle3":{
+            "title": "子文档的脚注容器标题",
+            "description": "当脚注存放位置为“子文档”时，设置存放脚注的文档标题名<br/>模板变量：<code>${filename}</code>当前文档标题",
             "value": "${filename} 脚注"
         },
         "updateFootnoteContainerTitle":{

@@ -113,6 +113,19 @@ export default class PluginFootnote extends Plugin {
             }
         });
         this.settingUtils.addItem({
+            key: "footnoteContainerTitle3",
+            value: this.i18n.settings.footnoteContainerTitle3.value,
+            type: "textinput",
+            title: this.i18n.settings.footnoteContainerTitle3.title,
+            description: this.i18n.settings.footnoteContainerTitle3.description,
+            action: {
+                // Called when focus is lost and content changes
+                callback: () => {
+                    // Return data and save it in real time
+                }
+            }
+        });
+        this.settingUtils.addItem({
             key: "updateFootnoteContainerTitle",
             value: true,
             type: "checkbox",
@@ -303,9 +316,26 @@ export default class PluginFootnote extends Plugin {
         let currentDocTitle = currentDoc[0].content;
 
         // 获取脚注容器标题
-        const footnoteContainerTitle = this.settingUtils.get("saveLocation") == 1
-            ? this.settingUtils.get("footnoteContainerTitle").replace(/\$\{filename\}/g, currentDocTitle)
-            : this.settingUtils.get("footnoteContainerTitle2").replace(/\$\{filename\}/g, currentDocTitle);
+        let footnoteContainerTitle;
+        switch (this.settingUtils.get("saveLocation")) {
+            case '1':
+                footnoteContainerTitle = this.settingUtils.get("footnoteContainerTitle").replace(/\$\{filename\}/g, currentDocTitle);
+                // 需要检测输入的title有没有#，没有会自动变为二级title
+                if (!footnoteContainerTitle.startsWith("#")) {
+                    footnoteContainerTitle = `## ${footnoteContainerTitle}`;
+                }
+                break;
+            case '2':
+                footnoteContainerTitle = this.settingUtils.get("footnoteContainerTitle2").replace(/\$\{filename\}/g, currentDocTitle);
+                // 需要检测输入的title有没有#，没有会自动变为二级title
+                if (!footnoteContainerTitle.startsWith("#")) {
+                    footnoteContainerTitle = `## ${footnoteContainerTitle}`;
+                }
+                break;
+            case '3':
+                footnoteContainerTitle = this.settingUtils.get("footnoteContainerTitle3").replace(/\$\{filename\}/g, currentDocTitle);
+                break;
+        }
         // 处理文档 ID 和脚注容器 ID
         let docID;
         let footnoteContainerID: string;
@@ -324,11 +354,11 @@ export default class PluginFootnote extends Plugin {
                 );
 
                 if (query_res.length === 0) {
-                    footnoteContainerID = (await appendBlock("markdown", `## ${footnoteContainerTitle}`, docID))[0].doOperations[0].id;
+                    footnoteContainerID = (await appendBlock("markdown", `${footnoteContainerTitle}`, docID))[0].doOperations[0].id;
                 } else {
                     footnoteContainerID = query_res[0].id;
                     if (this.settingUtils.get("updateFootnoteContainerTitle")) {
-                        await updateBlock("markdown", `## ${footnoteContainerTitle}`, footnoteContainerID);
+                        await updateBlock("markdown", `${footnoteContainerTitle}`, footnoteContainerID);
                     }
                 }
 
@@ -353,11 +383,11 @@ export default class PluginFootnote extends Plugin {
                 );
 
                 if (query_res.length === 0) {
-                    footnoteContainerID = (await appendBlock("markdown", `## ${footnoteContainerTitle}`, docID))[0].doOperations[0].id;
+                    footnoteContainerID = (await appendBlock("markdown", `${footnoteContainerTitle}`, docID))[0].doOperations[0].id;
                 } else {
                     footnoteContainerID = query_res[0].id;
                     if (this.settingUtils.get("updateFootnoteContainerTitle")) {
-                        await updateBlock("markdown", `## ${footnoteContainerTitle}`, footnoteContainerID);
+                        await updateBlock("markdown", `${footnoteContainerTitle}`, footnoteContainerID);
                     }
                 }
 

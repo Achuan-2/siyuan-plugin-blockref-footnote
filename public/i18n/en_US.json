@@ -12,14 +12,19 @@
             "title": "Specified Document ID",
             "description": "Takes effect when footnote location is set to Specified document"
         },
-        "footnoteContainerTitle": {
+        "footnoteContainerTitle":{
             "title": "Footnote Container Title",
-            "description": "Set the h2 title to store footnotes when the footnote location is set to Current Document.<br/>Set the document title when the footnote location is set to Child Document.<br/>Template variable: Current document title <code>${filename}</code>",
-            "value": "Footnotes"
+            "description": "Set the document title to store footnotes when the footnote location is set to Current Document.<br/>Template variable: Current document title <code>${filename}</code>",
+            "value": "## Footnotes"
         },
         "footnoteContainerTitle2": {
-            "title": "Footnote Container Title for Specified Document and Child Document",
-            "description": "Set the h2 title to store footnotes when the footnote location is set to Specified Document.<br/>Set the document title when the footnote location is set to Child Document.<br/>Template variable: Current document title <code>${filename}</code>",
+            "title": "Footnote Container Title",
+            "description": "Set the document title to store footnotes when the footnote location is set to Specified Document.<br/>Template variable: Current document title <code>${filename}</code>",
+            "value": "## ${filename} Footnotes"
+        },
+        "footnoteContainerTitle3": {
+            "title": "Footnote Container Title",
+            "description": "Set the document title to store footnotes when the footnote location is set to Child Document.<br/>Template variable: Current document title <code>${filename}</code>",
             "value": "${filename} Footnotes"
         },
         "updateFootnoteContainerTitle": {
