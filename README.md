@@ -6,38 +6,35 @@ Implement footnotes and remarks function using SiYuan's blockref.
 
 > Using the Tsundoku theme for demonstration, the style of nested blockquote has been optimized.
 
-## 📝CHANGELOG
-
-See [CHANGELOG.md](CHANGELOG.md)
-
-
 ## 📝Usage Instructions
 
 > The minimum required version of Siyuan Notes for this plugin is v3.1.13.
 
 **This plugin supports high customization with the following settings:**
 
-- **Footnote Container Settings**
-  - **Footnote Location**: You can set the storage location to be in the current document, a specified document, or a sub-document. The default is `Current Document`.
-  - **Document ID of the Specified Document**: When the footnote location is set to "Specified Document", set a document to store all footnotes.
-  - **Footnote Container Title in the Current Document**: When the footnote location is set to "Current Document", set the h2 title for storing footnotes.
-  - **Footnote Container Title in the Specified Document and Sub-document**: When the footnote location is set to "Specified Document", set the h2 title for storing footnotes. When the footnote location is set to "Sub-document", set the document title for storing footnotes.
-  - **Automatically Update Footnote Container Title**: Whether to automatically update the footnote container title to match the set template each time a footnote is created.
-- **Footnote Reference Style**: The style of footnote references: "Blockquote" or "Block Link".
-- **Footnote Blockquote Anchor Text**: Set the anchor text for footnote references. The default is `[Note]`.
-- **Selected Text Style**: You can add styles such as bold, highlight, italic, or underline to the selected text. The default is `None`.
-- **Order of Inserting Footnotes**: Ascending or descending order. The default is `Ascending`.
-- **Footnote Content Template**: To set up a template for footnotes, it is recommended to use nested quote blocks or a combination of super blocks to store the footnote content. This ensures that the footnote content is contained within a single block. `${selection}` represents the content of the selected text, `${content}` is a placeholder for the footnote content, and `${refID}` is the ID of the block where the selected text is located. And you can use kramdown syntax to define the block styles.
-  - **Nested Quote Block Template**
+- **Footnote Storage Settings**
+  - **Footnote Location**: You can set footnotes to be stored in the current document, specified document, sub-document, or after parent block. Default is `Current Document`.
+  - **Document ID for Specified Document**: When footnote location is "Specified Document", set a document to store all footnotes.
+  - **Container Title in Current Document**: When using current document storage, set the h2 heading for footnotes.
+  - **Container Title in Specified Document**: When using specified document storage, set the h2 heading for footnotes.
+  - **Container Title in Sub-document**: When using sub-document storage, set the document title for footnotes.
+  - **Auto Update Container Title**: Whether to automatically update the container title to match template settings when creating footnotes.
+  - **Footnote Insertion Order**: Ascending or descending order, default: `Ascending`.
 
+- **Footnote Style Settings**
+  - **Reference Style**: Choose between "Block Reference" or "Block Link".
+  - **Reference Anchor Text**: Set the anchor text for footnote references, default: `[Note]`.
+  - **Selected Text Style**: Choose between no style or custom style, default: `No Style`. Note: For overlapping text footnotes, disable custom styling to avoid conflicts.
+  - **Footnote Content Template**: Set template for footnotes using nested quotes or super blocks. Variables: `${selection}` (selected text), `${content}` (footnote content), `${refID}` (block ID). Supports kramdown syntax for block styling.
+
+    - Nested Quote Template:
     ```markdown
     >> ${selection} [[↩️]](siyuan://blocks/${refID})
     >> 
     > 💡${content}
     ```
 
-  - **Vertical Super Block Combination Template**
-
+    - Vertical Super Block Template:
     ```markdown
     {{{row
     > ${selection} [[↩️]](siyuan://blocks/${refID})
@@ -46,34 +43,35 @@ See [CHANGELOG.md](CHANGELOG.md)
     }}}
     {: style="border: 2px dashed var(--b3-border-color);"}
     ```
-  - Use list items to store references to the original block, with the selected text as the anchor text. You can view all footnotes in the backlink panel of the current document.
-    ```
+
+    - List Item Template with Backlinks:
+    ```markdown
     -  ((${refID} "${selection}"))
 
-       {{{row
-       ${content}
-       }}}
-
+      {{{row
+      ${content}
+      }}}
     ```
 
+![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-24_01-26-22-2024-11-24.png)
 
-![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-21_08-53-00-2024-11-21.png)
+Supports simultaneous deletion of footnote references and content via right-click menu [Plugin -> Delete Footnote].
 
-To simultaneously delete footnote references and footnote content, you can right-click on the footnote reference and select `[Plugin -> Delete Footnote]` from the menu.
+![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-18_16-39-18-2024-11-18.png)
 
-![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-18_16-24-25-2024-11-18.png)
+Supports multiple annotations for the same text.
 
+![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/%E6%80%9D%E6%BA%90%E7%AC%94%E8%AE%B0%E8%84%9A%E6%B3%A8%E6%8F%92%E4%BB%B6%E6%94%AF%E6%8C%81%E5%AF%B9%E5%90%8C%E4%B8%80%E4%B8%AA%E6%96%87%E6%9C%AC%E8%BF%9B%E8%A1%8C%E5%A4%9A%E6%AC%A1%E5%A4%87%E6%B3%A8-2024-11-19.gif)
 
-## 🙏 Acknowledge
+## 🙏Acknowledgments 
 
-- [https://github.com/zxhd863943427/siyuan-plugin-memo](https://github.com/zxhd863943427/siyuan-plugin-memo)
-- [https://github.com/siyuan-note/plugin-sample-vite-svelte](https://github.com/siyuan-note/plugin-sample-vite-svelte)
+- [https://github.com/zxhd863943427/siyuan-plugin-memo](https://github.com/zxhd863943427/siyuan-plugin-memo): Improved based on this plugin, adding more features and configuration options
+- [https://github.com/siyuan-note/plugin-sample-vite-svelte](https://github.com/siyuan-note/plugin-sample-vite-svelte): Using this plugin template greatly improved development efficiency
 
-## ❤️ Donation
+## ❤️Donation
 
-A poor graduate student in the process of studying. If you like my plugin, feel free to buy me a pack of spicy strips. This will motivate me to continue improving this plugin and developing new ones.
+A poor graduate student in the process of studying. If you like my plugin, feel free to star the GitHub repository and donate. This will motivate me to continue improving this plugin and developing new ones.
 
 ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/20241118182532-2024-11-18.png)
 
-
-> 2024.11.20, thanks to muhaha for donating ¥30 
+> 2024.11.20, thanks to muhaha for donating ¥30
