@@ -36,6 +36,27 @@ export default class PluginFootnote extends Plugin {
         return toolbar;
     }
 
+    private getDefaultSettings() {
+        return {
+            saveLocation: '1',
+            footnoteContainerTitle: this.i18n.settings.footnoteContainerTitle.value,
+            docID: "",
+            footnoteContainerTitle2: this.i18n.settings.footnoteContainerTitle2.value,
+            footnoteContainerTitle3: this.i18n.settings.footnoteContainerTitle3.value,
+            updateFootnoteContainerTitle: true,
+            order: '1',
+            footnoteRefStyle: '1',
+            footnoteBlockref: this.i18n.settings.footnoteBlockref.value,
+            selectFontStyle: '1',
+            templates: `{{{row
+> \${selection} [[↩️]](siyuan://blocks/\${refID})
+
+\${content}
+}}}
+{: style="border: 2px dashed var(--b3-border-color);"}}`,
+        };
+    }
+
     async onload() {
 
 
@@ -55,6 +76,15 @@ export default class PluginFootnote extends Plugin {
           通过 type 自动指定 action 元素类型； value 填写默认值
         */
 
+        // Container Settings Group
+        this.settingUtils.addItem({
+            type: 'hint',
+            key: 'containerGroup',
+            value: '',
+            title: this.i18n.settings.groups?.container || 'Container Settings',
+            class: ""
+        });
+
         this.settingUtils.addItem({
             key: "saveLocation",
             value: '1',
@@ -65,13 +95,16 @@ export default class PluginFootnote extends Plugin {
                 1: this.i18n.settings.saveLocation.current,
                 2: this.i18n.settings.saveLocation.specified,
                 3: this.i18n.settings.saveLocation.childDoc
-            },
-            action: {
-                callback: () => {
-                    // Read data in real time
-                    // this.settingUtils.takeAndSave("saveLocation")
-                }
             }
+        });
+
+
+        this.settingUtils.addItem({
+            key: "footnoteContainerTitle",
+            value: this.i18n.settings.footnoteContainerTitle.value,
+            type: "textinput",
+            title: this.i18n.settings.footnoteContainerTitle.title,
+            description: this.i18n.settings.footnoteContainerTitle.description,
         });
         this.settingUtils.addItem({
             key: "docID",
@@ -79,65 +112,52 @@ export default class PluginFootnote extends Plugin {
             type: "textinput",
             title: this.i18n.settings.docId.title,
             description: this.i18n.settings.docId.description,
-            action: {
-                // Called when focus is lost and content changes
-                callback: () => {
-                    // Return data and save it in real time
-                }
-            }
         });
-        this.settingUtils.addItem({
-            key: "footnoteContainerTitle",
-            value: this.i18n.settings.footnoteContainerTitle.value,
-            type: "textinput",
-            title: this.i18n.settings.footnoteContainerTitle.title,
-            description: this.i18n.settings.footnoteContainerTitle.description,
-            action: {
-                // Called when focus is lost and content changes
-                callback: () => {
-                    // Return data and save it in real time
-                }
-            }
-        });
+
         this.settingUtils.addItem({
             key: "footnoteContainerTitle2",
             value: this.i18n.settings.footnoteContainerTitle2.value,
             type: "textinput",
             title: this.i18n.settings.footnoteContainerTitle2.title,
             description: this.i18n.settings.footnoteContainerTitle2.description,
-            action: {
-                // Called when focus is lost and content changes
-                callback: () => {
-                    // Return data and save it in real time
-                }
-            }
         });
+
         this.settingUtils.addItem({
             key: "footnoteContainerTitle3",
             value: this.i18n.settings.footnoteContainerTitle3.value,
             type: "textinput",
             title: this.i18n.settings.footnoteContainerTitle3.title,
             description: this.i18n.settings.footnoteContainerTitle3.description,
-            action: {
-                // Called when focus is lost and content changes
-                callback: () => {
-                    // Return data and save it in real time
-                }
-            }
         });
+
         this.settingUtils.addItem({
             key: "updateFootnoteContainerTitle",
             value: true,
             type: "checkbox",
             title: this.i18n.settings.updateFootnoteContainerTitle.title,
             description: this.i18n.settings.updateFootnoteContainerTitle.description,
-            action: {
-                // Called when focus is lost and content changes
-                callback: () => {
-                    // Return data and save it in real time
-                }
+        });
+        this.settingUtils.addItem({
+            key: "order",
+            value: '1',
+            type: "select",
+            title: this.i18n.settings.order.title,
+            description: this.i18n.settings.order.description,
+            options: {
+                1: this.i18n.settings.order.asc,
+                2: this.i18n.settings.order.desc,
             }
         });
+
+        // Style Settings Group
+        this.settingUtils.addItem({
+            type: 'hint',
+            key: 'styleGroup',
+            value: '',
+            title: this.i18n.settings.groups?.style || 'Style Settings',
+            class: 'fn__flex-center config-group-header'
+        });
+
         this.settingUtils.addItem({
             key: "footnoteRefStyle",
             value: '1',
@@ -147,26 +167,17 @@ export default class PluginFootnote extends Plugin {
             options: {
                 1: this.i18n.settings.footnoteRefStyle.ref,
                 2: this.i18n.settings.footnoteRefStyle.link,
-            },
-            action: {
-                callback: () => {
-                    // Read data in real time
-                }
             }
         });
+
         this.settingUtils.addItem({
             key: "footnoteBlockref",
             value: this.i18n.settings.footnoteBlockref.value,
             type: "textinput",
             title: this.i18n.settings.footnoteBlockref.title,
             description: this.i18n.settings.footnoteBlockref.description,
-            action: {
-                // Called when focus is lost and content changes
-                callback: () => {
-                    // Return data and save it in real time
-                }
-            }
         });
+
         this.settingUtils.addItem({
             key: "selectFontStyle",
             value: '1',
@@ -179,29 +190,10 @@ export default class PluginFootnote extends Plugin {
                 3: this.i18n.settings.selectFontStyle.highlight,
                 4: this.i18n.settings.selectFontStyle.bold,
                 5: this.i18n.settings.selectFontStyle.italic
-            },
-            action: {
-                callback: () => {
-                    // Read data in real time
-                }
             }
         });
-        this.settingUtils.addItem({
-            key: "order",
-            value: '1',
-            type: "select",
-            title: this.i18n.settings.order.title,
-            description: this.i18n.settings.order.description,
-            options: {
-                1: this.i18n.settings.order.asc,
-                2: this.i18n.settings.order.desc,
-            },
-            action: {
-                callback: () => {
-                    // Read data in real time
-                }
-            }
-        });
+
+
         this.settingUtils.addItem({
             key: "templates",
             value: `{{{row
@@ -213,10 +205,28 @@ export default class PluginFootnote extends Plugin {
             type: "textarea",
             title: this.i18n.settings.template.title,
             description: this.i18n.settings.template.description,
-            action: {
-                // Called when focus is lost and content changes
-                callback: () => {
-                    // Return data and save it in real time
+        });
+
+        // Reset Settings Button
+        this.settingUtils.addItem({
+            key: "resetConfig",
+            value: "",
+            type: "button",
+            title: this.i18n.settings.reset?.title || "Reset Settings",
+            description: this.i18n.settings.reset?.description || "Reset all settings to default values",
+            button: {
+                label: this.i18n.settings.reset?.label || "Reset",
+                callback:  async () => {
+                    // if (confirm(this.i18n.settings.reset.confirm)) {
+                        const defaultSettings = this.getDefaultSettings();
+                        // Update each setting item's value and UI element  只是UI改了，json的值没有改
+                        for (const [key, value] of Object.entries(defaultSettings)) {
+                            await this.settingUtils.set(key, value);
+                        }
+                        // await this.settingUtils.load();
+                    // }
+                    // 光标重新点击
+
                 }
             }
         });
@@ -524,7 +534,7 @@ export default class PluginFootnote extends Plugin {
         // 关闭工具栏
         protyle.toolbar.element.classList.add("fn__none")
 
-        // 显示块引浮窗，来填写内容
+        // 显示浮窗，来填写内容
         this.addFloatLayer({
             ids: [newBlockId],
             defIds: [],
