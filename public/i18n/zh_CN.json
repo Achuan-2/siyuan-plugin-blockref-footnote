@@ -1,6 +1,10 @@
 {
     "tips": "添加脚注",
     "settings": {
+        "groups": {
+            "container": "<b style='font-size: 130%'>脚注存放设置</b>",
+            "style": "<b style='font-size: 130%'>脚注样式设置</b>"
+        },
         "saveLocation": {
             "title": "脚注存放位置",
             "description": "将脚注存放于当前文档、指定文档或子文档",
@@ -12,22 +16,22 @@
             "title": "指定文档的文档ID",
             "description": "当脚注存放位置为“指定文档”时，通过文档ID指定文档，设置这个文档存放所有的脚注，方便导出"
         },
-        "footnoteContainerTitle":{
+        "footnoteContainerTitle": {
             "title": "当前文档的脚注容器标题",
             "description": "当脚注存放位置为“当前文档”时，设置存放脚注的标题名（如果不用#指定标题级别，默认为二级标题）<br/>模板变量：<code>${filename}</code>当前文档标题",
             "value": "## 脚注"
         },
-        "footnoteContainerTitle2":{
+        "footnoteContainerTitle2": {
             "title": "指定文档的脚注容器标题",
             "description": "当脚注存放位置为“指定文档”时，设置存放脚注的标题名（如果不用#指定标题级别，默认为二级标题）<br/>模板变量：<code>${filename}</code>当前文档标题",
             "value": "## ${filename} 脚注"
         },
-        "footnoteContainerTitle3":{
+        "footnoteContainerTitle3": {
             "title": "子文档的脚注容器标题",
             "description": "当脚注存放位置为“子文档”时，设置存放脚注的文档标题名<br/>模板变量：<code>${filename}</code>当前文档标题",
             "value": "${filename} 脚注"
         },
-        "updateFootnoteContainerTitle":{
+        "updateFootnoteContainerTitle": {
             "title": "是否自动更新脚注容器标题",
             "description": "每次创建脚注是否根据模板自动更新脚注容器标题"
         },
@@ -60,6 +64,12 @@
         "template": {
             "title": "脚注内容模版",
             "description": "模板变量：<code>${selection}</code>选中文本的内容，<code>${content}</code>脚注内容占位，<code>${refID}</code>选中文本所在的块的ID<br/>可以使用kramdown语法设置块样式"
+        },
+        "reset": {
+            "title": "<span data-type=\"strong text\" style=\"color: var(--b3-font-color1); font-size: 130%\">重置设置</span>",
+            "description": "重置所有设置为默认值",
+            "label": "重置",
+            "confirm": "是否重置该插件所有设置为默认值？"
         }
     },
     "deleteFootnote": "删除脚注",
