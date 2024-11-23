@@ -274,7 +274,6 @@ export default class PluginFootnote extends Plugin {
         // 获取当前光标所在块的 ID
         const currentBlockId = protyle.toolbar.range.startContainer.parentElement.closest('[data-node-id]')?.getAttribute('data-node-id');
         const currentParentBlockId = protyle.toolbar.range.startContainer.parentElement.closest('.protyle-wysiwyg > [data-node-id]')?.getAttribute('data-node-id');
-        console.log(currentBlockId, currentParentBlockId);
         // 先复制选中内容
         const getSelectedHtml = (range: Range): string => {
             // 创建临时容器
@@ -439,7 +438,12 @@ export default class PluginFootnote extends Plugin {
 
             case '4': // 父块后
                 docID = protyle.block.id;
-                footnoteContainerID = currentParentBlockId;
+                if (currentParentBlockId == null) {
+                    footnoteContainerID = currentBlockId;
+                }
+                else {
+                    footnoteContainerID = currentParentBlockId;
+                }
                 break;
         }
 
@@ -481,18 +485,20 @@ export default class PluginFootnote extends Plugin {
                 default:
                     
                     function findNextSiblingIdWithoutFootnote(id) {
+                        console.log(id);
                         // 首先找到目标块
-                        const targetBlock = document.querySelector(`[data-node-id="${id}"]`);
-
+                        const targetBlock = document.querySelector(`.protyle-wysiwyg [data-node-id="${id}"]`);
+                        console.log(targetBlock);
                         if (!targetBlock) {
                             return null;
                         }
 
                         // 使用nextElementSibling获取下一个兄弟元素
                         let nextSibling = targetBlock.nextElementSibling;
-
+                        console.log(nextSibling);
                         // 遍历所有后续兄弟元素，直到找到符合条件的元素
                         while (nextSibling) {
+                            console.log(nextSibling.getAttribute('data-node-id'));
                             // 检查是否没有custom-plugin-footnote-content="true"属性
                             if (!nextSibling.hasAttribute('custom-plugin-footnote-content')) {
                                 // 返回找到的元素的data-node-id属性值
