@@ -46,10 +46,7 @@
             "title": "Selected Text Style",
             "description": "Style for selected text",
             "none": "None",
-            "underline": "Underline",
-            "highlight": "Highlight",
-            "bold": "Bold",
-            "italic": "Italic"
+            "custom": "Custom Style"
         },
         "order": {
             "title": "Footnote Insert Order",
@@ -61,6 +58,10 @@
             "title": "Footnote Blockref Anchor Text",
             "description": "Custom anchor text",
             "value": "[Footnote]"
+        },
+        "enableOrderedFootnotes": {
+            "title": "Enable Ordered Footnotes",
+            "description": "Use automatic numbering instead of custom anchor text"
         },
         "template": {
             "title": "Footnote Template",

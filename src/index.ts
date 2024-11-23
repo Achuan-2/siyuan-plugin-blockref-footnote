@@ -18,7 +18,6 @@ export default class PluginFootnote extends Plugin {
 
     // private isMobile: boolean;
     private settingUtils: SettingUtils;
-
     // 添加工具栏按钮
     updateProtyleToolbar(toolbar: Array<string | IMenuItem>) {
         toolbar.push(
@@ -54,6 +53,7 @@ export default class PluginFootnote extends Plugin {
 \${content}
 }}}
 {: style="border: 2px dashed var(--b3-border-color);"}}`,
+            enableOrderedFootnotes: false, // Add new setting
         };
     }
 
@@ -178,7 +178,14 @@ export default class PluginFootnote extends Plugin {
             title: this.i18n.settings.footnoteBlockref.title,
             description: this.i18n.settings.footnoteBlockref.description,
         });
-
+        // Add ordered footnotes setting
+        // this.settingUtils.addItem({
+        //     key: "enableOrderedFootnotes",
+        //     value: false,
+        //     type: "checkbox",
+        //     title: this.i18n.settings.enableOrderedFootnotes.title,
+        //     description: this.i18n.settings.enableOrderedFootnotes.description,
+        // });
         this.settingUtils.addItem({
             key: "selectFontStyle",
             value: '1',
@@ -187,13 +194,9 @@ export default class PluginFootnote extends Plugin {
             description: this.i18n.settings.selectFontStyle.description,
             options: {
                 1: this.i18n.settings.selectFontStyle.none,
-                2: this.i18n.settings.selectFontStyle.underline,
-                3: this.i18n.settings.selectFontStyle.highlight,
-                4: this.i18n.settings.selectFontStyle.bold,
-                5: this.i18n.settings.selectFontStyle.italic
+                2: this.i18n.settings.selectFontStyle.custom
             }
         });
-
 
         this.settingUtils.addItem({
             key: "templates",
@@ -247,30 +250,54 @@ export default class PluginFootnote extends Plugin {
 
 
     private deleteMemo = ({ detail }: any) => {
-        if (detail.element && detail.element.getAttribute("custom-footnote") ) {
+        if (detail.element && detail.element.getAttribute("custom-footnote")) {
             detail.menu.addItem({
                 icon: "iconTrashcan",
                 label: this.i18n.deleteFootnote,
                 click: () => {
-                    // 需要判断detail.element有没有data-id选项，如果没有，则获取data-href属性，根据形如"siyuan://blocks/20241121090047-wos8vvf"获取blocks/后面的id
                     const footnote_content_id = detail.element.getAttribute("custom-footnote");
-                    if (footnote_content_id && footnote_content_id != "true") {
-                        // 删除脚注内容
-                        deleteBlock(detail.element.getAttribute("custom-footnote"));
-                    } else {
-                        // 兼容下过去的格式
-                        if (detail.element.getAttribute("data-id")) {
-                            // 删除脚注内容
-                            deleteBlock(detail.element.getAttribute("data-id"));
+
+                    // Clean up styled text before the footnote reference
+                    let currentElement = detail.element;
+                    while (currentElement.previousElementSibling) {
+                        const prevElement = currentElement.previousElementSibling;
+                        if (prevElement.tagName === 'SPAN' && 
+                            prevElement.getAttribute('data-type')?.includes('custom-footnote-selected-text')) {
+                            // Remove the custom style from data-type
+                            const currentDataType = prevElement.getAttribute('data-type');
+                            const newDataType = currentDataType
+                                .replace(/\s*custom-footnote-selected-text\s*/g, '')
+                                .trim();
+                            
+                            if (newDataType) {
+                                prevElement.setAttribute('data-type', newDataType);
+                            } else {
+                                prevElement.removeAttribute('data-type');
+                            }
                         } else {
-                            let id = detail.element.getAttribute("data-href").match(/blocks\/([^\/]+)/)?.[1];
-                            // 删除脚注内容
-                            deleteBlock(id);
+                            break; // Stop if we find an element without the custom style
                         }
+                        currentElement = prevElement;
                     }
                     
-                    // 删除块引
+                    // Delete footnote content block
+                    if (footnote_content_id && footnote_content_id != "true") {
+                        deleteBlock(footnote_content_id);
+                    } else {
+                        // Handle legacy format
+                        let id;
+                        if (detail.element.getAttribute("data-id")) {
+                            id = detail.element.getAttribute("data-id");
+                        } else {
+                            id = detail.element.getAttribute("data-href").match(/blocks\/([^\/]+)/)?.[1];
+                        }
+                        deleteBlock(id);
+                    }
+                    
+                    // Delete blockref
                     detail.element.remove();
+
+                    
                 }
             });
         }
@@ -303,33 +330,7 @@ export default class PluginFootnote extends Plugin {
             };
         }
 
-        // 选中的文本添加样式
-        switch (this.settingUtils.get("selectFontStyle")) {
-            case '2':
-                // 使用正则表达式精确匹配 u 标签
-                if (!formatData?.datatype?.match(/\bu\b/)) {
-                    protyle.toolbar.setInlineMark(protyle, "u", "range");
-                }
-                break;
-            case '3':
-                if (!formatData?.datatype?.match(/\bmark\b/)) {
-                    protyle.toolbar.setInlineMark(protyle, "mark", "range");
-                }
-                break;
-            case '4':
-                if (!formatData?.datatype?.match(/\bstrong\b/)) {
-                    protyle.toolbar.setInlineMark(protyle, "strong", "range");
-                }
-                break;
-            case '5':
-                if (!formatData?.datatype?.match(/\bem\b/)) {
-                    protyle.toolbar.setInlineMark(protyle, "em", "range");
-                }
-                break;
-            default:
-                // 默认选中文本不添加样式
-                break;
-        }
+
         // 获取当前文档标题
         let currentDoc = await sql(`SELECT * FROM blocks WHERE id = '${protyle.block.id}' LIMIT 1`);
         let currentDocTitle = currentDoc[0].content;
@@ -466,14 +467,17 @@ export default class PluginFootnote extends Plugin {
         // 正则表达式匹配 <span class="katex">...</span> 及其内容
         let katexPattern = /<span class="katex">[\s\S]*?<\/span>(<\/span>)*<\/span>/g;
 
+        // 正则表达式匹配并替换 data-type 中的 custom-footnote-selected-text（包含可能的空格）
+        let selectedTextPattern = /\s*custom-footnote-selected-text\s*/g;
+
         // 使用 replace() 方法替换匹配的部分为空字符串
-        let cleanSelection = selection.replace(katexPattern, '').replace(customFootnotePattern, '');
+        let cleanSelection = selection.replace(katexPattern, '').replace(customFootnotePattern, '').replace(selectedTextPattern, '');
         let templates = this.settingUtils.get("templates");
         templates = templates.replace(/\$\{selection\}/g, cleanSelection);
         templates = templates.replace(/\$\{content\}/g, zeroWhite);
         templates = templates.replace(/\$\{refID\}/g, currentBlockId);
 
-        // 插入脚注
+        // 插入脚注内容
         let back;
         // 如果this.settingUtils.get("saveLocation")不等于4，则按照设置来插入，否则直接在父块后插入
         if (this.settingUtils.get("saveLocation") == '4') {
@@ -575,18 +579,32 @@ export default class PluginFootnote extends Plugin {
         }
 
         let newBlockId = back[0].doOperations[0].id
-        // 添加脚注属性
+        // 添加脚注内容属性
         await setBlockAttrs(newBlockId, { "custom-plugin-footnote-content": 'true' });
-        // 添加脚注引用
-        const { x, y } = protyle.toolbar.range.getClientRects()[0]
-        let range = protyle.toolbar.range;
 
+
+        // 选中的文本添加样式
+        let range = protyle.toolbar.range;
+        if (this.settingUtils.get("selectFontStyle") === '2') {
+            
+            if (!formatData?.datatype?.match(/\bcustom-footnote-selected-text\b/)) {
+                protyle.toolbar.setInlineMark(protyle, "custom-footnote-selected-text", "range");
+            }
+
+        }
+
+        // --------------------------添加脚注引用 -------------------------- // 
+
+        protyle.toolbar.range = range;
+        const { x, y } = protyle.toolbar.range.getClientRects()[0]
         // 将range的起始点和结束点都移动到选中文本的末尾
-        range.collapse(false);
+        range.collapse(false); 
+        // 清除样式，避免带上选中文本的样式
+        protyle.toolbar.setInlineMark(protyle, "clear", "range");
 
 
         // 添加块引，同时添加上标样式
-        protyle.toolbar.setInlineMark(protyle, "clear", "toolbar");
+        // protyle.toolbar.setInlineMark(protyle, "clear", "toolbar");
         let memoELement;
         switch (this.settingUtils.get("footnoteRefStyle")) {
             case '2':

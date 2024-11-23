@@ -44,12 +44,9 @@
         },
         "selectFontStyle": {
             "title": "选中文本的样式",
-            "description": "选中文本是否添加样式",
+            "description": "选中文本是否添加样式</br>注意：所以如果有对重叠文字重复添加脚注的需求，请不要开启自定义样式，会有样式冲突问题",
             "none": "无",
-            "underline": "下划线",
-            "highlight": "高亮",
-            "bold": "加粗",
-            "italic": "斜体"
+            "custom": "自定义样式"
         },
         "order": {
             "title": "插入脚注的顺序",
@@ -61,6 +58,10 @@
             "title": "脚注引用锚文本",
             "description": "自定义锚文本",
             "value": "[注]"
+        },
+        "enableOrderedFootnotes": {
+            "title": "启用脚注编号",
+            "description": "使用自动编号替代自定义锚文本"
         },
         "template": {
             "title": "脚注内容模版",

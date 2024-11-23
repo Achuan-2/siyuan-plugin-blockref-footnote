@@ -6,3 +6,8 @@
     margin: 0 1px;
     border-radius: 3px;
 }
+
+
+.protyle-wysiwyg [data-node-id] span[data-type~="custom-footnote-selected-text"] {
+    border-bottom: 2px dashed var(--b3-font-color5);
+}
