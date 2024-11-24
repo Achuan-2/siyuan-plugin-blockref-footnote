@@ -462,7 +462,7 @@ export default class PluginFootnote extends Plugin {
 
         // 过滤掉脚注文本 <sup>((id "text"))</sup>
         // 正则表达式匹配包含 custom-footnote="true" 的 <span> 标签
-        let customFootnotePattern = /<span[^>]*?custom-footnote="true"[^>]*?>.*?<\/span>/g;
+        let customFootnotePattern = /<span[^>]*?custom-footnote=[^>]*?>.*?<\/span>/g;
 
         // 正则表达式匹配 <span class="katex">...</span> 及其内容
         let katexPattern = /<span class="katex">[\s\S]*?<\/span>(<\/span>)*<\/span>/g;
