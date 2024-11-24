@@ -6,7 +6,7 @@ import {
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
-import { appendBlock, deleteBlock, setBlockAttrs, pushErrMsg, sql, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd, getBlockKramdown } from "./api";
+import { appendBlock, deleteBlock, setBlockAttrs, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd, getBlockKramdown } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
 
 const STORAGE_NAME = "config";
@@ -497,6 +497,28 @@ export default class PluginFootnote extends Plugin {
         templates = templates.replace(/\$\{selection\}/g, cleanSelection);
         templates = templates.replace(/\$\{content\}/g, zeroWhite);
         templates = templates.replace(/\$\{refID\}/g, currentBlockId);
+        templates = await renderTemplates(templates);
+
+        async function renderTemplates(templates: string): Promise<string> {
+            // First pattern to match ${{...}}
+            const dollarPattern = /\$(\{\{[^}]*\}\})/g;
+            let renderedTemplate = templates;
+            let match;
+
+            // Process each ${{...}} block one at a time
+            while ((match = dollarPattern.exec(templates)) !== null) {
+                const sprigExpression = match[1]; // 获取{{...}}部分
+                console.log("Sprig expression:", sprigExpression);
+                // Render the sprig expression using renderSprig
+                const renderedAction = await renderSprig(sprigExpression);
+                // Replace the entire ${{...}} block with the rendered result
+                renderedTemplate = renderedTemplate.replace(match[0], renderedAction);
+            }
+
+            // Finally render the complete template
+            return await renderedTemplate;
+        }
+
 
         // 插入脚注内容
         let back;

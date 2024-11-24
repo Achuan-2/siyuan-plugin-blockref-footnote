@@ -65,7 +65,7 @@
         },
         "template": {
             "title": "Footnote Template",
-            "description": "Template variables: <code>${selection}</code> is the content of the selected text , <code>${content}</code> is the placeholder for footnote content, and <code>${refID}</code> is the block ID containing the selected text <br/>You can use kramdown syntax to style the block."
+            "description": "Template variables: <code>${selection}</code> is the content of the selected text , <code>${content}</code> is the placeholder for footnote content, and <code>${refID}</code> is the block ID containing the selected text <br/> ${{...}} for Sprig templated, e.g. ${{now | date \"20060102 15:04:05\"}} </br>You can use kramdown syntax to style the block."
         },
         "reset": {
             "title": "<span data-type=\"strong text\" style=\"color: var(--b3-font-color1); font-size: 130%\">Reset Settings</span>",
