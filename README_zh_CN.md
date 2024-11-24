@@ -17,7 +17,7 @@ v1.1.3 / 2024.11.24
     >> 
     > 💡${content}
     ```
-    ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-24_13-44-34-2024-11-24.png)
+    ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-24_15-03-43-2024-11-24.png)
 
   
 v1.1.2 /2024.11.24

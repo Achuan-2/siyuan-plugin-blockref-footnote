@@ -8,10 +8,10 @@
     >> 
     > 💡${content}
     ```
-    ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-24_13-44-34-2024-11-24.png)
+    ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-24_15-03-43-2024-11-24.png)
 
 
-    
+
 ## v1.1.2 /2024.11.24
 - 🐛 脚注内容模板中的selection变量：过滤掉脚注文本的正则表达式优化
 - ✨ 选中文本添加自定义样式，现在支持对重叠文字添加不同脚注时，能保留不同脚注的选中文字样式，删除脚注时，只删除当前脚注选中的文本，不影响其他脚注选中文字的样式
