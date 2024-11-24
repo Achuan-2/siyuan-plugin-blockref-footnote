@@ -24,6 +24,7 @@ export default class PluginFootnote extends Plugin {
             {
                 name: "footnote",
                 icon: "iconFootnote",
+                // hotkey: "⇧⌘F",
                 tipPosition: "n",
                 tip: this.i18n.tips,
                 click: (protyle: Protyle) => {
@@ -34,6 +35,7 @@ export default class PluginFootnote extends Plugin {
         );
         return toolbar;
     }
+    
 
     private getDefaultSettings() {
         return {
@@ -58,8 +60,18 @@ export default class PluginFootnote extends Plugin {
     }
 
     async onload() {
+        // 注册快捷键
+        this.addCommand({
+            langKey: this.i18n.tips,
+            hotkey: "⇧⌘F",
+            callback: () => {
+            },
+            editorCallback: (protyle: any) => {
+                this.protyle = protyle;
+                this.addMemoBlock(this.protyle);
+            },
 
-
+        });
 
         this.settingUtils = new SettingUtils({
             plugin: this, name: STORAGE_NAME
