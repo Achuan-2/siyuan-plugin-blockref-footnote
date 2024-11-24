@@ -7,8 +7,8 @@
         },
         "saveLocation": {
             "title": "脚注存放位置",
-            "description": "将脚注存放于当前文档、指定文档或子文档",
-            "current": "当前文档",
+            "description": "将脚注存放于当前文档末尾、指定文档、子文档、父块后",
+            "current": "当前文档末尾",
             "specified": "指定文档",
             "childDoc": "子文档",
             "afterParent": "父块后"
@@ -44,7 +44,7 @@
         },
         "selectFontStyle": {
             "title": "选中文本的样式",
-            "description": "选中文本是否添加样式</br>注意：如果有对重叠文字重复添加脚注的需求，请不要开启自定义样式，会有样式冲突问题",
+            "description": "选中文本是否添加样式",
             "none": "无",
             "custom": "自定义样式"
         },

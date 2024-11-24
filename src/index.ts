@@ -266,9 +266,12 @@ export default class PluginFootnote extends Plugin {
                             // Remove the custom style from data-type
                             const currentDataType = prevElement.getAttribute('data-type');
                             const newDataType = currentDataType
-                                .replace(/\s*custom-footnote-selected-text\s*/g, '')
+                                .replace(/\s*custom-footnote-selected-text(?!-)\s*/g, '') // 只匹配后面没有连字符的情况
+                                .replace(new RegExp(`\\s*custom-footnote-selected-text-${footnote_content_id}\\s*`, 'g'), '')
                                 .trim();
-                            
+
+
+
                             if (newDataType) {
                                 prevElement.setAttribute('data-type', newDataType);
                             } else {
@@ -469,9 +472,15 @@ export default class PluginFootnote extends Plugin {
 
         // 正则表达式匹配并替换 data-type 中的 custom-footnote-selected-text（包含可能的空格）
         let selectedTextPattern = /\s*custom-footnote-selected-text\s*/g;
+        // 正则表达式匹配不含data-type的普通span标签，提取其中的文本
+        let plainSpanPattern = /<span(?![^>]*data-type)[^>]*>(.*?)<\/span>/g;
 
         // 使用 replace() 方法替换匹配的部分为空字符串
-        let cleanSelection = selection.replace(katexPattern, '').replace(customFootnotePattern, '').replace(selectedTextPattern, '');
+        let cleanSelection = selection
+            .replace(katexPattern, '')
+            .replace(customFootnotePattern, '')
+            .replace(selectedTextPattern, '')
+            .replace(plainSpanPattern, '$1'); // 保留span标签中的文本内容
         let templates = this.settingUtils.get("templates");
         templates = templates.replace(/\$\{selection\}/g, cleanSelection);
         templates = templates.replace(/\$\{content\}/g, zeroWhite);
@@ -584,13 +593,11 @@ export default class PluginFootnote extends Plugin {
 
 
         // 选中的文本添加样式
+        // 选中的文本添加样式
         let range = protyle.toolbar.range;
         if (this.settingUtils.get("selectFontStyle") === '2') {
-            
-            if (!formatData?.datatype?.match(/\bcustom-footnote-selected-text\b/)) {
-                protyle.toolbar.setInlineMark(protyle, "custom-footnote-selected-text", "range");
-            }
-
+            // 在想要不要不用时间戳，用id来标识，这样貌似更方便删除
+            protyle.toolbar.setInlineMark(protyle, `custom-footnote-selected-text-${newBlockId}`, "range");
         }
 
         // --------------------------添加脚注引用 -------------------------- // 
@@ -598,9 +605,13 @@ export default class PluginFootnote extends Plugin {
         protyle.toolbar.range = range;
         const { x, y } = protyle.toolbar.range.getClientRects()[0]
         // 将range的起始点和结束点都移动到选中文本的末尾
-        range.collapse(false); 
-        // 清除样式，避免带上选中文本的样式
-        protyle.toolbar.setInlineMark(protyle, "clear", "range");
+        range.collapse(false); // false 表示将光标移动到选中文本的末尾
+        
+        // 需要先清除样式，避免带上选中文本的样式
+        try {
+            protyle.toolbar.setInlineMark(protyle, "clear", "range");
+        }catch (e) {
+        }
 
 
         // 添加块引，同时添加上标样式
