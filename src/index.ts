@@ -56,6 +56,7 @@ export default class PluginFootnote extends Plugin {
 }}}
 {: style="border: 2px dashed var(--b3-border-color);"}}`,
             enableOrderedFootnotes: false, // Add new setting
+            footnoteAlias: 'footnote',
         };
     }
 
@@ -221,6 +222,15 @@ export default class PluginFootnote extends Plugin {
             type: "textarea",
             title: this.i18n.settings.template.title,
             description: this.i18n.settings.template.description,
+        });
+
+        // Add after other style settings
+        this.settingUtils.addItem({
+            key: "footnoteAlias",
+            value: this.i18n.settings.footnoteAlias.value,
+            type: "textinput",
+            title: this.i18n.settings.footnoteAlias.title,
+            description: this.i18n.settings.footnoteAlias.description,
         });
 
         // Reset Settings Button
@@ -624,7 +634,7 @@ export default class PluginFootnote extends Plugin {
         let newBlockId = back[0].doOperations[0].id
         // 添加脚注内容属性
         await setBlockAttrs(newBlockId, { "custom-plugin-footnote-content": 'true' });
-
+        await setBlockAttrs(newBlockId, { "alias": this.settingUtils.get("footnoteAlias") });
 
         // 选中的文本添加样式
         // 选中的文本添加样式

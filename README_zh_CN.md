@@ -8,6 +8,13 @@
 
 ## 📝更新日志
 
+v1.1.4 / 2024.11.25
+
+- ✨支持设置脚注内容块的别名，提示这个块是脚注内容，设置为空则不设置别名
+    ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-25_09-48-30-2024-11-25.png)
+    ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-25_09-49-59-2024-11-25.png)
+- 📝README添加设置脚注引用和脚注内容块的css
+
 v1.1.3 / 2024.11.24
 
 - ✨ 脚注内容模板支持渲染sprig语法，现在可以在脚注内容中插入当前时间了
@@ -121,6 +128,40 @@ v1.0.9 / 2024.11.23
 
 ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/%E6%80%9D%E6%BA%90%E7%AC%94%E8%AE%B0%E8%84%9A%E6%B3%A8%E6%8F%92%E4%BB%B6%E6%94%AF%E6%8C%81%E5%AF%B9%E5%90%8C%E4%B8%80%E4%B8%AA%E6%96%87%E6%9C%AC%E8%BF%9B%E8%A1%8C%E5%A4%9A%E6%AC%A1%E5%A4%87%E6%B3%A8-2024-11-19.gif)
 
+## 自定义脚注样式
+
+自定义脚注引用的css
+```
+/* 自定义脚注引用样式 */
+.protyle-wysiwyg [data-node-id] span[custom-footnote] {
+    /* 设置背景色 */
+    background-color: var(--b3-font-background3);
+    
+    /* 设置文字颜色 */
+    color: var(--b3-theme-on-background) !important;
+    
+    /* 移除边框 */
+    border: none!important;
+    
+    /* 设置左右外边距 */
+    margin: 0 1px;
+    
+    /* 设置圆角 */
+    border-radius: 3px;
+}
+```
+自定义脚注内容块的css
+```
+/* 自定义脚注内容块样式 */
+.protyle-wysiwyg [data-node-id][custom-plugin-footnote-content="true"] {
+    /* 设置字体大小 */
+    font-size: 0.8em;
+    
+    /* 设置文字颜色 */
+    color: var(--b3-font-color5);
+}
+```
+![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-11-25_09-47-46-2024-11-25.png)
 
 
 ## 🙏致谢
