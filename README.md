@@ -74,6 +74,6 @@ A poor graduate student in the process of studying. If you like my plugin, feel 
 
 ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/20241118182532-2024-11-18.png)
 
-> 2024.11.20, thanks to muhaha for donating ¥30
-> 2024.11.27, thanks to 若为雄才 for donating ¥1
-> 2024.11.28 thanks to  sweesalt for donating ¥20
+> 2024.11.20, thanks to muhaha for donating ¥30  
+> 2024.11.27, thanks to 若为雄才 for donating ¥1  
+> 2024.11.28 thanks to  sweesalt for donating ¥20  
