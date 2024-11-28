@@ -180,3 +180,5 @@ v1.0.9 / 2024.11.23
 ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/20241118182532-2024-11-18.png)
 
 > 2024.11.20 感谢muhaha捐赠¥30 
+> 2024.11.27 感谢若为雄才捐赠¥1
+> 2024.11.28 感谢sweesalt捐赠¥20
