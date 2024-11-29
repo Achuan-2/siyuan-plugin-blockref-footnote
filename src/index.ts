@@ -7,7 +7,7 @@ import {
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
-import { appendBlock, deleteBlock, setBlockAttrs, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd, getDoc,getBlockKramdown } from "./api";
+import { appendBlock, deleteBlock, setBlockAttrs, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd, getDoc,getBlockKramdown } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
 
 const STORAGE_NAME = "config";
@@ -83,16 +83,22 @@ export default class PluginFootnote extends Plugin {
             langKey: this.i18n.reorderFootnotes,
             langText: this.i18n.reorderFootnotes,
             hotkey: "", 
-            callback: () => {
+            callback: async () => {
                 // Get current doc ID
-                const activeElement = document.querySelector('.layout__wnd--active .protyle.fn__flex-1:not(.fn__none) .protyle-background')?.getAttribute('data-node-id');
+                const activeElement = document.querySelector('.protyle.fn__flex-1:not(.fn__none) .protyle-title')?.getAttribute('data-node-id');
+                console.log(activeElement);
                 if (activeElement) {
-                    this.reorderFootnotes(activeElement);
+                    // 添加pushMsg
+                    await pushMsg(this.i18n.reorderFootnotes + "...");
+                    await this.reorderFootnotes(activeElement);
+                    await pushMsg(this.i18n.reorderFootnotes + "Finished");
                 }
             },
-            editorCallback: (protyle: any) => {
+            editorCallback: async (protyle: any) => {
                 if (protyle.block?.rootID) {
-                    this.reorderFootnotes(protyle.block.rootID);
+                    await pushMsg(this.i18n.reorderFootnotes + " ...");
+                    await this.reorderFootnotes(protyle.block.rootID);
+                    await pushMsg(this.i18n.reorderFootnotes + " Finished");
                 }
             },
         });
@@ -294,12 +300,12 @@ export default class PluginFootnote extends Plugin {
     }
 
 
-    private deleteMemo = ({ detail }: any) => {
+    private deleteMemo =  ({ detail }: any) => {
         if (detail.element && detail.element.getAttribute("custom-footnote")) {
             detail.menu.addItem({
                 icon: "iconTrashcan",
                 label: this.i18n.deleteFootnote,
-                click: () => {
+                click: async () => {
                     const footnote_content_id = detail.element.getAttribute("custom-footnote");
 
                     // Clean up styled text before the footnote reference
@@ -345,7 +351,17 @@ export default class PluginFootnote extends Plugin {
                     // Delete blockref
                     detail.element.remove();
 
-                    
+                    // Get current document ID and reorder footnotes if enabled
+                    if (this.settingUtils.get("enableOrderedFootnotes")) {
+                        console.log(this.settingUtils.get("enableOrderedFootnotes"))
+                        // 获取docID
+                        const docID = document.querySelector('.layout__wnd--active .protyle.fn__flex-1:not(.fn__none) .protyle-title')?.getAttribute('data-node-id');
+                        if (docID) {
+                            // Wait a bit for DOM updates
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                            await this.reorderFootnotes(docID);
+                        }
+                    }
                 }
             });
         }
