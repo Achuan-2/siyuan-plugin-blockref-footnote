@@ -67,6 +67,7 @@ export default class PluginFootnote extends Plugin {
         // 注册快捷键
         this.addCommand({
             langKey: this.i18n.tips,
+            langText: this.i18n.tips,
             hotkey: "⇧⌘F",
             callback: () => {
             },
@@ -695,7 +696,7 @@ export default class PluginFootnote extends Plugin {
 
 
         protyle.toolbar.element.classList.add("fn__none")
-        
+
         // 更新为数字编号
         // TODO: 目前数字编号无法获取最新的DOM，所以需要等待一段时间
         let isNumberFootnote = this.settingUtils.get("enableOrderedFootnotes");
