@@ -261,9 +261,10 @@ export async function unfoldBlock(id: BlockId) {
 }
 
 
-export async function getBlockKramdown(id: BlockId): Promise<IResGetBlockKramdown> {
+export async function getBlockKramdown(id: BlockId, mode: string): Promise<IResGetBlockKramdown> {
     let data = {
-        id: id
+        id: id,
+        mode: mode
     }
     let url = '/api/block/getBlockKramdown';
     return request(url, data);

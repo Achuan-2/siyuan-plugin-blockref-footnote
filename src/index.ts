@@ -1,12 +1,13 @@
 import {
     Plugin,
     // getFrontend,
+    fetchSyncPost,
     Protyle
 } from "siyuan";
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
-import { appendBlock, deleteBlock, setBlockAttrs, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd, getBlockKramdown } from "./api";
+import { appendBlock, deleteBlock, setBlockAttrs, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd, getDoc,getBlockKramdown } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
 
 const STORAGE_NAME = "config";
@@ -17,6 +18,7 @@ const zeroWhite = "​"
 export default class PluginFootnote extends Plugin {
 
     // private isMobile: boolean;
+    private protyleParent;
     private settingUtils: SettingUtils;
     // 添加工具栏按钮
     updateProtyleToolbar(toolbar: Array<string | IMenuItem>) {
@@ -28,6 +30,7 @@ export default class PluginFootnote extends Plugin {
                 tipPosition: "n",
                 tip: this.i18n.tips,
                 click: (protyle: Protyle) => {
+                    this.protyleParent = protyle;
                     this.protyle = protyle.protyle;
                     this.addMemoBlock(this.protyle);
                 }
@@ -192,13 +195,13 @@ export default class PluginFootnote extends Plugin {
             description: this.i18n.settings.footnoteBlockref.description,
         });
         // Add ordered footnotes setting
-        // this.settingUtils.addItem({
-        //     key: "enableOrderedFootnotes",
-        //     value: false,
-        //     type: "checkbox",
-        //     title: this.i18n.settings.enableOrderedFootnotes.title,
-        //     description: this.i18n.settings.enableOrderedFootnotes.description,
-        // });
+        this.settingUtils.addItem({
+            key: "enableOrderedFootnotes",
+            value: false,
+            type: "checkbox",
+            title: this.i18n.settings.enableOrderedFootnotes.title,
+            description: this.i18n.settings.enableOrderedFootnotes.description,
+        });
         this.settingUtils.addItem({
             key: "selectFontStyle",
             value: '1',
@@ -372,7 +375,7 @@ export default class PluginFootnote extends Plugin {
                 break;
             case '2':
                 footnoteContainerTitle = this.settingUtils.get("footnoteContainerTitle2").replace(/\$\{filename\}/g, currentDocTitle);
-                // 需要检测输入的title有没有#，没有会自动变为二级title
+                // 需要检测输入的title有没有#，没有会自动变��二级title
                 if (!footnoteContainerTitle.startsWith("#")) {
                     footnoteContainerTitle = `## ${footnoteContainerTitle}`;
                 }
@@ -637,7 +640,6 @@ export default class PluginFootnote extends Plugin {
         await setBlockAttrs(newBlockId, { "alias": this.settingUtils.get("footnoteAlias") });
 
         // 选中的文本添加样式
-        // 选中的文本添加样式
         let range = protyle.toolbar.range;
         if (this.settingUtils.get("selectFontStyle") === '2') {
             // 在想要不要不用时间戳，用id来标识，这样貌似更方便删除
@@ -661,6 +663,9 @@ export default class PluginFootnote extends Plugin {
         // 添加块引，同时添加上标样式
         // protyle.toolbar.setInlineMark(protyle, "clear", "toolbar");
         let memoELement;
+
+        // this.protyleParent.insert("2");
+
         switch (this.settingUtils.get("footnoteRefStyle")) {
             case '2':
                 // 插入块链接
@@ -680,7 +685,7 @@ export default class PluginFootnote extends Plugin {
                 break;
         }
 
-        // 给脚注块引添加属性，方便后续查找，添加其他功能
+        // // 给脚注块引添加属性，方便后续查找，添加其他功能
         if (memoELement) {
             memoELement.setAttribute("custom-footnote", newBlockId);
             // 保存脚注块引添加的自定义属性值
@@ -689,8 +694,78 @@ export default class PluginFootnote extends Plugin {
 
 
 
-        // 关闭工具栏
-        protyle.toolbar.element.classList.add("fn__none")
+
+        // 更新为数字编号
+        // TODO: 目前数字编号无法获取最新的DOM，所以需要等待一段时间
+        let isNumberFootnote = this.settingUtils.get("enableOrderedFootnotes");
+        if (isNumberFootnote) {
+            // Wait for DOM updates
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            
+            // Get current document DOM
+            const docInfo = await getDoc(docID);
+            
+            if (!docInfo) return;
+        
+            let parser = new DOMParser();
+            // Inside addMemoBlock method where footnoteOrder is created
+            let counter = 1;
+            const footnoteOrder = new Map();
+            const dom = parser.parseFromString(docInfo.content, 'text/html');
+
+            // First pass - record order of first appearance of references
+            const blockRefs = dom.querySelectorAll('span[custom-footnote]');
+            blockRefs.forEach((ref) => {
+                const footnoteId = ref.getAttribute('custom-footnote');
+                if (footnoteId && !footnoteOrder.has(footnoteId)) {
+                    footnoteOrder.set(footnoteId, counter++);
+                }
+            });
+
+            // Get all footnote content blocks and sort them
+            const footnoteBlocks = Array.from(dom.querySelectorAll('[custom-plugin-footnote-content]'));
+            const parent = footnoteBlocks[0]?.parentNode;
+
+            if (parent && footnoteBlocks.length > 0) {
+                // Remove all footnote blocks from DOM
+                footnoteBlocks.forEach(block => block.remove());
+
+                // Sort blocks by their order number
+                footnoteBlocks.sort((a, b) => {
+                    const aId = a.getAttribute('data-node-id');
+                    const bId = b.getAttribute('data-node-id');
+                    const aOrder = footnoteOrder.get(aId) || Infinity;
+                    const bOrder = footnoteOrder.get(bId) || Infinity;
+                    return aOrder - bOrder;
+                });
+
+                // Append blocks back in correct order and add name attribute
+                footnoteBlocks.forEach(block => {
+                    const blockId = block.getAttribute('data-node-id');
+                    const number = footnoteOrder.get(blockId);
+                    if (number) {
+                        // Add name attribute with the footnote number
+                        block.setAttribute('name', number.toString());
+                        // Update block attributes via API
+                        setBlockAttrs(blockId, { name: number.toString() });
+                    }
+                    parent.appendChild(block);
+                });
+            }
+
+            // Update block references with numbers
+            blockRefs.forEach((ref) => {
+                const footnoteId = ref.getAttribute('custom-footnote');
+                if (footnoteId) {
+                    const number = footnoteOrder.get(footnoteId);
+                    ref.textContent = `[${number}]`;
+                }
+            });
+
+            // Update document with reordered content
+            const modifiedString = dom.body.innerHTML;
+            await updateBlock("dom", modifiedString, docID);
+        }
 
         // 显示浮窗，来填写内容
         this.addFloatLayer({

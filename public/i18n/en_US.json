@@ -60,8 +60,8 @@
             "value": "[Footnote]"
         },
         "enableOrderedFootnotes": {
-            "title": "Enable Ordered Footnotes",
-            "description": "Use automatic numbering instead of custom anchor text"
+            "title": "Enable Footnote Numbering",
+            "description": "Use numeric footnotes (like [1], [2], etc.) instead of custom anchor text. When enabled, all footnotes will be automatically reordered and renumbered."
         },
         "footnoteAlias": {
             "title": "Footnote Block Alias",
