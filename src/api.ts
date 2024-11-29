@@ -269,7 +269,13 @@ export async function getBlockKramdown(id: BlockId, mode: string): Promise<IResG
     let url = '/api/block/getBlockKramdown';
     return request(url, data);
 }
-
+export async function getBlockDom(id: BlockId) {
+    let data = {
+        id: id
+    }
+    let url = '/api/block/getBlockDOM';
+    return request(url, data);
+}
 
 export async function getChildBlocks(id: BlockId): Promise<IResGetChildBlock[]> {
     let data = {
