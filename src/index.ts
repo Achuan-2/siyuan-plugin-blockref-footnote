@@ -89,16 +89,12 @@ export default class PluginFootnote extends Plugin {
                 console.log(activeElement);
                 if (activeElement) {
                     // 添加pushMsg
-                    await pushMsg(this.i18n.reorderFootnotes + "...");
                     await this.reorderFootnotes(activeElement);
-                    await pushMsg(this.i18n.reorderFootnotes + "Finished");
                 }
             },
             editorCallback: async (protyle: any) => {
                 if (protyle.block?.rootID) {
-                    await pushMsg(this.i18n.reorderFootnotes + " ...");
                     await this.reorderFootnotes(protyle.block.rootID);
-                    await pushMsg(this.i18n.reorderFootnotes + " Finished");
                 }
             },
         });
@@ -788,6 +784,7 @@ export default class PluginFootnote extends Plugin {
 
     // Add new function to reorder footnotes
     private async reorderFootnotes(docID: string) {
+        await pushMsg(this.i18n.reorderFootnotes + " ...");
         // Get document content
         const docInfo = await getDoc(docID);
         if (!docInfo) return;
@@ -847,6 +844,7 @@ export default class PluginFootnote extends Plugin {
         // Update document with reordered content
         const modifiedString = dom.body.innerHTML;
         await updateBlock("dom", modifiedString, docID);
+        await pushMsg(this.i18n.reorderFootnotes + " Finished");
     }
 }
 
