@@ -70,6 +70,16 @@ export async function setNotebookConf(notebook: NotebookId, conf: NotebookConf):
 
 
 // **************************************** File Tree ****************************************
+
+export async function getDoc(id: BlockId) {
+    let data = {
+        id: id
+    };
+    let url = '/api/filetree/getDoc';
+    return request(url, data);
+}
+
+
 export async function createDocWithMd(notebook: NotebookId, path: string, markdown: string): Promise<DocumentId> {
     let data = {
         notebook: notebook,
@@ -331,6 +341,8 @@ export async function renderSprig(template: string): Promise<string> {
 }
 
 // **************************************** File ****************************************
+
+
 
 export async function getFile(path: string): Promise<any> {
     let data = {
