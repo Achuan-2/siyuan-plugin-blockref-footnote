@@ -80,6 +80,7 @@
         }
     },
     "deleteFootnote": "Delete Footnote",
+    "reorderFootnotes": "Reorder Footnotes",
     "errors": {
         "noDocId": "[Block Ref Footnote Plugin] Please fill in the specified document ID"
     }

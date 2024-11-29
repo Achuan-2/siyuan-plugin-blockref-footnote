@@ -78,6 +78,25 @@ export default class PluginFootnote extends Plugin {
 
         });
 
+        // Add new command for reordering footnotes
+        this.addCommand({
+            langKey: this.i18n.reorderFootnotes,
+            langText: this.i18n.reorderFootnotes,
+            hotkey: "", 
+            callback: () => {
+                // Get current doc ID
+                const activeElement = document.querySelector('.layout__wnd--active .protyle.fn__flex-1:not(.fn__none) .protyle-background')?.getAttribute('data-node-id');
+                if (activeElement) {
+                    this.reorderFootnotes(activeElement);
+                }
+            },
+            editorCallback: (protyle: any) => {
+                if (protyle.block?.rootID) {
+                    this.reorderFootnotes(protyle.block.rootID);
+                }
+            },
+        });
+
         this.settingUtils = new SettingUtils({
             plugin: this, name: STORAGE_NAME
         });
@@ -703,70 +722,7 @@ export default class PluginFootnote extends Plugin {
         if (isNumberFootnote) {
             // Wait for DOM updates
             await new Promise((resolve) => setTimeout(resolve, 500));
-            
-            // Get current document DOM
-            const docInfo = await getDoc(docID);
-            
-            if (!docInfo) return;
-        
-            let parser = new DOMParser();
-            // Inside addMemoBlock method where footnoteOrder is created
-            let counter = 1;
-            const footnoteOrder = new Map();
-            const dom = parser.parseFromString(docInfo.content, 'text/html');
-
-            // First pass - record order of first appearance of references
-            const blockRefs = dom.querySelectorAll('span[custom-footnote]');
-            blockRefs.forEach((ref) => {
-                const footnoteId = ref.getAttribute('custom-footnote');
-                if (footnoteId && !footnoteOrder.has(footnoteId)) {
-                    footnoteOrder.set(footnoteId, counter++);
-                }
-            });
-
-            // Get all footnote content blocks and sort them
-            const footnoteBlocks = Array.from(dom.querySelectorAll('[custom-plugin-footnote-content]'));
-            const parent = footnoteBlocks[0]?.parentNode;
-
-            if (parent && footnoteBlocks.length > 0) {
-                // Remove all footnote blocks from DOM
-                footnoteBlocks.forEach(block => block.remove());
-
-                // Sort blocks by their order number
-                footnoteBlocks.sort((a, b) => {
-                    const aId = a.getAttribute('data-node-id');
-                    const bId = b.getAttribute('data-node-id');
-                    const aOrder = footnoteOrder.get(aId) || Infinity;
-                    const bOrder = footnoteOrder.get(bId) || Infinity;
-                    return aOrder - bOrder;
-                });
-
-                // Append blocks back in correct order and add name attribute
-                footnoteBlocks.forEach(block => {
-                    const blockId = block.getAttribute('data-node-id');
-                    const number = footnoteOrder.get(blockId);
-                    if (number) {
-                        // Add name attribute with the footnote number
-                        block.setAttribute('name', number.toString());
-                        // Update block attributes via API
-                        setBlockAttrs(blockId, { name: number.toString() });
-                    }
-                    parent.appendChild(block);
-                });
-            }
-
-            // Update block references with numbers
-            blockRefs.forEach((ref) => {
-                const footnoteId = ref.getAttribute('custom-footnote');
-                if (footnoteId) {
-                    const number = footnoteOrder.get(footnoteId);
-                    ref.textContent = `[${number}]`;
-                }
-            });
-
-            // Update document with reordered content
-            const modifiedString = dom.body.innerHTML;
-            await updateBlock("dom", modifiedString, docID);
+            await this.reorderFootnotes(docID);
         }
 
         // 显示浮窗，来填写内容
@@ -812,6 +768,69 @@ export default class PluginFootnote extends Plugin {
         // 清空选区
         selection.removeAllRanges();
         return null;
+    }
+
+    // Add new function to reorder footnotes
+    private async reorderFootnotes(docID: string) {
+        // Get document content
+        const docInfo = await getDoc(docID);
+        if (!docInfo) return;
+    
+        let parser = new DOMParser();
+        let counter = 1;
+        const footnoteOrder = new Map();
+        const dom = parser.parseFromString(docInfo.content, 'text/html');
+
+        // First pass - record order of first appearance of references
+        const blockRefs = dom.querySelectorAll('span[custom-footnote]');
+        blockRefs.forEach((ref) => {
+            const footnoteId = ref.getAttribute('custom-footnote');
+            if (footnoteId && !footnoteOrder.has(footnoteId)) {
+                footnoteOrder.set(footnoteId, counter++);
+            }
+        });
+
+        // Get all footnote content blocks and sort them
+        const footnoteBlocks = Array.from(dom.querySelectorAll('[custom-plugin-footnote-content]'));
+        const parent = footnoteBlocks[0]?.parentNode;
+
+        if (parent && footnoteBlocks.length > 0) {
+            // Remove all footnote blocks from DOM
+            footnoteBlocks.forEach(block => block.remove());
+
+            // Sort blocks by their order number
+            footnoteBlocks.sort((a, b) => {
+                const aId = a.getAttribute('data-node-id');
+                const bId = b.getAttribute('data-node-id');
+                const aOrder = footnoteOrder.get(aId) || Infinity;
+                const bOrder = footnoteOrder.get(bId) || Infinity;
+                return aOrder - bOrder;
+            });
+
+            // Append blocks back in correct order and add name attribute
+            footnoteBlocks.forEach(block => {
+                const blockId = block.getAttribute('data-node-id');
+                const number = footnoteOrder.get(blockId);
+                if (number) {
+                    block.setAttribute('name', number.toString());
+                    setBlockAttrs(blockId, { name: number.toString() });
+                }
+                parent.appendChild(block);
+            });
+        }
+
+        // Update block references with numbers
+        blockRefs.forEach((ref) => {
+            const footnoteId = ref.getAttribute('custom-footnote');
+            if (footnoteId) {
+                const number = footnoteOrder.get(footnoteId);
+                ref.textContent = `[${number}]`;
+            }
+        });
+
+        // Update document with reordered content
+        const modifiedString = dom.body.innerHTML;
+        await updateBlock("dom", modifiedString, docID);
     }
 }
 
