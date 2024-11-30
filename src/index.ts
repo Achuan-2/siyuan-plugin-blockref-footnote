@@ -732,7 +732,7 @@ export default class PluginFootnote extends Plugin {
         protyle.toolbar.element.classList.add("fn__none")
 
         // 更新为数字编号
-        // TODO: 目前数字编号无法获取最新的DOM，所以需要等待一段时间
+        // TODO: 目前数字编号无��获取最新的DOM，所以需要等待一段时间
         let isNumberFootnote = this.settingUtils.get("enableOrderedFootnotes");
         if (isNumberFootnote) {
             // Wait for DOM updates
@@ -789,7 +789,6 @@ export default class PluginFootnote extends Plugin {
     // Add new function to reorder footnotes
     private async reorderFootnotes(docID: string, reorderBlocks: boolean) {
 
-        console.log(docID)
         // Get current document info
         const currentDoc = await getDoc(docID);
         if (!currentDoc) return;
@@ -808,7 +807,6 @@ export default class PluginFootnote extends Plugin {
                 const childDoc = await sql(
                     `SELECT * FROM blocks WHERE type='d' AND ial like '%custom-plugin-footnote-parent="${docID}"%' LIMIT 1`
                 );
-                console.log(childDoc);
                 if (childDoc?.length > 0) {
                     footnoteContainerDocID = childDoc[0].id;
                 }
@@ -844,9 +842,14 @@ export default class PluginFootnote extends Plugin {
         });
     
         // Parse target document to reorder footnote blocks
-        const footnoteContainerDom = parser.parseFromString(footnoteContainerDoc.content, 'text/html');
+        let footnoteContainerDom;
+        if (footnoteContainerDocID == docID) {
+            footnoteContainerDom = currentDom;
+        } else {
+            footnoteContainerDom   = parser.parseFromString(footnoteContainerDoc.content, 'text/html');
+        }
         const footnoteBlocks = Array.from(footnoteContainerDom.querySelectorAll(`[custom-plugin-footnote-content="${docID}"]`));
-        
+        console.log(footnoteBlocks)
         if (footnoteBlocks.length > 0) {
             const parent = footnoteBlocks[0].parentNode;
             
@@ -878,14 +881,7 @@ export default class PluginFootnote extends Plugin {
                 });
             }
             
-            // Update name attributes for all footnote blocks
-            footnoteBlocks.forEach(block => {
-                const blockId = block.getAttribute('data-node-id');
-                const number = footnoteOrder.get(blockId);
-                if (number) {
-                    block.setAttribute('name', number.toString());
-                }
-            });
+            
         }
     
         // Update both documents if needed
@@ -893,8 +889,26 @@ export default class PluginFootnote extends Plugin {
         if (footnoteContainerDocID !== docID) {
             await updateBlock("dom", footnoteContainerDom.body.innerHTML, footnoteContainerDocID);
         }
+        
+        if (reorderBlocks) {
+            // Update all footnote blocks with their new numbers
+            const footnotesUpdatePromises = [];
+            footnoteBlocks.forEach(block => {
+                const blockId = block.getAttribute('data-node-id');
+                const number = footnoteOrder.get(blockId);
+                if (blockId && number) {
+                    // Add to update queue
+                    footnotesUpdatePromises.push(
+                        setBlockAttrs(blockId, {
+                            "name": number.toString()
+                        })
+                    );
+                }
+            });
     
-
+            // Execute all attribute updates in parallel
+            Promise.all(footnotesUpdatePromises);
+        }
     }
 }
 
