@@ -13,6 +13,19 @@ import { SettingUtils } from "./libs/setting-utils";
 const STORAGE_NAME = "config";
 const zeroWhite = "​"
 
+const I18N = {
+    zh_CN: {
+        footnoteContent: '脚注内容',
+        cancel: '取消',
+        ok: "确定"
+    },
+    en_US: {
+        footnoteContent: 'Footnote Content',
+        cancel: 'Cancel',
+        ok: "OK"
+    }
+};
+
 class FootnoteDialog {
     private dialog: HTMLDialogElement;
     private content: string;
@@ -24,6 +37,8 @@ class FootnoteDialog {
     private initialY: number;
 
     constructor(title: string, initialContent: string, onSubmit: (content: string) => void, x: number, y: number) {
+        let i18n: typeof I18N.zh_CN = window.siyuan.config.lang in I18N ? I18N[window.siyuan.config.lang] : I18N.en_US;
+        
         this.dialog = document.createElement('dialog');
         // this.dialog.classList.add('block__popover');
         this.content = initialContent;
@@ -32,15 +47,15 @@ class FootnoteDialog {
             <div style="min-width: 300px;padding: 0 16px; margin-top: 8px">
 
                 <div class="protyle-wysiwyg" style="padding: 0px; margin-bottom: 8px">
-                    <div style="border-left: 0.5em solid var(--b3-border-color); padding: 8px; margin-bottom: 8px; background: var(--b3-theme-background);">ssss<span data-type="em u s mark">ss</span><span data-type="strong em u s mark">sssssss</span><span data-type="em u s mark">ssssss</span>ss</div>
+                    <div style="border-left: 0.5em solid var(--b3-border-color); padding: 8px; margin-bottom: 8px; background: var(--b3-theme-background);">${title}</div>
                 </div>
                 <div style="margin-bottom: 8px;">
-                    <div style="font-weight: bold; margin-bottom: 4px;">Footnote Content:</div>
+                    <div style="font-weight: bold; margin-bottom: 4px;">${i18n.footnoteContent}:</div>
                     <textarea style="width: 95%; min-height: 100px; padding: 8px;"></textarea>
                 </div>
                 <div style="display: flex; justify-content: flex-end; gap: 8px;margin-bottom: 7px;">
-                    <button class="cancel">Cancel</button>
-                    <button class="submit">OK</button>
+                    <button class="cancel">${i18n.cancel}</button>
+                    <button class="submit">${i18n.ok}</button>
                 </div>
             </div>
         `;
@@ -125,7 +140,6 @@ class FootnoteDialog {
 export default class PluginFootnote extends Plugin {
 
     // private isMobile: boolean;
-    private protyleParent;
     private settingUtils: SettingUtils;
     // 添加工具栏按钮
     updateProtyleToolbar(toolbar: Array<string | IMenuItem>) {
@@ -137,7 +151,6 @@ export default class PluginFootnote extends Plugin {
                 tipPosition: "n",
                 tip: this.i18n.tips,
                 click: (protyle: Protyle) => {
-                    this.protyleParent = protyle;
                     this.protyle = protyle.protyle;
                     this.addMemoBlock(this.protyle);
                 }
@@ -635,7 +648,7 @@ export default class PluginFootnote extends Plugin {
         let plainSpanPattern2 = /<span[^>]*data-type=""[^>]*>(.*?)<\/span>/g;
 
 
-        // 使用 replace() 方法替换匹配的部分为空字符串
+        // 使用 replace() 方法替换匹配的部分为空字符���
         console.log(selection)
         let cleanSelection = selection
             .replace(katexPattern, '')
@@ -800,7 +813,6 @@ export default class PluginFootnote extends Plugin {
         // protyle.toolbar.setInlineMark(protyle, "clear", "toolbar");
         let memoELement;
 
-        // this.protyleParent.insert("2");
 
         switch (this.settingUtils.get("footnoteRefStyle")) {
             case '2':
