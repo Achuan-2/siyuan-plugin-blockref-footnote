@@ -87,7 +87,6 @@ export default class PluginFootnote extends Plugin {
                 // Get current doc ID
                 // TODO: 分屏应该选哪个？
                 const activeElement = document.querySelector('.protyle.fn__flex-1:not(.fn__none) .protyle-title')?.getAttribute('data-node-id');
-                console.log(activeElement);
                 if (activeElement) {
                     // 添加pushMsg
                     await pushMsg(this.i18n.reorderFootnotes + " ...");
@@ -352,7 +351,6 @@ export default class PluginFootnote extends Plugin {
 
                     // Get current document ID and reorder footnotes if enabled
                     if (this.settingUtils.get("enableOrderedFootnotes")) {
-                        console.log(this.settingUtils.get("enableOrderedFootnotes"))
                         // 获取docID
                         const docID = document.querySelector('.layout__wnd--active .protyle.fn__flex-1:not(.fn__none) .protyle-title')?.getAttribute('data-node-id');
                         if (docID) {
@@ -556,7 +554,6 @@ export default class PluginFootnote extends Plugin {
             // Process each ${{...}} block one at a time
             while ((match = dollarPattern.exec(templates)) !== null) {
                 const sprigExpression = match[1]; // 获取{{...}}部分
-                console.log("Sprig expression:", sprigExpression);
                 // Render the sprig expression using renderSprig
                 const renderedAction = await renderSprig(sprigExpression);
                 // Replace the entire ${{...}} block with the rendered result
@@ -732,15 +729,12 @@ export default class PluginFootnote extends Plugin {
         protyle.toolbar.element.classList.add("fn__none")
 
         // 更新为数字编号
-        // TODO: 目前数字编号无��获取最新的DOM，所以需要等待一段时间
         let isNumberFootnote = this.settingUtils.get("enableOrderedFootnotes");
         if (isNumberFootnote) {
             // Wait for DOM updates
             await new Promise((resolve) => setTimeout(resolve, 500));
-            // 不排序会快很多
             await this.reorderFootnotes(protyle.block.id, true);
         }
-
         // 显示浮窗，来填写内容
         this.addFloatLayer({
             ids: [newBlockId],
@@ -748,6 +742,8 @@ export default class PluginFootnote extends Plugin {
             x: x,
             y: y - 70
         });
+
+
     }
 
     private getSelectedParentHtml() {
@@ -849,7 +845,6 @@ export default class PluginFootnote extends Plugin {
             footnoteContainerDom   = parser.parseFromString(footnoteContainerDoc.content, 'text/html');
         }
         const footnoteBlocks = Array.from(footnoteContainerDom.querySelectorAll(`[custom-plugin-footnote-content="${docID}"]`));
-        console.log(footnoteBlocks)
         if (footnoteBlocks.length > 0) {
             const parent = footnoteBlocks[0].parentNode;
             
@@ -880,7 +875,7 @@ export default class PluginFootnote extends Plugin {
                     }
                 });
             }
-            
+
             
         }
     
