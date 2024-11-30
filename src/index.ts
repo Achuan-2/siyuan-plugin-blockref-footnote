@@ -579,16 +579,21 @@ export default class PluginFootnote extends Plugin {
         let katexPattern = /<span class="katex">[\s\S]*?<\/span>(<\/span>)*<\/span>/g;
 
         // 正则表达式匹配并替换 data-type 中的 custom-footnote-selected-text（包含可能的空格）
-        let selectedTextPattern = /\s*custom-footnote-selected-text\s*/g;
+        let selectedTextPattern = /\s*custom-footnote-selected-text(?:|-[^"\s>]*)(?="|>|\s)/g;
         // 正则表达式匹配不含data-type的普通span标签，提取其中的文本
         let plainSpanPattern = /<span(?![^>]*data-type)[^>]*>(.*?)<\/span>/g;
+        // 正则表达式中匹配data-type=为空的span标签，提取其中的文本
+        let plainSpanPattern2 = /<span[^>]*data-type=""[^>]*>(.*?)<\/span>/g;
+
 
         // 使用 replace() 方法替换匹配的部分为空字符串
+        console.log(selection)
         let cleanSelection = selection
             .replace(katexPattern, '')
             .replace(customFootnotePattern, '')
             .replace(selectedTextPattern, '')
-            .replace(plainSpanPattern, '$1'); // 保留span标签中的文本内容
+            .replace(plainSpanPattern, '$1') // 保留span标签中的文本内容
+            .replace(plainSpanPattern2, '$1') // 保留span标签中的文本内容
         let templates = this.settingUtils.get("templates");
         templates = templates.replace(/\$\{selection\}/g, cleanSelection);
         templates = templates.replace(/\$\{content\}/g, zeroWhite);
@@ -779,8 +784,9 @@ export default class PluginFootnote extends Plugin {
         protyle.toolbar.element.classList.add("fn__none")
 
         // Instead of showing float layer, show dialog
+        console.log(cleanSelection)
         new FootnoteDialog(
-            selectionText, 
+            cleanSelection, 
             '', 
             async (content) => {
                 // Get existing block attributes before update
