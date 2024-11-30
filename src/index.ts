@@ -846,13 +846,18 @@ export default class PluginFootnote extends Plugin {
         // Parse target document to reorder footnote blocks
         const footnoteContainerDom = parser.parseFromString(footnoteContainerDoc.content, 'text/html');
         const footnoteBlocks = Array.from(footnoteContainerDom.querySelectorAll(`[custom-plugin-footnote-content="${docID}"]`));
-        const parent = footnoteBlocks[0]?.parentNode;
-    
-        if (parent && footnoteBlocks.length > 0) {
-            if (reorderBlocks) {
-                // Remove and reorder blocks
+        
+        if (footnoteBlocks.length > 0) {
+            const parent = footnoteBlocks[0].parentNode;
+            
+            if (parent && reorderBlocks) {
+                // Find the reference node (the node after which we'll insert the sorted blocks)
+                let referenceNode = footnoteBlocks[0].previousSibling;
+                
+                // Remove all footnote blocks while maintaining their order in a new array
                 footnoteBlocks.forEach(block => block.remove());
-    
+                
+                // Sort blocks based on the footnote order
                 footnoteBlocks.sort((a, b) => {
                     const aId = a.getAttribute('data-node-id');
                     const bId = b.getAttribute('data-node-id');
@@ -860,11 +865,19 @@ export default class PluginFootnote extends Plugin {
                     const bOrder = footnoteOrder.get(bId) || Infinity;
                     return aOrder - bOrder;
                 });
-    
-                // Append blocks back in correct order
-                footnoteBlocks.forEach(block => parent.appendChild(block));
+                
+                // Insert blocks back in the correct order after the reference node
+                footnoteBlocks.forEach(block => {
+                    if (referenceNode) {
+                        referenceNode.after(block);
+                        referenceNode = block;
+                    } else {
+                        // If no reference node (meaning it should be the first child)
+                        parent.insertBefore(block, parent.firstChild);
+                    }
+                });
             }
-    
+            
             // Update name attributes for all footnote blocks
             footnoteBlocks.forEach(block => {
                 const blockId = block.getAttribute('data-node-id');
