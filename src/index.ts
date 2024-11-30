@@ -7,13 +7,72 @@ import {
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
-import { appendBlock, deleteBlock, setBlockAttrs, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd, getDoc,getBlockKramdown } from "./api";
+import { appendBlock, deleteBlock, setBlockAttrs,getBlockAttrs,pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd, getDoc,getBlockKramdown } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
 
 const STORAGE_NAME = "config";
 const zeroWhite = "​"
 
+class FootnoteDialog {
+    private dialog: HTMLDialogElement;
+    private content: string;
+    private textarea: HTMLTextAreaElement;
 
+    constructor(title: string, initialContent: string, onSubmit: (content: string) => void, x: number, y: number) {
+        this.dialog = document.createElement('dialog');
+        this.content = initialContent;
+        this.dialog.innerHTML = `
+            <div style="min-width: 300px; max-width: 500px;">
+                <div style="margin-bottom: 8px;">
+                    <div style="font-weight: bold; margin-bottom: 4px;">Selected Text:</div>
+                    <div style="border: 1px solid var(--b3-border-color); padding: 8px; margin-bottom: 8px; background: var(--b3-theme-background);">${title}</div>
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <div style="font-weight: bold; margin-bottom: 4px;">Footnote Content:</div>
+                    <textarea style="width: 100%; min-height: 100px; padding: 8px; resize: vertical;"></textarea>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                    <button class="cancel">Cancel</button>
+                    <button class="submit">OK</button>
+                </div>
+            </div>
+        `;
+
+        // Position dialog
+        this.dialog.style.position = 'fixed';
+        this.dialog.style.left = `${x}px`;
+        this.dialog.style.top = `${y}px`;
+        this.dialog.style.margin = '0';
+        this.dialog.style.padding = '16px';
+        this.dialog.style.border = '1px solid var(--b3-border-color)';
+        this.dialog.style.borderRadius = '4px';
+        this.dialog.style.background = 'var(--b3-theme-background)';
+        this.dialog.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)';
+
+        document.body.appendChild(this.dialog);
+        
+        this.textarea = this.dialog.querySelector('textarea');
+        this.textarea.value = initialContent;
+
+        this.dialog.querySelector('.cancel').addEventListener('click', () => {
+            this.dialog.close();
+            this.dialog.remove();
+        });
+
+        this.dialog.querySelector('.submit').addEventListener('click', () => {
+            onSubmit(this.textarea.value);
+            this.dialog.close();
+            this.dialog.remove();
+        });
+
+        this.dialog.addEventListener('close', () => {
+            this.dialog.remove();
+        });
+
+        this.dialog.showModal();
+        this.textarea.focus();
+    }
+}
 
 export default class PluginFootnote extends Plugin {
 
@@ -298,6 +357,8 @@ export default class PluginFootnote extends Plugin {
     }
 
 
+
+
     private deleteMemo =  ({ detail }: any) => {
         if (detail.element && detail.element.getAttribute("custom-footnote")) {
             detail.menu.addItem({
@@ -378,19 +439,9 @@ export default class PluginFootnote extends Plugin {
             // 返回HTML字符串
             return container.innerHTML;
         }
-
+        // 获取选中文本
+        const selectionText = protyle.toolbar.range.toString();
         const selection = getSelectedHtml(protyle.toolbar.range);
-        
-        // 获取选中文本的样式，避免重复添加样式而导致样式被清除
-        const selectedInfo = this.getSelectedParentHtml();
-        let formatData;
-        if (selectedInfo) {
-            formatData = {
-                datatype: selectedInfo.datatype,
-                style: selectedInfo.style
-            };
-        }
-
 
         // 获取当前文档标题
         let currentDoc = await sql(`SELECT * FROM blocks WHERE id = '${protyle.block.id}' LIMIT 1`);
@@ -605,7 +656,7 @@ export default class PluginFootnote extends Plugin {
                             nextSibling = nextSibling.nextElementSibling;
                         }
 
-                        return lastFootnoteId; // 返回最后一个脚注的id，如果没有脚注则返回null
+                        return lastFootnoteId; // 返回最后���个脚注的id，如果没有脚注则返回null
                     }
 
                     let lastFootnoteID = findLastFootnoteId(footnoteContainerID);
@@ -728,59 +779,50 @@ export default class PluginFootnote extends Plugin {
 
         protyle.toolbar.element.classList.add("fn__none")
 
-        // 更新为数字编号
-        let isNumberFootnote = this.settingUtils.get("enableOrderedFootnotes");
-        if (isNumberFootnote) {
-            // Wait for DOM updates
-            await new Promise((resolve) => setTimeout(resolve, 500));
+        // Instead of showing float layer, show dialog
+        new FootnoteDialog(
+            selectionText, 
+            '', 
+            async (content) => {
+                // Get existing block attributes before update
+                const existingAttrs = await getBlockAttrs(newBlockId);
+
+                // Update the footnote content
+                const templates = this.settingUtils.get("templates")
+                    .replace(/\$\{selection\}/g, cleanSelection)
+                    .replace(/\$\{content\}/g, content)
+                    .replace(/\$\{refID\}/g, currentBlockId);
+
+                const renderedTemplate = await renderTemplates(templates);
+                
+                // Update block content
+                await updateBlock("markdown", renderedTemplate, newBlockId);
+
+                // Restore block attributes that could have been reset by updateBlock
+                if (existingAttrs) {
+                    await setBlockAttrs(newBlockId, {
+                        "custom-plugin-footnote-content": existingAttrs["custom-plugin-footnote-content"],
+                        "name": existingAttrs["name"],
+                        "alias": existingAttrs["alias"]
+                    });
+                }
+            },
+            x,
+            y + 20 // Position below cursor
+        );
+
+        // Update numbers immediately for better UX
+        if (this.settingUtils.get("enableOrderedFootnotes")) {
+            // 等500ms
+            await new Promise(resolve => setTimeout(resolve, 500));
             await this.reorderFootnotes(protyle.block.id, true);
         }
-        // 显示浮窗，来填写内容
-        this.addFloatLayer({
-            ids: [newBlockId],
-            defIds: [],
-            x: x,
-            y: y - 70
-        });
 
-
+        // Hide toolbar
+        protyle.toolbar.element.classList.add("fn__none");
     }
 
-    private getSelectedParentHtml() {
-        const selection = window.getSelection();
-        if (selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0);
-            let selectedNode = range.startContainer;
-            const endNode = range.endContainer;
 
-            // 检查 endNode 的 previousSibling
-            if (endNode.previousSibling && endNode.previousSibling.nodeType === Node.ELEMENT_NODE) {
-                const previousSibling = endNode.previousSibling;
-                if (previousSibling.tagName.toLowerCase() === "span" && previousSibling.classList.contains("render-node")) {
-                    selectedNode = previousSibling;
-                }
-            }
-
-            let parentElement = selectedNode.nodeType === Node.TEXT_NODE ? selectedNode.parentNode : selectedNode;
-            while (parentElement && !parentElement.hasAttribute("data-type")) {
-                parentElement = parentElement.parentElement;
-            }
-
-            if (parentElement && parentElement.tagName.toLowerCase() === "span") {
-                const result = {
-                    html: parentElement.outerHTML,
-                    datatype: parentElement.getAttribute("data-type"),
-                    style: parentElement.getAttribute("style")
-                };
-                // 清空选区
-                selection.removeAllRanges();
-                return result;
-            }
-        }
-        // 清空选区
-        selection.removeAllRanges();
-        return null;
-    }
 
     // Add new function to reorder footnotes
     private async reorderFootnotes(docID: string, reorderBlocks: boolean) {
