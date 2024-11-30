@@ -888,8 +888,8 @@ export default class PluginFootnote extends Plugin {
         if (reorderBlocks) {
             // Update all footnote blocks with their new numbers
             const footnotesUpdatePromises = [];
-            footnoteBlocks.forEach(block => {
-                const blockId = block.getAttribute('data-node-id');
+            blockRefs.forEach(ref => {
+                const blockId = ref.getAttribute('custom-footnote');
                 const number = footnoteOrder.get(blockId);
                 if (blockId && number) {
                     // Add to update queue
