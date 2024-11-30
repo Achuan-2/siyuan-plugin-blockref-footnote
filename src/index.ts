@@ -44,14 +44,14 @@ class FootnoteDialog {
         this.content = initialContent;
         this.dialog.innerHTML = `
             <div class="dialog-title" style="cursor: move;user-select: none;height: 22px;background-color: var(--b3-theme-on-background);margin: 0px;"></div>
-            <div style="min-width: 300px;padding: 0 16px; margin-top: 8px">
+            <div style="min-width: 300px;max-width: 500px;padding: 0 16px; margin-top: 8px">
 
                 <div class="protyle-wysiwyg" style="padding: 0px; margin-bottom: 8px">
                     <div style="border-left: 0.5em solid var(--b3-border-color); padding: 8px; margin-bottom: 8px; background: var(--b3-theme-background);">${title}</div>
                 </div>
                 <div style="margin-bottom: 8px;">
                     <div style="font-weight: bold; margin-bottom: 4px;">${i18n.footnoteContent}:</div>
-                    <textarea style="width: 95%; min-height: 100px; padding: 8px;"></textarea>
+                    <textarea style="width: 95%; min-height: 100px; padding: 8px; resize: vertical"></textarea>
                 </div>
                 <div style="display: flex; justify-content: flex-end; gap: 8px;margin-bottom: 7px;">
                     <button class="cancel">${i18n.cancel}</button>
@@ -881,7 +881,13 @@ export default class PluginFootnote extends Plugin {
         if (this.settingUtils.get("enableOrderedFootnotes")) {
             // 等500ms
             await new Promise(resolve => setTimeout(resolve, 500));
-            await this.reorderFootnotes(protyle.block.id, true);
+            if (this.settingUtils.get("saveLocation") == 4) {
+                //脚注内容块放在块后，不进行脚注内容块排序
+                await this.reorderFootnotes(protyle.block.id, false);
+            } else {
+                await this.reorderFootnotes(protyle.block.id, true);
+            }
+            
         }
 
         // Hide toolbar
@@ -993,25 +999,24 @@ export default class PluginFootnote extends Plugin {
             await updateBlock("dom", footnoteContainerDom.body.innerHTML, footnoteContainerDocID);
         }
         
-        if (reorderBlocks) {
-            // Update all footnote blocks with their new numbers
-            const footnotesUpdatePromises = [];
-            blockRefs.forEach(ref => {
-                const blockId = ref.getAttribute('custom-footnote');
-                const number = footnoteOrder.get(blockId);
-                if (blockId && number) {
-                    // Add to update queue
-                    footnotesUpdatePromises.push(
-                        setBlockAttrs(blockId, {
-                            "name": number.toString()
-                        })
-                    );
-                }
-            });
-    
-            // Execute all attribute updates in parallel
-            Promise.all(footnotesUpdatePromises);
-        }
+
+        // Update all footnote blocks with their new numbers
+        const footnotesUpdatePromises = [];
+        blockRefs.forEach(ref => {
+            const blockId = ref.getAttribute('custom-footnote');
+            const number = footnoteOrder.get(blockId);
+            if (blockId && number) {
+                // Add to update queue
+                footnotesUpdatePromises.push(
+                    setBlockAttrs(blockId, {
+                        "name": number.toString()
+                    })
+                );
+            }
+        });
+
+        // Execute all attribute updates in parallel
+        Promise.all(footnotesUpdatePromises);
     }
 }
 
