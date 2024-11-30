@@ -148,6 +148,7 @@ export default class PluginFootnote extends Plugin {
 .protyle-wysiwyg [data-node-id] span[data-type*="block-ref"][custom-footnote],
 .protyle-wysiwyg [data-node-id] span[data-ref*="siyuan://blocks"][custom-footnote] {
     background-color: var(--b3-font-background5) !important;
+    color: var(--b3-theme-on-background) !important;
     border: none !important;
     margin: 0 1px;
     border-radius: 3px;
