@@ -23,7 +23,7 @@ class FootnoteDialog {
         this.content = initialContent;
         this.dialog.innerHTML = `
             <div style="min-width: 300px; max-width: 500px;">
-                <div style="margin-bottom: 8px;">
+                <div class="protyle-wysiwyg" style="margin-bottom: 8px; padding: 0px">
                     <div style="border-left: 0.5em solid var(--b3-border-color); padding: 8px; margin-bottom: 8px; background: var(--b3-theme-background);">${title}</div>
                 </div>
                 <div style="margin-bottom: 8px;">
