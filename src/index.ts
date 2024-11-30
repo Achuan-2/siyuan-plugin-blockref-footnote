@@ -24,12 +24,11 @@ class FootnoteDialog {
         this.dialog.innerHTML = `
             <div style="min-width: 300px; max-width: 500px;">
                 <div style="margin-bottom: 8px;">
-                    <div style="font-weight: bold; margin-bottom: 4px;">Selected Text:</div>
-                    <div style="border: 1px solid var(--b3-border-color); padding: 8px; margin-bottom: 8px; background: var(--b3-theme-background);">${title}</div>
+                    <div style="border-left: 0.5em solid var(--b3-border-color); padding: 8px; margin-bottom: 8px; background: var(--b3-theme-background);">${title}</div>
                 </div>
                 <div style="margin-bottom: 8px;">
                     <div style="font-weight: bold; margin-bottom: 4px;">Footnote Content:</div>
-                    <textarea style="width: 100%; min-height: 100px; padding: 8px; resize: vertical;"></textarea>
+                    <textarea style="width: 95%; min-height: 100px; padding: 8px; resize: vertical;"></textarea>
                 </div>
                 <div style="display: flex; justify-content: flex-end; gap: 8px;">
                     <button class="cancel">Cancel</button>
