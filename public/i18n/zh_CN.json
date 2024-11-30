@@ -1,6 +1,10 @@
 {
     "tips": "添加脚注",
     "settings": {
+        "css": {
+            "title": "自定义样式",
+            "description": "自定义脚注块引、添加脚注时选中文字的样式、脚注内容块的样式"
+        },
         "groups": {
             "container": "<b style='font-size: 130%'>脚注存放设置</b>",
             "style": "<b style='font-size: 130%'>脚注样式设置</b>"
@@ -61,7 +65,7 @@
         },
         "enableOrderedFootnotes": {
             "title": "启用脚注编号",
-            "description": "使用数字编号（如[1], [2]等）替代自定义锚文本。开启后每次新建和删除脚注会自动对所有脚注重新排序编号。</br>目前开启此项排序耗时严重，没有必要请不要开启。"
+            "description": "使用数字编号（如[1], [2]等）替代自定义锚文本。开启后每次新建和删除脚注会自动对所有脚注重新排序编号。</br>注意：目前开启此项，当脚注超过30后，排序耗时严重，介意请勿开启。"
         },
         "template": {
             "title": "脚注内容模版",
@@ -70,7 +74,7 @@
         "footnoteAlias": {
             "title": "脚注内容块的别名",
             "description": "设置脚注内容块的别名，提示这个块是脚注内容，设置为空则不设置别名",
-            "value": "脚注"
+            "value": ""
         },
         "reset": {
             "title": "<span data-type=\"strong text\" style=\"color: var(--b3-font-color1); font-size: 130%\">重置设置</span>",

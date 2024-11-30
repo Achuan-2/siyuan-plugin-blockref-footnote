@@ -1,6 +1,10 @@
 {
     "tips": "Add footnote",
     "settings": {
+        "css": {
+            "title": "Custom Style",
+            "description": "Customize footnote blockref, selected text style, and footnote content block style"
+        },
         "groups": {
             "container": "<b style='font-size: 130%'>Footnote Storage Settings</b>",
             "style": "<b style='font-size: 130%'>Footnote Style Settings</b>"
@@ -66,7 +70,7 @@
         "footnoteAlias": {
             "title": "Footnote Block Alias",
             "description": "Set the alias for footnote content blocks",
-            "value": "Footnote"
+            "value": ""
         },
         "template": {
             "title": "Footnote Template",

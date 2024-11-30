@@ -141,6 +141,27 @@ export default class PluginFootnote extends Plugin {
 
     // private isMobile: boolean;
     private settingUtils: SettingUtils;
+    private styleElement: HTMLStyleElement;
+    private readonly STYLES = `/* 自定义脚注引用样式 */
+.protyle-wysiwyg [data-node-id] span[custom-footnote],
+.protyle-wysiwyg [data-node-id] span[data-type*="block-ref"][custom-footnote],
+.protyle-wysiwyg [data-node-id] span[data-ref*="siyuan://blocks"][custom-footnote] {
+    background-color: var(--b3-font-background5) !important;
+    border: none !important;
+    margin: 0 1px;
+    border-radius: 3px;
+}
+/* 自定义选中文本样式 */
+.protyle-wysiwyg [data-node-id] span[data-type*="custom-footnote-selected-text"] {
+    border-bottom: 2px dashed var(--b3-font-color5);
+}
+
+/* 自定义脚注内容块样式 */
+/*.protyle-wysiwyg [data-node-id][custom-plugin-footnote-content="true"] {
+    font-size: 0.8em;
+    color: var(--b3-font-color5);
+}*/
+`;
     // 添加工具栏按钮
     updateProtyleToolbar(toolbar: Array<string | IMenuItem>) {
         toolbar.push(
@@ -179,11 +200,16 @@ export default class PluginFootnote extends Plugin {
 }}}
 {: style="border: 2px dashed var(--b3-border-color);"}}`,
             enableOrderedFootnotes: false, // Add new setting
-            footnoteAlias: 'footnote',
+            footnoteAlias: '',
+            css: this.STYLES
         };
     }
-
+    updateCSS(css: string) {
+            this.styleElement.textContent = css;
+        
+    }
     async onload() {
+
         // 注册快捷键
         this.addCommand({
             langKey: this.i18n.tips,
@@ -206,7 +232,7 @@ export default class PluginFootnote extends Plugin {
             callback: async () => {
                 // Get current doc ID
                 // TODO: 分屏应该选哪个？
-                const activeElement = document.querySelector('.protyle.fn__flex-1:not(.fn__none) .protyle-title')?.getAttribute('data-node-id');
+                const activeElement = document.querySelector('.layout__wnd--active .protyle.fn__flex-1:not(.fn__none) .protyle-title')?.getAttribute('data-node-id');
                 if (activeElement) {
                     // 添加pushMsg
                     await pushMsg(this.i18n.reorderFootnotes + " ...");
@@ -379,7 +405,23 @@ export default class PluginFootnote extends Plugin {
             title: this.i18n.settings.footnoteAlias.title,
             description: this.i18n.settings.footnoteAlias.description,
         });
-
+        // Add CSS setting
+        this.settingUtils.addItem({
+            key: "css",
+            value: this.STYLES,
+            type: "textarea",
+            title: this.i18n.settings.css.title,
+            description: this.i18n.settings.css.description,
+            action: {
+                callback: () => {
+                    console.log("CSS updated");
+                    const newCSS = this.settingUtils.take('css');
+                    if (newCSS) {
+                        this.updateCSS(newCSS);
+                    }
+                }
+            }
+        });
         // Reset Settings Button
         this.settingUtils.addItem({
             key: "resetConfig",
@@ -396,9 +438,8 @@ export default class PluginFootnote extends Plugin {
                         for (const [key, value] of Object.entries(defaultSettings)) {
                             await this.settingUtils.set(key, value);
                         }
-                        // await this.settingUtils.load();
-                    // }
-                    // 光标重新点击
+                        // Update the UI
+                        this.updateCSS(this.settingUtils.get("css"));
 
                 }
             }
@@ -409,6 +450,13 @@ export default class PluginFootnote extends Plugin {
 
         this.eventBus.on("open-menu-blockref", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
         this.eventBus.on("open-menu-link", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
+
+
+        // Create style element
+        this.styleElement = document.createElement('style');
+        this.styleElement.id = 'snippetCSS-Footnote';
+        document.head.appendChild(this.styleElement);
+        this.updateCSS(this.settingUtils.get("css"));
     }
 
     onLayoutReady() {
