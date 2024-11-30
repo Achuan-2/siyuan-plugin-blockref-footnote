@@ -13,18 +13,7 @@ import { SettingUtils } from "./libs/setting-utils";
 const STORAGE_NAME = "config";
 const zeroWhite = "​"
 
-const I18N = {
-    zh_CN: {
-        footnoteContent: '脚注内容',
-        cancel: '取消',
-        ok: "确定"
-    },
-    en_US: {
-        footnoteContent: 'Footnote Content',
-        cancel: 'Cancel',
-        ok: "OK"
-    }
-};
+
 
 class FootnoteDialog {
     private dialog: HTMLDialogElement;
@@ -35,9 +24,20 @@ class FootnoteDialog {
     private currentY: number;
     private initialX: number;
     private initialY: number;
-
+    private  I18N = {
+        zh_CN: {
+            footnoteContent: '脚注内容',
+            cancel: '取消',
+            ok: "确定"
+        },
+        en_US: {
+            footnoteContent: 'Footnote Content',
+            cancel: 'Cancel',
+            ok: "OK"
+        }
+    };
     constructor(title: string, initialContent: string, onSubmit: (content: string) => void, x: number, y: number) {
-        let i18n: typeof I18N.zh_CN = window.siyuan.config.lang in I18N ? I18N[window.siyuan.config.lang] : I18N.en_US;
+        let i18n: typeof this.I18N.zh_CN = window.siyuan.config.lang in this.I18N ? this.I18N[window.siyuan.config.lang] : this.I18N.en_US;
         
         this.dialog = document.createElement('dialog');
         // this.dialog.classList.add('block__popover');
@@ -649,7 +649,6 @@ export default class PluginFootnote extends Plugin {
 
 
         // 使用 replace() 方法替换匹配的部分为空字符���
-        console.log(selection)
         let cleanSelection = selection
             .replace(katexPattern, '')
             .replace(customFootnotePattern, '')
@@ -845,7 +844,6 @@ export default class PluginFootnote extends Plugin {
         protyle.toolbar.element.classList.add("fn__none")
 
         // Instead of showing float layer, show dialog
-        console.log(cleanSelection)
         new FootnoteDialog(
             cleanSelection, 
             '', 
