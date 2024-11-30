@@ -17,20 +17,28 @@ class FootnoteDialog {
     private dialog: HTMLDialogElement;
     private content: string;
     private textarea: HTMLTextAreaElement;
+    private isDragging: boolean = false;
+    private currentX: number;
+    private currentY: number;
+    private initialX: number;
+    private initialY: number;
 
     constructor(title: string, initialContent: string, onSubmit: (content: string) => void, x: number, y: number) {
         this.dialog = document.createElement('dialog');
+        // this.dialog.classList.add('block__popover');
         this.content = initialContent;
         this.dialog.innerHTML = `
-            <div style="min-width: 300px; max-width: 500px;">
-                <div class="protyle-wysiwyg" style="margin-bottom: 8px; padding: 0px">
-                    <div style="border-left: 0.5em solid var(--b3-border-color); padding: 8px; margin-bottom: 8px; background: var(--b3-theme-background);">${title}</div>
+            <div class="dialog-title" style="cursor: move;user-select: none;height: 22px;background-color: var(--b3-theme-on-background);margin: 0px;"></div>
+            <div style="min-width: 300px;padding: 0 16px; margin-top: 8px">
+
+                <div class="protyle-wysiwyg" style="padding: 0px; margin-bottom: 8px">
+                    <div style="border-left: 0.5em solid var(--b3-border-color); padding: 8px; margin-bottom: 8px; background: var(--b3-theme-background);">ssss<span data-type="em u s mark">ss</span><span data-type="strong em u s mark">sssssss</span><span data-type="em u s mark">ssssss</span>ss</div>
                 </div>
                 <div style="margin-bottom: 8px;">
                     <div style="font-weight: bold; margin-bottom: 4px;">Footnote Content:</div>
-                    <textarea style="width: 95%; min-height: 100px; padding: 8px; resize: vertical;"></textarea>
+                    <textarea style="width: 95%; min-height: 100px; padding: 8px;"></textarea>
                 </div>
-                <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <div style="display: flex; justify-content: flex-end; gap: 8px;margin-bottom: 7px;">
                     <button class="cancel">Cancel</button>
                     <button class="submit">OK</button>
                 </div>
@@ -42,8 +50,8 @@ class FootnoteDialog {
         this.dialog.style.left = `${x}px`;
         this.dialog.style.top = `${y}px`;
         this.dialog.style.margin = '0';
-        this.dialog.style.padding = '16px';
-        this.dialog.style.border = '1px solid var(--b3-border-color)';
+        this.dialog.style.padding = '0px';
+        this.dialog.style.border = '0px solid var(--b3-border-color)';
         this.dialog.style.borderRadius = '4px';
         this.dialog.style.background = 'var(--b3-theme-background)';
         this.dialog.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)';
@@ -52,6 +60,12 @@ class FootnoteDialog {
         
         this.textarea = this.dialog.querySelector('textarea');
         this.textarea.value = initialContent;
+
+        // Add drag event listeners
+        const titleBar = this.dialog.querySelector('.dialog-title') as HTMLElement;
+        titleBar.addEventListener('mousedown', this.startDragging.bind(this));
+        document.addEventListener('mousemove', this.drag.bind(this));
+        document.addEventListener('mouseup', this.stopDragging.bind(this));
 
         this.dialog.querySelector('.cancel').addEventListener('click', () => {
             this.dialog.close();
@@ -70,6 +84,41 @@ class FootnoteDialog {
 
         this.dialog.showModal();
         this.textarea.focus();
+    }
+
+    private startDragging(e: MouseEvent) {
+        this.isDragging = true;
+        const rect = this.dialog.getBoundingClientRect();
+        
+        this.initialX = e.clientX - rect.left;
+        this.initialY = e.clientY - rect.top;
+        
+        this.dialog.style.cursor = 'move';
+    }
+
+    private drag(e: MouseEvent) {
+        if (!this.isDragging) return;
+
+        e.preventDefault();
+        
+        this.currentX = e.clientX - this.initialX;
+        this.currentY = e.clientY - this.initialY;
+
+        // Ensure dialog stays within viewport bounds
+        const rect = this.dialog.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        this.currentX = Math.min(Math.max(0, this.currentX), viewportWidth - rect.width);
+        this.currentY = Math.min(Math.max(0, this.currentY), viewportHeight - rect.height);
+
+        this.dialog.style.left = `${this.currentX}px`;
+        this.dialog.style.top = `${this.currentY}px`;
+    }
+
+    private stopDragging() {
+        this.isDragging = false;
+        this.dialog.style.cursor = 'auto';
     }
 }
 
@@ -342,7 +391,7 @@ export default class PluginFootnote extends Plugin {
             }
         });
 
-        await this.settingUtils.load(); //导入配置并合并
+        await this.settingUtils.load(); //导入配置并���并
 
 
         this.eventBus.on("open-menu-blockref", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
@@ -458,7 +507,7 @@ export default class PluginFootnote extends Plugin {
                 break;
             case '2':
                 footnoteContainerTitle = this.settingUtils.get("footnoteContainerTitle2").replace(/\$\{filename\}/g, currentDocTitle);
-                // 需要检测输入的title有没有#，没有会自动变��二级title
+                // 需要检测输入的title有没有#，没有会自动变为二级title
                 if (!footnoteContainerTitle.startsWith("#")) {
                     footnoteContainerTitle = `## ${footnoteContainerTitle}`;
                 }
@@ -660,7 +709,7 @@ export default class PluginFootnote extends Plugin {
                             nextSibling = nextSibling.nextElementSibling;
                         }
 
-                        return lastFootnoteId; // 返回最后���个脚注的id，如果没有脚注则返回null
+                        return lastFootnoteId; // 返回最后一个脚注的id，如果没有脚注则返回null
                     }
 
                     let lastFootnoteID = findLastFootnoteId(footnoteContainerID);
