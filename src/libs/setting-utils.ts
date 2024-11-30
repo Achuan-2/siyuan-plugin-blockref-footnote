@@ -344,6 +344,7 @@ export class SettingUtils {
                 textareaElement.className = "b3-text-field fn__block";
                 textareaElement.rows = 6;
                 textareaElement.value = item.value;
+                textareaElement.spellcheck = false;
                 textareaElement.onchange = item.action?.callback ?? (() => { });
                 itemElement = textareaElement;
                 break;

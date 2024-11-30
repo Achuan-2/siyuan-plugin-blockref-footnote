@@ -75,6 +75,7 @@ class FootnoteDialog {
         
         this.textarea = this.dialog.querySelector('textarea');
         this.textarea.value = initialContent;
+        this.textarea.spellcheck = false;
 
         // Add drag event listeners
         const titleBar = this.dialog.querySelector('.dialog-title') as HTMLElement;
