@@ -578,11 +578,8 @@ export default class PluginFootnote extends Plugin {
             description: this.i18n.settings.css.description,
             action: {
                 callback: () => {
-                    console.log("CSS updated");
                     const newCSS = this.settingUtils.take('css');
-                    if (newCSS) {
-                        this.updateCSS(newCSS);
-                    }
+                    this.updateCSS(newCSS);
                 }
             }
         });
