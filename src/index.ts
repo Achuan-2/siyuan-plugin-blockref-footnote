@@ -326,9 +326,15 @@ export default class PluginFootnote extends Plugin {
             footnoteRefStyle: '1',
             footnoteBlockref: this.i18n.settings.footnoteBlockref.value,
             selectFontStyle: '1',
-            templates: `{{{row
-\${index} \${content}
-}}}`,
+            templates: `{{{col
+\${index}
+{: style="width: 2.5em; flex: 0 0 auto;"}
+
+{{{row
+\${content}
+}}}
+}}}
+`,
             enableOrderedFootnotes: false, // Add new setting
             footnoteAlias: '',
             css: this.STYLES
@@ -1049,13 +1055,14 @@ export default class PluginFootnote extends Plugin {
                 cleanSelection,
                 '',
                 async (content) => {
+                    // TODO: 如果关的时候恰好内容块在刷新，编号可能会获取不到
                     // Get existing block attributes before update
-                    const existingAttrs = await getBlockAttrs(newBlockId);
+
                     // 获取脚注内容块的内容
                     const originDOM = (await getBlockDOM(newBlockId)).dom;
 
                     // DOM是string，使用正则表达式检测是否span[data - type*= "custom-footnote-index"]节点，如果有则提取其[number]中的数字
-                    let number = 0;
+                    let number = 1;
                     if (originDOM) {
                         // 使用 .*? 来匹配 data-type 中任意的前缀值
                         const match = originDOM.match(/<span data-type=".*?custom-footnote-index[^>]*>\[(\d+)\]<\/span>/);
@@ -1079,9 +1086,11 @@ export default class PluginFootnote extends Plugin {
                     const renderedTemplate = await renderTemplates(templates);
 
                     // Update block content
+
                     await updateBlock("markdown", renderedTemplate, newBlockId);
 
                     // Restore block attributes that could have been reset by updateBlock
+                    const existingAttrs = await getBlockAttrs(newBlockId);
                     if (existingAttrs) {
                         await setBlockAttrs(newBlockId, {
                             "custom-plugin-footnote-content": existingAttrs["custom-plugin-footnote-content"],
