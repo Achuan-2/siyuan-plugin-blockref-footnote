@@ -75,6 +75,7 @@ class FootnoteDialog {
         const protyleContainer = this.dialog.querySelector('#footnote-protyle-container');
         this.protyle = new Protyle(window.siyuan.ws.app, protyleContainer as HTMLElement, {
             blockId: blockId,
+            mode: "wysiwyg",
             action: ['cb-get-focus'],
             render: {
                 breadcrumb: false,
@@ -100,7 +101,7 @@ class FootnoteDialog {
             this.dialog.remove();
         });
 
-        this.dialog.showModal();
+        this.dialog.show();
         
 
     }
