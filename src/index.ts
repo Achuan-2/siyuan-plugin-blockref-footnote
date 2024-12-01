@@ -1161,7 +1161,7 @@ export default class PluginFootnote extends Plugin {
         if (protyle) {
             // 应该获取protyle.wysiwyg.element.innerHTML
             saveViaTransaction(protyle.wysiwyg.element) // 保存不了排序后的脚注内容块？
-            await updateBlock("dom", protyle.wysiwyg.element.innerHTML, docID);  // 暂时用这个保存排序后的脚注内容块
+            await updateBlock("dom", protyle.wysiwyg.element.innerHTML, docID);  // 暂时用这个保存排序后的脚注内容块，但是很耗时
 
         } else {
             await updateBlock("dom", currentDom.body.innerHTML, docID);
