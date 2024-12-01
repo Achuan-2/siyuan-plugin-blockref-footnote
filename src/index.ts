@@ -63,12 +63,14 @@ class FootnoteDialog {
         this.dialog.style.left = `${x}px`;
         this.dialog.style.top = `${y}px`;
         this.dialog.style.margin = '0';
-        this.dialog.style.padding = '0px';
+        this.dialog.style.padding = '0px 0px 20px 0px';
         this.dialog.style.border = '0px solid var(--b3-border-color)';
         this.dialog.style.borderRadius = '4px';
         this.dialog.style.background = 'var(--b3-theme-background)';
         this.dialog.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)';
         this.dialog.style.resize = 'auto';
+        this.dialog.style.overflow = 'auto';
+        this.dialog.style.zIndex = '99';
         document.body.appendChild(this.dialog);
 
         // Initialize Protyle
@@ -142,6 +144,143 @@ class FootnoteDialog {
     }
 }
 
+class FootnoteDialog2 {
+    private dialog: HTMLDialogElement;
+    private content: string;
+    private textarea: HTMLTextAreaElement;
+    private isDragging: boolean = false;
+    private currentX: number;
+    private currentY: number;
+    private initialX: number;
+    private initialY: number;
+    private I18N = {
+        zh_CN: {
+            addFootnote: "添加脚注",
+            footnoteContent: '脚注内容',
+            cancel: '取消',
+            ok: "确定"
+        },
+        en_US: {
+            addFootnote: "Add Footnote",
+            footnoteContent: 'Footnote Content',
+            cancel: 'Cancel',
+            ok: "OK"
+        }
+    };
+    constructor(title: string, initialContent: string, onSubmit: (content: string) => void, x: number, y: number) {
+        let i18n: typeof this.I18N.zh_CN = window.siyuan.config.lang in this.I18N ? this.I18N[window.siyuan.config.lang] : this.I18N.en_US;
+
+        this.dialog = document.createElement('dialog');
+        // this.dialog.classList.add('block__popover');
+        this.content = initialContent;
+        this.dialog.innerHTML = `
+            <div class="dialog-title" style="cursor: move;user-select: none;height: 22px;background-color: var(--b3-theme-background);margin: 0px; border-bottom: 1px solid var(--b3-border-color);display: flex;justify-content: space-between;align-items: center;padding: 0 4px;">
+                <div style="width: 22px;"></div>
+                <div style="font-size: 0.9em;color: var(--b3-theme-on-background);opacity: 0.9;">${i18n.addFootnote}</div>
+                <div class="close-button" style="width: 16px;height: 16px;display: flex;align-items: center;justify-content: center;cursor: pointer;">
+                    <svg><use xlink:href="#iconClose"></use></svg>
+                </div>
+            </div>
+            <div style="padding: 0 16px; margin-top: 8px">
+
+                <div class="protyle-wysiwyg" style="padding: 0px; margin-bottom: 8px">
+                    <div style="border-left: 0.5em solid var(--b3-border-color); padding: 8px; margin-bottom: 8px; background: var(--b3-theme-background);">${title}</div>
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <div style="font-weight: bold; margin-bottom: 4px;">${i18n.footnoteContent}:</div>
+                    <textarea style="width: 95%; min-height: 100px; padding: 8px; resize: none"></textarea>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 8px;margin-bottom: 7px;">
+                    <button class="cancel">${i18n.cancel}</button>
+                    <button class="submit">${i18n.ok}</button>
+                </div>
+            </div>
+        `;
+
+        // Position dialog
+        this.dialog.style.position = 'fixed';
+        this.dialog.style.left = `${x}px`;
+        this.dialog.style.top = `${y}px`;
+        this.dialog.style.margin = '0';
+        this.dialog.style.padding = '0px';
+        this.dialog.style.border = '0px solid var(--b3-border-color)';
+        this.dialog.style.borderRadius = '4px';
+        this.dialog.style.background = 'var(--b3-theme-background)';
+        this.dialog.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)';
+        this.dialog.style.resize = 'auto';
+        this.dialog.style.width = '400px';
+
+        document.body.appendChild(this.dialog);
+
+        this.textarea = this.dialog.querySelector('textarea');
+        this.textarea.value = initialContent;
+        this.textarea.spellcheck = false;
+
+        // Add drag event listeners
+        const titleBar = this.dialog.querySelector('.dialog-title') as HTMLElement;
+        titleBar.addEventListener('mousedown', this.startDragging.bind(this));
+        document.addEventListener('mousemove', this.drag.bind(this));
+        document.addEventListener('mouseup', this.stopDragging.bind(this));
+
+        this.dialog.querySelector('.cancel').addEventListener('click', () => {
+            this.dialog.close();
+            this.dialog.remove();
+        });
+
+        this.dialog.querySelector('.submit').addEventListener('click', () => {
+            onSubmit(this.textarea.value);
+            this.dialog.close();
+            this.dialog.remove();
+        });
+
+        this.dialog.addEventListener('close', () => {
+            this.dialog.remove();
+        });
+        // Add close button handler
+        this.dialog.querySelector('.close-button').addEventListener('click', () => {
+            this.dialog.close();
+            this.dialog.remove();
+        });
+
+        this.dialog.showModal();
+        this.textarea.focus();
+    }
+
+    private startDragging(e: MouseEvent) {
+        this.isDragging = true;
+        const rect = this.dialog.getBoundingClientRect();
+
+        this.initialX = e.clientX - rect.left;
+        this.initialY = e.clientY - rect.top;
+
+        this.dialog.style.cursor = 'move';
+    }
+
+    private drag(e: MouseEvent) {
+        if (!this.isDragging) return;
+
+        e.preventDefault();
+
+        this.currentX = e.clientX - this.initialX;
+        this.currentY = e.clientY - this.initialY;
+
+        // Ensure dialog stays within viewport bounds
+        const rect = this.dialog.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        this.currentX = Math.min(Math.max(0, this.currentX), viewportWidth - rect.width);
+        this.currentY = Math.min(Math.max(0, this.currentY), viewportHeight - rect.height);
+
+        this.dialog.style.left = `${this.currentX}px`;
+        this.dialog.style.top = `${this.currentY}px`;
+    }
+
+    private stopDragging() {
+        this.isDragging = false;
+        this.dialog.style.cursor = 'auto';
+    }
+}
 export default class PluginFootnote extends Plugin {
 
     // private isMobile: boolean;
@@ -897,17 +1036,41 @@ export default class PluginFootnote extends Plugin {
 
         protyle.toolbar.element.classList.add("fn__none")
 
-        // Instead of showing float layer, show dialog
-        new FootnoteDialog(
-            cleanSelection, 
-            newBlockId,
-            null, // onSubmit is no longer needed since changes are saved automatically via Protyle
-            x,
-            y + 20
-        );
-
         // Update numbers immediately for better UX
         if (this.settingUtils.get("enableOrderedFootnotes")) {
+            // Instead of showing float layer, show dialog
+            new FootnoteDialog2(
+                cleanSelection,
+                '',
+                async (content) => {
+                    // Get existing block attributes before update
+                    const existingAttrs = await getBlockAttrs(newBlockId);
+                    // 把content的多余空行去除
+                    content = content.replace(/(\r\n|\n|\r){2,}/g, '\n');
+                    
+                    // Update the footnote content
+                    const templates = this.settingUtils.get("templates")
+                        .replace(/\$\{selection\}/g, cleanSelection)
+                        .replace(/\$\{content\}/g, content)
+                        .replace(/\$\{refID\}/g, currentBlockId);
+
+                    const renderedTemplate = await renderTemplates(templates);
+
+                    // Update block content
+                    await updateBlock("markdown", renderedTemplate, newBlockId);
+
+                    // Restore block attributes that could have been reset by updateBlock
+                    if (existingAttrs) {
+                        await setBlockAttrs(newBlockId, {
+                            "custom-plugin-footnote-content": existingAttrs["custom-plugin-footnote-content"],
+                            "name": existingAttrs["name"],
+                            "alias": existingAttrs["alias"]
+                        });
+                    }
+                },
+                x,
+                y + 20 // Position below cursor
+            );
             // 等500ms
             await new Promise(resolve => setTimeout(resolve, 500));
             if (this.settingUtils.get("saveLocation") == 4) {
@@ -917,6 +1080,15 @@ export default class PluginFootnote extends Plugin {
                 await this.reorderFootnotes(protyle.block.id, true);
             }
             
+        } else {
+            // Instead of showing float layer, show dialog
+            new FootnoteDialog(
+                cleanSelection,
+                newBlockId,
+                null, // onSubmit is no longer needed since changes are saved automatically via Protyle
+                x,
+                y + 20
+            );
         }
 
         // Hide toolbar
@@ -1046,7 +1218,7 @@ export default class PluginFootnote extends Plugin {
 
         // Execute all attribute updates in parallel
         Promise.all(footnotesUpdatePromises);
-    }
+                    }
 }
 
 

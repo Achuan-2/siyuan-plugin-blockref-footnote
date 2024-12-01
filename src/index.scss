@@ -4,6 +4,7 @@
 
 }
 
+
 #footnote-protyle-container.protyle .protyle-content {
     padding-bottom: 0px !important;
 }
@@ -13,4 +14,9 @@
     min-height: 100%;
     box-sizing: border-box;
     padding: 0px !important
+}
+
+#footnote-protyle-container.protyle .protyle-wysiwyg>div:first-child {
+    border: 1px solid var(--b3-theme-on-background);
+    border-radius: 0px;
 }
