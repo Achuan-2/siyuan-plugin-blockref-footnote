@@ -190,10 +190,6 @@ class FootnoteDialog2 {
                     <div style="font-weight: bold; margin-bottom: 4px;">${i18n.footnoteContent}:</div>
                     <textarea style="width: 95%; min-height: 100px; padding: 8px; resize: none"></textarea>
                 </div>
-                <div style="display: flex; justify-content: flex-end; gap: 8px;margin-bottom: 7px;">
-                    <button class="cancel">${i18n.cancel}</button>
-                    <button class="submit">${i18n.ok}</button>
-                </div>
             </div>
         `;
 
@@ -222,22 +218,13 @@ class FootnoteDialog2 {
         document.addEventListener('mousemove', this.drag.bind(this));
         document.addEventListener('mouseup', this.stopDragging.bind(this));
 
-        this.dialog.querySelector('.cancel').addEventListener('click', () => {
-            this.dialog.close();
-            this.dialog.remove();
-        });
-
-        this.dialog.querySelector('.submit').addEventListener('click', () => {
-            onSubmit(this.textarea.value);
-            this.dialog.close();
-            this.dialog.remove();
-        });
-
         this.dialog.addEventListener('close', () => {
+            onSubmit(this.textarea.value);
             this.dialog.remove();
         });
         // Add close button handler
         this.dialog.querySelector('.close-button').addEventListener('click', () => {
+            onSubmit(this.textarea.value);
             this.dialog.close();
             this.dialog.remove();
         });
@@ -1033,28 +1020,52 @@ export default class PluginFootnote extends Plugin {
         }
 
 
+
         protyle.toolbar.element.classList.add("fn__none")
 
         if (this.settingUtils.get("enableOrderedFootnotes")) {
-
             // Instead of showing float layer, show dialog
-            new FootnoteDialog(
+            new FootnoteDialog2(
                 cleanSelection,
-                newBlockId,
-                null, // onSubmit is no longer needed since changes are saved automatically via Protyle
+                '',
+                async (content) => {
+                    // Get existing block attributes before update
+                    const existingAttrs = await getBlockAttrs(newBlockId);
+                    // 把content的多余空行去除
+                    content = content.replace(/(\r\n|\n|\r){2,}/g, '\n');
+
+                    // Update the footnote content
+                    const templates = this.settingUtils.get("templates")
+                        .replace(/\$\{selection\}/g, cleanSelection)
+                        .replace(/\$\{content\}/g, content)
+                        .replace(/\$\{refID\}/g, currentBlockId);
+
+                    const renderedTemplate = await renderTemplates(templates);
+
+                    // Update block content
+                    await updateBlock("markdown", renderedTemplate, newBlockId);
+
+                    // Restore block attributes that could have been reset by updateBlock
+                    if (existingAttrs) {
+                        await setBlockAttrs(newBlockId, {
+                            "custom-plugin-footnote-content": existingAttrs["custom-plugin-footnote-content"],
+                            "name": existingAttrs["name"],
+                            "alias": existingAttrs["alias"]
+                        });
+                    }
+                },
                 x,
-                y + 20
+                y + 20 // Position below cursor
             );
             // 等500ms
-            // await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(resolve => setTimeout(resolve, 500));
             if (this.settingUtils.get("saveLocation") == 4) {
                 //脚注内容块放在块后，不进行脚注内容块排序
                 await this.reorderFootnotes(protyle.block.id, false, protyle);
             } else {
                 await this.reorderFootnotes(protyle.block.id, true, protyle);
             }
-            // 保存脚注块编号
-            saveViaTransaction(protyle.wysiwyg.element);
+
         } else {
             // Instead of showing float layer, show dialog
             new FootnoteDialog(
@@ -1160,8 +1171,8 @@ export default class PluginFootnote extends Plugin {
         // Save changes
         if (protyle) {
             // 应该获取protyle.wysiwyg.element.innerHTML
-            saveViaTransaction(protyle.wysiwyg.element) // 保存不了排序后的脚注内容块？
-            await updateBlock("dom", protyle.wysiwyg.element.innerHTML, docID);  // 暂时用这个保存排序后的脚注内容块，但是很耗时
+            await updateBlock("dom", protyle.wysiwyg.element.innerHTML, docID);
+            // saveViaTransaction(protyle.wysiwyg.element) // 保存不了排序的
 
         } else {
             await updateBlock("dom", currentDom.body.innerHTML, docID);
@@ -1172,7 +1183,7 @@ export default class PluginFootnote extends Plugin {
         }
 
         // Update footnote block attributes
-        Promise.all(
+        await Promise.all(
             Array.from(blockRefs).map(ref => {
                 const blockId = ref.getAttribute('custom-footnote');
                 const number = footnoteOrder.get(blockId);
