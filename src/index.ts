@@ -7,7 +7,7 @@ import {
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
-import { appendBlock, deleteBlock, setBlockAttrs,getBlockAttrs,pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd, getDoc,getBlockKramdown } from "./api";
+import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd, getDoc, getBlockKramdown } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
 
 const STORAGE_NAME = "config";
@@ -104,17 +104,17 @@ class FootnoteDialog {
         });
 
         this.dialog.show();
-        
+
 
     }
 
     private startDragging(e: MouseEvent) {
         this.isDragging = true;
         const rect = this.dialog.getBoundingClientRect();
-        
+
         this.initialX = e.clientX - rect.left;
         this.initialY = e.clientY - rect.top;
-        
+
         this.dialog.style.cursor = 'move';
     }
 
@@ -122,7 +122,7 @@ class FootnoteDialog {
         if (!this.isDragging) return;
 
         e.preventDefault();
-        
+
         this.currentX = e.clientX - this.initialX;
         this.currentY = e.clientY - this.initialY;
 
@@ -324,7 +324,7 @@ export default class PluginFootnote extends Plugin {
         );
         return toolbar;
     }
-    
+
 
     private getDefaultSettings() {
         return {
@@ -350,8 +350,8 @@ export default class PluginFootnote extends Plugin {
         };
     }
     updateCSS(css: string) {
-            this.styleElement.textContent = css;
-        
+        this.styleElement.textContent = css;
+
     }
     async onload() {
 
@@ -373,7 +373,7 @@ export default class PluginFootnote extends Plugin {
         this.addCommand({
             langKey: this.i18n.reorderFootnotes,
             langText: this.i18n.reorderFootnotes,
-            hotkey: "", 
+            hotkey: "",
             callback: async () => {
                 // Get current doc ID
                 // TODO: 分屏应该选哪个？
@@ -576,15 +576,15 @@ export default class PluginFootnote extends Plugin {
             description: this.i18n.settings.reset?.description || "Reset all settings to default values",
             button: {
                 label: this.i18n.settings.reset?.label || "Reset",
-                callback:  async () => {
+                callback: async () => {
                     // if (confirm(this.i18n.settings.reset.confirm)) {
-                        const defaultSettings = this.getDefaultSettings();
-                        // Update each setting item's value and UI element  只是UI改了，json的值没有改
-                        for (const [key, value] of Object.entries(defaultSettings)) {
-                            await this.settingUtils.set(key, value);
-                        }
-                        // Update the UI
-                        this.updateCSS(this.settingUtils.get("css"));
+                    const defaultSettings = this.getDefaultSettings();
+                    // Update each setting item's value and UI element  只是UI改了，json的值没有改
+                    for (const [key, value] of Object.entries(defaultSettings)) {
+                        await this.settingUtils.set(key, value);
+                    }
+                    // Update the UI
+                    this.updateCSS(this.settingUtils.get("css"));
 
                 }
             }
@@ -613,7 +613,7 @@ export default class PluginFootnote extends Plugin {
 
 
 
-    private deleteMemo =  ({ detail }: any) => {
+    private deleteMemo = ({ detail }: any) => {
         if (detail.element && detail.element.getAttribute("custom-footnote")) {
             detail.menu.addItem({
                 icon: "iconTrashcan",
@@ -625,7 +625,7 @@ export default class PluginFootnote extends Plugin {
                     let currentElement = detail.element;
                     while (currentElement.previousElementSibling) {
                         const prevElement = currentElement.previousElementSibling;
-                        if (prevElement.tagName === 'SPAN' && 
+                        if (prevElement.tagName === 'SPAN' &&
                             prevElement.getAttribute('data-type')?.includes('custom-footnote-selected-text')) {
                             // Remove the custom style from data-type
                             const currentDataType = prevElement.getAttribute('data-type');
@@ -646,7 +646,7 @@ export default class PluginFootnote extends Plugin {
                         }
                         currentElement = prevElement;
                     }
-                    
+
                     // Delete footnote content block
                     if (footnote_content_id && footnote_content_id != "true") {
                         deleteBlock(footnote_content_id);
@@ -660,7 +660,7 @@ export default class PluginFootnote extends Plugin {
                         }
                         deleteBlock(id);
                     }
-                    
+
                     // Delete blockref
                     detail.element.remove();
 
@@ -837,7 +837,7 @@ export default class PluginFootnote extends Plugin {
         let selectedTextPattern = /\s*custom-footnote-selected-text(?:|-[^"\s>]*)(?="|>|\s)/g;
         // 正则表达式匹配不含data-type的普通span标签，提取其中的文本
         let plainSpanPattern = /<span(?![^>]*data-type)[^>]*>(.*?)<\/span>/g;
-        // 正则表达式中匹配data-type=为空的span标签，提取其中的文本
+        // 正则表达式中匹配data-type=为空的span标签，提取其��的文本
         let plainSpanPattern2 = /<span[^>]*data-type=""[^>]*>(.*?)<\/span>/g;
 
 
@@ -891,7 +891,7 @@ export default class PluginFootnote extends Plugin {
                     break;
                 case '1':
                 default:
-                    
+
                     function findLastFootnoteId(id) {
                         // 首先找到目标块
                         const targetBlock = document.querySelector(`.protyle-wysiwyg [data-node-id="${id}"]`);
@@ -935,7 +935,7 @@ export default class PluginFootnote extends Plugin {
                             lastFootnoteID, // previousID
                             undefined // parentID
                         );
-                        }
+                    }
                     break;
             }
         }
@@ -993,11 +993,11 @@ export default class PluginFootnote extends Plugin {
         const { x, y } = protyle.toolbar.range.getClientRects()[0]
         // 将range的起始点和结束点都移动到选中文本的末尾
         range.collapse(false); // false 表示将光标移动到选中文本的末尾
-        
+
         // 需要先清除样式，避免带上选中文本的样式
         try {
             protyle.toolbar.setInlineMark(protyle, "clear", "toolbar");
-        }catch (e) {
+        } catch (e) {
         }
 
 
@@ -1047,7 +1047,7 @@ export default class PluginFootnote extends Plugin {
                     const existingAttrs = await getBlockAttrs(newBlockId);
                     // 把content的多余空行去除
                     content = content.replace(/(\r\n|\n|\r){2,}/g, '\n');
-                    
+
                     // Update the footnote content
                     const templates = this.settingUtils.get("templates")
                         .replace(/\$\{selection\}/g, cleanSelection)
@@ -1071,15 +1071,13 @@ export default class PluginFootnote extends Plugin {
                 x,
                 y + 20 // Position below cursor
             );
-            // 等500ms
-            await new Promise(resolve => setTimeout(resolve, 500));
             if (this.settingUtils.get("saveLocation") == 4) {
                 //脚注内容块放在块后，不进行脚注内容块排序
-                await this.reorderFootnotes(protyle.block.id, false);
+                await this.reorderFootnotes(protyle.block.id, false, protyle);
             } else {
-                await this.reorderFootnotes(protyle.block.id, true);
+                await this.reorderFootnotes(protyle.block.id, true, protyle);
             }
-            
+
         } else {
             // Instead of showing float layer, show dialog
             new FootnoteDialog(
@@ -1098,13 +1096,22 @@ export default class PluginFootnote extends Plugin {
 
 
     // Add new function to reorder footnotes
-    private async reorderFootnotes(docID: string, reorderBlocks: boolean) {
+    private async reorderFootnotes(docID: string, reorderBlocks: boolean, protyle?: any) {
 
         // Get current document info
-        const currentDoc = await getDoc(docID);
+        let currentDoc = await getDoc(docID);
         if (!currentDoc) return;
 
-    
+        let currentDom;
+        if (protyle) {
+            // If protyle is provided, use its wysiwyg element directly
+            currentDom = protyle.wysiwyg.element;
+        } else {
+            // Parse current document content if protyle is not available
+            let parser = new DOMParser();
+            currentDom = parser.parseFromString(currentDoc.content, 'text/html');
+        }
+
         // Determine target document based on save location setting
         let footnoteContainerDocID = docID;
         switch (this.settingUtils.get("saveLocation")) {
@@ -1124,17 +1131,15 @@ export default class PluginFootnote extends Plugin {
                 break;
         }
 
-
         // Get target document content if different from current
         const footnoteContainerDoc = footnoteContainerDocID !== docID ? await getDoc(footnoteContainerDocID) : currentDoc;
         if (!footnoteContainerDoc) return;
-    
+
         let parser = new DOMParser();
         let counter = 1;
         const footnoteOrder = new Map();
-    
+
         // Parse current document to get reference order
-        const currentDom = parser.parseFromString(currentDoc.content, 'text/html');
         const blockRefs = currentDom.querySelectorAll('span[custom-footnote]');
         blockRefs.forEach((ref) => {
             const footnoteId = ref.getAttribute('custom-footnote');
@@ -1142,7 +1147,7 @@ export default class PluginFootnote extends Plugin {
                 footnoteOrder.set(footnoteId, counter++);
             }
         });
-    
+
         // Update reference numbers in current document
         blockRefs.forEach((ref) => {
             const footnoteId = ref.getAttribute('custom-footnote');
@@ -1151,25 +1156,25 @@ export default class PluginFootnote extends Plugin {
                 ref.textContent = `[${number}]`;
             }
         });
-    
+
         // Parse target document to reorder footnote blocks
         let footnoteContainerDom;
         if (footnoteContainerDocID == docID) {
             footnoteContainerDom = currentDom;
         } else {
-            footnoteContainerDom   = parser.parseFromString(footnoteContainerDoc.content, 'text/html');
+            footnoteContainerDom = parser.parseFromString(footnoteContainerDoc.content, 'text/html');
         }
         const footnoteBlocks = Array.from(footnoteContainerDom.querySelectorAll(`[custom-plugin-footnote-content="${docID}"]`));
         if (footnoteBlocks.length > 0) {
             const parent = footnoteBlocks[0].parentNode;
-            
+
             if (parent && reorderBlocks) {
                 // Find the reference node (the node after which we'll insert the sorted blocks)
                 let referenceNode = footnoteBlocks[0].previousSibling;
-                
+
                 // Remove all footnote blocks while maintaining their order in a new array
                 footnoteBlocks.forEach(block => block.remove());
-                
+
                 // Sort blocks based on the footnote order
                 footnoteBlocks.sort((a, b) => {
                     const aId = a.getAttribute('data-node-id');
@@ -1178,7 +1183,7 @@ export default class PluginFootnote extends Plugin {
                     const bOrder = footnoteOrder.get(bId) || Infinity;
                     return aOrder - bOrder;
                 });
-                
+
                 // Insert blocks back in the correct order after the reference node
                 footnoteBlocks.forEach(block => {
                     if (referenceNode) {
@@ -1191,15 +1196,19 @@ export default class PluginFootnote extends Plugin {
                 });
             }
 
-            
+
         }
-    
-        // Update both documents if needed
-        await updateBlock("dom", currentDom.body.innerHTML, docID);
-        if (footnoteContainerDocID !== docID) {
-            await updateBlock("dom", footnoteContainerDom.body.innerHTML, footnoteContainerDocID);
+
+        if (protyle) {
+            // If using protyle, use transaction to save changes
+            saveViaTransaction(currentDom);
+        } else {
+            // Update both documents if needed
+            await updateBlock("dom", currentDom.body.innerHTML, docID);
+            if (footnoteContainerDocID !== docID) {
+                await updateBlock("dom", footnoteContainerDom.body.innerHTML, footnoteContainerDocID);
+            }
         }
-        
 
         // Update all footnote blocks with their new numbers
         const footnotesUpdatePromises = [];
@@ -1218,7 +1227,7 @@ export default class PluginFootnote extends Plugin {
 
         // Execute all attribute updates in parallel
         Promise.all(footnotesUpdatePromises);
-                    }
+    }
 }
 
 
