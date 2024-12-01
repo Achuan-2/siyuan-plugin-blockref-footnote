@@ -7,7 +7,7 @@ import {
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
-import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd, getDoc, getBlockKramdown } from "./api";
+import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd, getDoc, getBlockKramdown, getBlockDOM } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
 
 const STORAGE_NAME = "config";
@@ -327,11 +327,8 @@ export default class PluginFootnote extends Plugin {
             footnoteBlockref: this.i18n.settings.footnoteBlockref.value,
             selectFontStyle: '1',
             templates: `{{{row
-> \${selection} [[↩️]](siyuan://blocks/\${refID})
-
-\${content}
-}}}
-{: style="border: 2px dashed var(--b3-border-color);"}}`,
+\${index} \${content}
+}}}`,
             enableOrderedFootnotes: false, // Add new setting
             footnoteAlias: '',
             css: this.STYLES
@@ -399,7 +396,7 @@ export default class PluginFootnote extends Plugin {
             },
             editorCallback: async (protyle: any) => {
                 if (protyle.block?.rootID) {
-                    await this.reorderFootnotes(protyle.block.rootID, true); 
+                    await this.reorderFootnotes(protyle.block.rootID, true);
                     await pushMsg(this.i18n.cancelReorderFootnotes + " ...");
                     await pushMsg(this.i18n.cancelReorderFootnotes + " Finished");
                 }
@@ -544,12 +541,7 @@ export default class PluginFootnote extends Plugin {
 
         this.settingUtils.addItem({
             key: "templates",
-            value: `{{{row
-> \${selection} [[↩️]](siyuan://blocks/\${refID})
-
-\${content}
-}}}
-{: style="border: 2px dashed var(--b3-border-color);"}}`,
+            value: this.getDefaultSettings().templates,
             type: "textarea",
             title: this.i18n.settings.template.title,
             description: this.i18n.settings.template.description,
@@ -865,6 +857,8 @@ export default class PluginFootnote extends Plugin {
         templates = templates.replace(/\$\{selection\}/g, cleanSelection);
         templates = templates.replace(/\$\{content\}/g, zeroWhite);
         templates = templates.replace(/\$\{refID\}/g, currentBlockId);
+        templates = templates.replace(/\$\{index\}/g, `<span data-type="custom-footnote-index a" data-href="siyuan://blocks/${currentBlockId}">[注]</span>`); // 支持添加脚注编号
+        templates = templates.replace(/\$\{index:text\}/g, `<span data-type="custom-footnote-index">[注]</span>`); // 支持添加脚注编号
         templates = await renderTemplates(templates);
 
         async function renderTemplates(templates: string): Promise<string> {
@@ -1057,6 +1051,20 @@ export default class PluginFootnote extends Plugin {
                 async (content) => {
                     // Get existing block attributes before update
                     const existingAttrs = await getBlockAttrs(newBlockId);
+                    // 获取脚注内容块的内容
+                    const originDOM = (await getBlockDOM(newBlockId)).dom;
+
+                    // DOM是string，使用正则表达式检测是否span[data - type*= "custom-footnote-index"]节点，如果有则提取其[number]中的数字
+                    let number = 0;
+                    if (originDOM) {
+                        // 使用 .*? 来匹配 data-type 中任意的前缀值
+                        const match = originDOM.match(/<span data-type=".*?custom-footnote-index[^>]*>\[(\d+)\]<\/span>/);
+                        if (match) {
+                            number = parseInt(match[1]);
+                        }
+                    }
+
+                    // 
                     // 把content的多余空行去除
                     content = content.replace(/(\r\n|\n|\r){2,}/g, '\n');
 
@@ -1064,7 +1072,9 @@ export default class PluginFootnote extends Plugin {
                     const templates = this.settingUtils.get("templates")
                         .replace(/\$\{selection\}/g, cleanSelection)
                         .replace(/\$\{content\}/g, content)
-                        .replace(/\$\{refID\}/g, currentBlockId);
+                        .replace(/\$\{refID\}/g, currentBlockId)
+                        .replace(/\$\{index\}/g, `<span data-type="custom-footnote-index a" data-href="siyuan://blocks/${currentBlockId}">[${number}]</span>`) // 支持添加脚注编号
+                        .replace(/\$\{index:text\}/g, `<span data-type="custom-footnote-index">[${number}]</span>`); // 支持添加脚注编号
 
                     const renderedTemplate = await renderTemplates(templates);
 
@@ -1075,7 +1085,7 @@ export default class PluginFootnote extends Plugin {
                     if (existingAttrs) {
                         await setBlockAttrs(newBlockId, {
                             "custom-plugin-footnote-content": existingAttrs["custom-plugin-footnote-content"],
-                            "name": existingAttrs["name"],
+                            // "name": existingAttrs["name"],
                             "alias": existingAttrs["alias"]
                         });
                     }
@@ -1167,33 +1177,52 @@ export default class PluginFootnote extends Plugin {
         });
 
         // Reorder footnote blocks if needed
+        // 获取脚注块并更新编号
         const footnoteBlocks = Array.from(footnoteContainerDom.querySelectorAll(`[custom-plugin-footnote-content="${docID}"]`));
-        if (footnoteBlocks.length > 0 && reorderBlocks) {
-            const parent = footnoteBlocks[0].parentNode;
-            if (parent) {
-                let referenceNode = footnoteBlocks[0].previousSibling;
-                footnoteBlocks.forEach(block => block.remove());
-
-                // Sort and reinsert blocks
-                footnoteBlocks
-                    .sort((a, b) => {
-                        const aId = a.getAttribute('data-node-id');
-                        const bId = b.getAttribute('data-node-id');
-                        const aOrder = footnoteOrder.get(aId) || Infinity;
-                        const bOrder = footnoteOrder.get(bId) || Infinity;
-                        return aOrder - bOrder;
-                    })
-                    .forEach(block => {
-                        if (referenceNode) {
-                            referenceNode.after(block);
-                            referenceNode = block;
-                        } else {
-                            parent.insertBefore(block, parent.firstChild);
+        if (footnoteBlocks.length > 0) {
+            footnoteBlocks.forEach(block => {
+                // 获取脚注块的ID
+                const blockId = block.getAttribute('data-node-id');
+                if (blockId) {
+                    // 获取该块对应的编号
+                    const number = footnoteOrder.get(blockId);
+                    if (number) {
+                        // 查找并更新块内的索引编号元素
+                        const indexSpan = block.querySelector('span[data-type*="custom-footnote-index"]');
+                        if (indexSpan) {
+                            indexSpan.textContent = `[${number}]`;
                         }
-                    });
+                    }
+                }
+            });
+
+            // 如果需要重排序
+            if (reorderBlocks) {
+                const parent = footnoteBlocks[0].parentNode;
+                if (parent) {
+                    let referenceNode = footnoteBlocks[0].previousSibling;
+                    footnoteBlocks.forEach(block => block.remove());
+
+                    // 排序并重新插入块
+                    footnoteBlocks
+                        .sort((a, b) => {
+                            const aId = a.getAttribute('data-node-id');
+                            const bId = b.getAttribute('data-node-id');
+                            const aOrder = footnoteOrder.get(aId) || Infinity;
+                            const bOrder = footnoteOrder.get(bId) || Infinity;
+                            return aOrder - bOrder;
+                        })
+                        .forEach(block => {
+                            if (referenceNode) {
+                                referenceNode.after(block);
+                                referenceNode = block;
+                            } else {
+                                parent.insertBefore(block, parent.firstChild);
+                            }
+                        });
+                }
             }
         }
-
         // Save changes
         if (protyle) {
             // 应该获取protyle.wysiwyg.element.innerHTML
@@ -1204,31 +1233,31 @@ export default class PluginFootnote extends Plugin {
             await updateBlock("dom", currentDom.body.innerHTML, docID);
         }
         if (footnoteContainerDocID !== docID) {
-            console.log("不一样")
             await updateBlock("dom", footnoteContainerDom.body.innerHTML, footnoteContainerDocID);
         }
 
         // Update footnote block attributes
-        await Promise.all(
-            Array.from(blockRefs).map(async ref => {
-                const blockId = ref.getAttribute('custom-footnote');
-                const number = footnoteOrder.get(blockId);
+        // await Promise.all(
+        //     Array.from(blockRefs).map(async ref => {
+        //         const blockId = ref.getAttribute('custom-footnote');
+        //         const number = footnoteOrder.get(blockId);
 
-                // Improved block existence check
-                if (blockId && number) {
-                        // Query the database to check if block exists
-                        const blockExists = await sql(
-                            `SELECT id FROM blocks WHERE id = '${blockId}' LIMIT 1`
-                        );
+        //         // Improved block existence check
+        //         if (blockId && number) {
+        //                 // Query the database to check if block exists
+        //                 const blockExists = await sql(
+        //                     `SELECT id FROM blocks WHERE id = '${blockId}' LIMIT 1`
+        //                 );
 
-                        if (blockExists && blockExists.length > 0) {
-                            return setBlockAttrs(blockId, { "name": number.toString() });
-                        }
-                }
-            }).filter(Boolean)
-        );
+        //                 if (blockExists && blockExists.length > 0) {
+        //                     return setBlockAttrs(blockId, { "name": number.toString() });
+        //                 }
+        //         }
+        //     }).filter(Boolean)
+        // );
     }
 
+    // TODO: 脚注内容块改为用(await getBlockDOM(footnoteId)).dom获取dom，然后使用正则表达式将span[data-type*="custom-footnote-index"]的textContent替换[注]
     private async cancelReorderFootnotes(docID: string, reorderBlocks: boolean) {
         // Get current document DOM
         const doc = await getDoc(docID);
@@ -1245,19 +1274,25 @@ export default class PluginFootnote extends Plugin {
             ref.textContent = defaultAnchor;
             const footnoteId = ref.getAttribute('custom-footnote');
             if (footnoteId && !footnoteIds.has(footnoteId)) {
-            footnoteIds.add(footnoteId);
+                footnoteIds.add(footnoteId);
             }
         });
         // update dom
         await updateBlock("dom", currentDom.body.innerHTML, docID);
 
-        // Update footnote block attributes
+        // Update footnote blocks
         await Promise.all(
             Array.from(footnoteIds).map(async footnoteId => {
-            return setBlockAttrs(footnoteId, { "name": "" });
+                let footnoteBlock = (await getBlockDOM(footnoteId)).dom;
+                if (footnoteBlock) {
+                    footnoteBlock = footnoteBlock.replace(/(<span data-type=".*?custom-footnote-index[^>]*>)\[\d+\](<\/span>)/g, '$1[注]$2');
+                }
+                updateBlock("dom", footnoteBlock, footnoteId);
+                // return setBlockAttrs(footnoteId, { "name": "" });
             })
         );
     }
+
 }
 
 

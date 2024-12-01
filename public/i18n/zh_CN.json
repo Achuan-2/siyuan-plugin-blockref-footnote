@@ -69,7 +69,7 @@
         },
         "template": {
             "title": "脚注内容模版",
-            "description": "模板变量：<code>${selection}</code>选中文本的内容，<code>${content}</code>脚注内容占位，<code>${refID}</code>选中文本所在的块的ID<br/>使用<code>${{...}}</code>可以使用Sprig语法，例如插入当前时间<code>${{now | date \"20060102 15:04:05\"}}</code></br>可以使用kramdown语法设置块样式"
+            "description": "模板变量：<code>${selection}</code>选中文本的内容，<code>${content}</code>脚注内容占位，<code>${refID}</code>选中文本所在的块的ID，<code>${index}</code>脚注编号默认带原块链接，<code>${index:text}</code>脚注编号纯文本</br>使用<code>${{...}}</code>可以使用Sprig语法，例如插入当前时间<code>${{now | date \"20060102 15:04:05\"}}</code></br>可以使用kramdown语法设置块样式"
         },
         "footnoteAlias": {
             "title": "脚注内容块的别名",
