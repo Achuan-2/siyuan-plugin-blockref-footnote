@@ -290,7 +290,15 @@ export default class PluginFootnote extends Plugin {
 }
 
 /* 自定义脚注内容块样式 */
-/*.protyle-wysiwyg [data-node-id][custom-plugin-footnote-content="true"] {
+/* 脚注内容块如果设置为横排超级块则减少间距 */
+.protyle-wysiwyg .sb[custom-plugin-footnote-content][data-sb-layout=col] {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    column-gap: 0em;
+}
+/* 脚注内容块设置字体样式 */
+/*.protyle-wysiwyg [data-node-id][custom-plugin-footnote-content] {
     font-size: 0.8em;
     color: var(--b3-font-color5);
 }*/

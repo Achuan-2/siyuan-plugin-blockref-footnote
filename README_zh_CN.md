@@ -83,7 +83,37 @@ v1.1.6 / 2024.11.30 脚注支持脚注数字编号啦！
     注意：目前开启此项，当脚注数量越多，排序耗时越长，介意请勿开启。
   * **脚注内容模板**：设置生成脚注内容的样式，推荐使用嵌套引述块或超级块来存放脚注内容，保证脚注内容属于同一个块，`${selection}`​代表选中文本的内容，`${content}`​代表脚注内容占位，`${refID}`​代表选中文本所在的块的ID，`${index}`脚注编号默认带原块链接，`${index:text}`脚注编号纯文本。另外可以使用kramdown语法设置脚注内容块的块样式。
   * **脚注内容块的别名**：设置脚注内容块的别名，提示这个块是脚注内容，设置为空则不设置别名。默认为空。
-  * **自定义样式**：自定义脚注块引、添加脚注时选中文字的样式、脚注内容块的样式。
+  * **自定义样式**：自定义脚注块引、添加脚注时选中文字的样式、脚注内容块的样式。默认：
+    ```css
+    /* 自定义脚注引用样式 */
+    .protyle-wysiwyg [data-node-id] span[custom-footnote],
+    .protyle-wysiwyg [data-node-id] span[data-type*="block-ref"][custom-footnote],
+    .protyle-wysiwyg [data-node-id] span[data-ref*="siyuan://blocks"][custom-footnote] {
+        background-color: var(--b3-font-background5) !important;
+        color: var(--b3-theme-on-background) !important;
+        border: none !important;
+        margin: 0 1px;
+        border-radius: 3px;
+    }
+    /* 自定义选中文本样式 */
+    .protyle-wysiwyg [data-node-id] span[data-type*="custom-footnote-selected-text"] {
+        border-bottom: 2px dashed var(--b3-font-color5);
+    }
+
+    /* 自定义脚注内容块样式 */
+    /* 脚注内容块如果设置为横排超级块则减少间距 */
+    .protyle-wysiwyg .sb[custom-plugin-footnote-content][data-sb-layout=col] {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        column-gap: 0em;
+    }
+    /* 脚注内容块设置字体样式 */
+    /*.protyle-wysiwyg [data-node-id][custom-plugin-footnote-content] {
+        font-size: 0.8em;
+        color: var(--b3-font-color5);
+    }*/
+    ```
 * **重置设置**：重置插件设置为默认值
 
 ## 插件命令面板
