@@ -291,7 +291,7 @@ export default class PluginFootnote extends Plugin {
 
 /* 自定义脚注内容块样式 */
 /* 脚注内容块如果设置为横排超级块则减少间距 */
-.protyle-wysiwyg .sb[custom-plugin-footnote-content][data-sb-layout=col] {
+.protyle-wysiwyg .sb[custom-plugin-footnote-content][data-sb-layout="col"] {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;

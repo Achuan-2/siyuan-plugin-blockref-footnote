@@ -13,9 +13,9 @@ v1.2.0 / 2024.12.01
 - ✨ 脚注内容模板新增脚注编号变量：`${index}`脚注编号默认带原块链接，`${index:text}`脚注编号纯文本
 - 🔥 取消脚注启用编号对脚注内容块添加命名的操作
    
-   ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/脚注内容块支持编号变量-2024-12-01.gif)
+![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-12-01_23-01-13-2024-12-01.png)
 
-实现上面GIF的效果：
+实现上面图片的效果：
 开启脚注自动编号，脚注内容模板设置为
 ```markdown
 {{{col
