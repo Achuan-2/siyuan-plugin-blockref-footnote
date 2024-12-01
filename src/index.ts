@@ -177,18 +177,18 @@ class FootnoteDialog2 {
             <div class="dialog-title" style="cursor: move;user-select: none;height: 22px;background-color: var(--b3-theme-background);margin: 0px; border: 1px solid var(--b3-border-color);display: flex;justify-content: space-between;align-items: center;padding: 0 4px;">
                 <div style="width: 22px;"></div>
                 <div style="font-size: 0.9em;color: var(--b3-theme-on-background);opacity: 0.9;">${i18n.addFootnote}</div>
-                <div class="close-button" style="width: 16px;height: 16px;display: flex;align-items: center;justify-content: center;cursor: pointer;">
+                <div class="close-button" style="width: 16px;height: 16px;display: flex;align-items: center;justify-content: center;cursor: pointer;color: var(--b3-theme-on-background);">
                     <svg><use xlink:href="#iconClose"></use></svg>
                 </div>
             </div>
             <div style="padding: 0 16px; margin-top: 8px">
 
                 <div class="protyle-wysiwyg" style="padding: 0px; margin-bottom: 8px">
-                    <div style="border-left: 0.5em solid var(--b3-border-color); padding: 8px; margin-bottom: 8px; background: var(--b3-theme-background);">${title}</div>
+                    <div style="border-left: 0.5em solid var(--b3-border-color); color: var(--b3-theme-on-background);padding: 8px; margin-bottom: 8px; background: var(--b3-theme-background);">${title}</div>
                 </div>
                 <div style="margin-bottom: 8px;">
-                    <div style="font-weight: bold; margin-bottom: 4px;">${i18n.footnoteContent}:</div>
-                    <textarea style="width: 95%; min-height: 100px; padding: 8px; resize: none"></textarea>
+                    <div style="font-weight: bold; margin-bottom: 4px;color: var(--b3-theme-on-background)">${i18n.footnoteContent}:</div>
+                    <textarea style="width: 95%; min-height: 100px; padding: 8px; resize: none;background-color: var(--b3-theme-background);color: var(--b3-theme-on-background);"></textarea>
                 </div>
             </div>
         `;
