@@ -13,7 +13,9 @@
     width: 100%;
     min-height: 100%;
     box-sizing: border-box;
-padding: 16px 0px 0px 0px !important;
+    padding: 16px 0px 0px 0px !important;
+    background: var(--b3-theme-background);
+    color: var(--b3-theme-on-background);
 
 }
 

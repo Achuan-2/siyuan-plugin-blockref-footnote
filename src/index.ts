@@ -44,33 +44,34 @@ class FootnoteDialog {
             <div class="dialog-title" style="cursor: move;user-select: none;height: 22px;background-color: var(--b3-theme-background);margin: 0px; border: 1px solid var(--b3-border-color);display: flex;justify-content: space-between;align-items: center;padding: 0 4px;">
                 <div style="width: 22px;"></div>
                 <div style="font-size: 0.9em;color: var(--b3-theme-on-background);opacity: 0.9;">${i18n.addFootnote}</div>
-                <div class="close-button" style="width: 16px;height: 16px;display: flex;align-items: center;justify-content: center;cursor: pointer;">
+                <div class="close-button" style="width: 16px;height: 16px;display: flex;align-items: center;justify-content: center;cursor: pointer;color: var(--b3-theme-on-background);">
                     <svg><use xlink:href="#iconClose"></use></svg>
                 </div>
             </div>
             <div style="min-width: 300px;padding: 0 8px;">
 
                 <div class="protyle-wysiwyg" style="padding: 0px; margin-bottom: 8px">
-                    <div style="border-left: 0.5em solid var(--b3-border-color); padding: 8px; margin: 8px 0; background: var(--b3-theme-background);">${title}</div>
+                    <div style="border-left: 0.5em solid var(--b3-border-color); padding: 8px; margin: 8px 0; background: var(--b3-theme-background);color: var(--b3-theme-on-background);">${title}</div>
                 </div>
-                <div style="font-weight: bold; margin-bottom: 4px;">${i18n.footnoteContent}:</div>
+                <div style="font-weight: bold; margin-bottom: 4px;background: var(--b3-theme-background);color: var(--b3-theme-on-background);">${i18n.footnoteContent}:</div>
                 <div id="footnote-protyle-container"></div>
             </div>
         `;
 
         // Position dialog
         this.dialog.style.position = 'fixed';
-        this.dialog.style.left = `${x}px`;
-        this.dialog.style.top = `${y}px`;
+        this.dialog.style.top = `40%`;
+        this.dialog.style.left = `40%`;
         this.dialog.style.margin = '0';
         this.dialog.style.padding = '0px 0px 20px 0px';
         this.dialog.style.border = '0px solid var(--b3-border-color)';
         this.dialog.style.borderRadius = '4px';
         this.dialog.style.background = 'var(--b3-theme-background)';
-        this.dialog.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)';
+        this.dialog.style.boxShadow = 'var(--b3-dialog-shadow)';
         this.dialog.style.resize = 'auto';
         this.dialog.style.overflow = 'auto';
         this.dialog.style.zIndex = '99';
+        this.dialog.style.width = "400px"
         document.body.appendChild(this.dialog);
 
         // Initialize Protyle
@@ -195,14 +196,14 @@ class FootnoteDialog2 {
 
         // Position dialog
         this.dialog.style.position = 'fixed';
-        this.dialog.style.left = `${x}px`;
-        this.dialog.style.top = `${y}px`;
+        this.dialog.style.top = '40%';
+        this.dialog.style.left = '40%';
         this.dialog.style.margin = '0';
         this.dialog.style.padding = '0px';
         this.dialog.style.border = '0px solid var(--b3-border-color)';
         this.dialog.style.borderRadius = '4px';
         this.dialog.style.background = 'var(--b3-theme-background)';
-        this.dialog.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)';
+        this.dialog.style.boxShadow = 'var(--b3-dialog-shadow)';
         this.dialog.style.resize = 'auto';
         this.dialog.style.width = '400px';
 
@@ -1184,11 +1185,20 @@ export default class PluginFootnote extends Plugin {
 
         // Update footnote block attributes
         await Promise.all(
-            Array.from(blockRefs).map(ref => {
+            Array.from(blockRefs).map(async ref => {
                 const blockId = ref.getAttribute('custom-footnote');
                 const number = footnoteOrder.get(blockId);
+
+                // Improved block existence check
                 if (blockId && number) {
-                    return setBlockAttrs(blockId, { "name": number.toString() });
+                        // Query the database to check if block exists
+                        const blockExists = await sql(
+                            `SELECT id FROM blocks WHERE id = '${blockId}' LIMIT 1`
+                        );
+
+                        if (blockExists && blockExists.length > 0) {
+                            return setBlockAttrs(blockId, { "name": number.toString() });
+                        }
                 }
             }).filter(Boolean)
         );
