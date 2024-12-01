@@ -1094,11 +1094,10 @@ export default class PluginFootnote extends Plugin {
                     const renderedTemplate = await renderTemplates(templates);
 
                     // Update block content
-
-                    await updateBlock("markdown", renderedTemplate, newBlockId);
-
-                    // Restore block attributes that could have been reset by updateBlock
                     const existingAttrs = await getBlockAttrs(newBlockId);
+                    await updateBlock("markdown", renderedTemplate, newBlockId);
+                    // Restore block attributes that could have been reset by updateBlock
+
                     if (existingAttrs) {
                         await setBlockAttrs(newBlockId, {
                             "custom-plugin-footnote-content": existingAttrs["custom-plugin-footnote-content"],
