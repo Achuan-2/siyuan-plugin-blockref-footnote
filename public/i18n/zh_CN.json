@@ -84,7 +84,7 @@
         }
     },
     "deleteFootnote": "删除脚注",
-    "reorderFootnotes": "脚注自动编号",
+    "reorderFootnotes": "脚注编号",
     "cancelReorderFootnotes": "取消脚注编号",
     "errors": {
         "noDocId": "【块引脚注插件】请填写指定文档ID"
