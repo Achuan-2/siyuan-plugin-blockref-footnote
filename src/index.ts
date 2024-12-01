@@ -375,11 +375,36 @@ export default class PluginFootnote extends Plugin {
             },
             editorCallback: async (protyle: any) => {
                 if (protyle.block?.rootID) {
+                    await pushMsg(this.i18n.reorderFootnotes + " ...");
                     await this.reorderFootnotes(protyle.block.rootID, true);
+                    await pushMsg(this.i18n.reorderFootnotes + " Finished");
                 }
             },
         });
-
+        // Add new command for cancel reordering footnotes
+        this.addCommand({
+            langKey: this.i18n.cancelReorderFootnotes,
+            langText: this.i18n.cancelReorderFootnotes,
+            hotkey: "",
+            callback: async () => {
+                // Get current doc ID
+                // TODO: 分屏应该选哪个？
+                const activeElement = document.querySelector('.layout__wnd--active .protyle.fn__flex-1:not(.fn__none) .protyle-title')?.getAttribute('data-node-id');
+                if (activeElement) {
+                    // 添加pushMsg
+                    await pushMsg(this.i18n.cancelReorderFootnotes + " ...");
+                    await this.cancelReorderFootnotes(activeElement, true);
+                    await pushMsg(this.i18n.cancelReorderFootnotes + " Finished");
+                }
+            },
+            editorCallback: async (protyle: any) => {
+                if (protyle.block?.rootID) {
+                    await this.reorderFootnotes(protyle.block.rootID, true); 
+                    await pushMsg(this.i18n.cancelReorderFootnotes + " ...");
+                    await pushMsg(this.i18n.cancelReorderFootnotes + " Finished");
+                }
+            },
+        });
         this.settingUtils = new SettingUtils({
             plugin: this, name: STORAGE_NAME
         });
@@ -1204,6 +1229,35 @@ export default class PluginFootnote extends Plugin {
         );
     }
 
+    private async cancelReorderFootnotes(docID: string, reorderBlocks: boolean) {
+        // Get current document DOM
+        const doc = await getDoc(docID);
+        if (!doc) return;
+        const currentDom = new DOMParser().parseFromString(doc.content, 'text/html');
+
+        // Get default footnote reference format
+        const defaultAnchor = this.settingUtils.get("footnoteBlockref");
+
+        // Reset all footnote references
+        const footnoteRefs = currentDom.querySelectorAll('span[custom-footnote]');
+        const footnoteIds = new Set<string>();
+        footnoteRefs.forEach((ref) => {
+            ref.textContent = defaultAnchor;
+            const footnoteId = ref.getAttribute('custom-footnote');
+            if (footnoteId && !footnoteIds.has(footnoteId)) {
+            footnoteIds.add(footnoteId);
+            }
+        });
+        // update dom
+        await updateBlock("dom", currentDom.body.innerHTML, docID);
+
+        // Update footnote block attributes
+        await Promise.all(
+            Array.from(footnoteIds).map(async footnoteId => {
+            return setBlockAttrs(footnoteId, { "name": "" });
+            })
+        );
+    }
 }
 
 
