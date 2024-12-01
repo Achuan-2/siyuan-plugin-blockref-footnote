@@ -41,7 +41,7 @@ class FootnoteDialog {
         let i18n: typeof this.I18N.zh_CN = window.siyuan.config.lang in this.I18N ? this.I18N[window.siyuan.config.lang] : this.I18N.en_US;
         this.dialog = document.createElement('dialog');
         this.dialog.innerHTML = `
-            <div class="dialog-title" style="cursor: move;user-select: none;height: 22px;background-color: var(--b3-theme-background);margin: 0px; border-bottom: 1px solid var(--b3-border-color);display: flex;justify-content: space-between;align-items: center;padding: 0 4px;">
+            <div class="dialog-title" style="cursor: move;user-select: none;height: 22px;background-color: var(--b3-theme-background);margin: 0px; border: 1px solid var(--b3-border-color);display: flex;justify-content: space-between;align-items: center;padding: 0 4px;">
                 <div style="width: 22px;"></div>
                 <div style="font-size: 0.9em;color: var(--b3-theme-on-background);opacity: 0.9;">${i18n.addFootnote}</div>
                 <div class="close-button" style="width: 16px;height: 16px;display: flex;align-items: center;justify-content: center;cursor: pointer;">
@@ -174,7 +174,7 @@ class FootnoteDialog2 {
         // this.dialog.classList.add('block__popover');
         this.content = initialContent;
         this.dialog.innerHTML = `
-            <div class="dialog-title" style="cursor: move;user-select: none;height: 22px;background-color: var(--b3-theme-background);margin: 0px; border-bottom: 1px solid var(--b3-border-color);display: flex;justify-content: space-between;align-items: center;padding: 0 4px;">
+            <div class="dialog-title" style="cursor: move;user-select: none;height: 22px;background-color: var(--b3-theme-background);margin: 0px; border: 1px solid var(--b3-border-color);display: flex;justify-content: space-between;align-items: center;padding: 0 4px;">
                 <div style="width: 22px;"></div>
                 <div style="font-size: 0.9em;color: var(--b3-theme-on-background);opacity: 0.9;">${i18n.addFootnote}</div>
                 <div class="close-button" style="width: 16px;height: 16px;display: flex;align-items: center;justify-content: center;cursor: pointer;">
@@ -1036,7 +1036,6 @@ export default class PluginFootnote extends Plugin {
 
         protyle.toolbar.element.classList.add("fn__none")
 
-        // Update numbers immediately for better UX
         if (this.settingUtils.get("enableOrderedFootnotes")) {
             // Instead of showing float layer, show dialog
             new FootnoteDialog2(
@@ -1071,6 +1070,8 @@ export default class PluginFootnote extends Plugin {
                 x,
                 y + 20 // Position below cursor
             );
+            // 等500ms
+            await new Promise(resolve => setTimeout(resolve, 500));
             if (this.settingUtils.get("saveLocation") == 4) {
                 //脚注内容块放在块后，不进行脚注内容块排序
                 await this.reorderFootnotes(protyle.block.id, false, protyle);
@@ -1089,37 +1090,30 @@ export default class PluginFootnote extends Plugin {
             );
         }
 
-        // Hide toolbar
-        protyle.toolbar.element.classList.add("fn__none");
     }
 
 
 
     // Add new function to reorder footnotes
     private async reorderFootnotes(docID: string, reorderBlocks: boolean, protyle?: any) {
-
-        // Get current document info
-        let currentDoc = await getDoc(docID);
-        if (!currentDoc) return;
-
+        // Get current document DOM
         let currentDom;
         if (protyle) {
-            // If protyle is provided, use its wysiwyg element directly
             currentDom = protyle.wysiwyg.element;
         } else {
-            // Parse current document content if protyle is not available
-            let parser = new DOMParser();
-            currentDom = parser.parseFromString(currentDoc.content, 'text/html');
+            const doc = await getDoc(docID);
+            if (!doc) return;
+            currentDom = new DOMParser().parseFromString(doc.content, 'text/html');
         }
 
         // Determine target document based on save location setting
         let footnoteContainerDocID = docID;
+        let footnoteContainerDom = currentDom;
+
         switch (this.settingUtils.get("saveLocation")) {
             case '2': // Specified document
                 footnoteContainerDocID = this.settingUtils.get("docID");
-                if (!footnoteContainerDocID) {
-                    return;
-                }
+                if (!footnoteContainerDocID) return;
                 break;
             case '3': // Child document
                 const childDoc = await sql(
@@ -1131,11 +1125,13 @@ export default class PluginFootnote extends Plugin {
                 break;
         }
 
-        // Get target document content if different from current
-        const footnoteContainerDoc = footnoteContainerDocID !== docID ? await getDoc(footnoteContainerDocID) : currentDoc;
-        if (!footnoteContainerDoc) return;
+        // Only fetch and parse target document if different from current
+        if (footnoteContainerDocID !== docID) {
+            const targetDoc = await getDoc(footnoteContainerDocID);
+            if (!targetDoc) return;
+            footnoteContainerDom = new DOMParser().parseFromString(targetDoc.content, 'text/html');
+        }
 
-        let parser = new DOMParser();
         let counter = 1;
         const footnoteOrder = new Map();
 
@@ -1157,77 +1153,60 @@ export default class PluginFootnote extends Plugin {
             }
         });
 
-        // Parse target document to reorder footnote blocks
-        let footnoteContainerDom;
-        if (footnoteContainerDocID == docID) {
-            footnoteContainerDom = currentDom;
-        } else {
-            footnoteContainerDom = parser.parseFromString(footnoteContainerDoc.content, 'text/html');
-        }
+        // Reorder footnote blocks if needed
         const footnoteBlocks = Array.from(footnoteContainerDom.querySelectorAll(`[custom-plugin-footnote-content="${docID}"]`));
-        if (footnoteBlocks.length > 0) {
+        if (footnoteBlocks.length > 0 && reorderBlocks) {
             const parent = footnoteBlocks[0].parentNode;
-
-            if (parent && reorderBlocks) {
-                // Find the reference node (the node after which we'll insert the sorted blocks)
+            if (parent) {
                 let referenceNode = footnoteBlocks[0].previousSibling;
-
-                // Remove all footnote blocks while maintaining their order in a new array
                 footnoteBlocks.forEach(block => block.remove());
 
-                // Sort blocks based on the footnote order
-                footnoteBlocks.sort((a, b) => {
-                    const aId = a.getAttribute('data-node-id');
-                    const bId = b.getAttribute('data-node-id');
-                    const aOrder = footnoteOrder.get(aId) || Infinity;
-                    const bOrder = footnoteOrder.get(bId) || Infinity;
-                    return aOrder - bOrder;
-                });
-
-                // Insert blocks back in the correct order after the reference node
-                footnoteBlocks.forEach(block => {
-                    if (referenceNode) {
-                        referenceNode.after(block);
-                        referenceNode = block;
-                    } else {
-                        // If no reference node (meaning it should be the first child)
-                        parent.insertBefore(block, parent.firstChild);
-                    }
-                });
-            }
-
-
-        }
-
-        if (protyle) {
-            // If using protyle, use transaction to save changes
-            saveViaTransaction(currentDom);
-        } else {
-            // Update both documents if needed
-            await updateBlock("dom", currentDom.body.innerHTML, docID);
-            if (footnoteContainerDocID !== docID) {
-                await updateBlock("dom", footnoteContainerDom.body.innerHTML, footnoteContainerDocID);
-            }
-        }
-
-        // Update all footnote blocks with their new numbers
-        const footnotesUpdatePromises = [];
-        blockRefs.forEach(ref => {
-            const blockId = ref.getAttribute('custom-footnote');
-            const number = footnoteOrder.get(blockId);
-            if (blockId && number) {
-                // Add to update queue
-                footnotesUpdatePromises.push(
-                    setBlockAttrs(blockId, {
-                        "name": number.toString()
+                // Sort and reinsert blocks
+                footnoteBlocks
+                    .sort((a, b) => {
+                        const aId = a.getAttribute('data-node-id');
+                        const bId = b.getAttribute('data-node-id');
+                        const aOrder = footnoteOrder.get(aId) || Infinity;
+                        const bOrder = footnoteOrder.get(bId) || Infinity;
+                        return aOrder - bOrder;
                     })
-                );
+                    .forEach(block => {
+                        if (referenceNode) {
+                            referenceNode.after(block);
+                            referenceNode = block;
+                        } else {
+                            parent.insertBefore(block, parent.firstChild);
+                        }
+                    });
             }
-        });
+        }
 
-        // Execute all attribute updates in parallel
-        Promise.all(footnotesUpdatePromises);
+        // Save changes
+        if (protyle) {
+            // 应该获取protyle.wysiwyg.element.innerHTML
+            await updateBlock("dom", protyle.wysiwyg.element.innerHTML, docID); 
+            // saveViaTransaction(protyle.wysiwyg.element) // 保存不了排序的
+
+        } else {
+            await updateBlock("dom", currentDom.body.innerHTML, docID);
+        }
+        if (footnoteContainerDocID !== docID) {
+            console.log("不一样")
+            await updateBlock("dom", footnoteContainerDom.body.innerHTML, footnoteContainerDocID);
+        }
+
+        // Update footnote block attributes
+        await Promise.all(
+            Array.from(blockRefs).map(ref => {
+                const blockId = ref.getAttribute('custom-footnote');
+                const number = footnoteOrder.get(blockId);
+                if (blockId && number) {
+                    return setBlockAttrs(blockId, { "name": number.toString() });
+                }
+            }).filter(Boolean)
+        );
     }
+
 }
 
 
