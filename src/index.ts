@@ -17,46 +17,44 @@ const zeroWhite = "​"
 
 class FootnoteDialog {
     private dialog: HTMLDialogElement;
-    private content: string;
-    private textarea: HTMLTextAreaElement;
+    private protyle: Protyle;
     private isDragging: boolean = false;
     private currentX: number;
     private currentY: number;
     private initialX: number;
     private initialY: number;
-    private  I18N = {
+    private I18N = {
         zh_CN: {
+            addFootnote: "添加脚注",
             footnoteContent: '脚注内容',
             cancel: '取消',
             ok: "确定"
         },
         en_US: {
+            addFootnote: "Add Footnote",
             footnoteContent: 'Footnote Content',
             cancel: 'Cancel',
             ok: "OK"
         }
     };
-    constructor(title: string, initialContent: string, onSubmit: (content: string) => void, x: number, y: number) {
+    constructor(title: string, blockId: string, onSubmit: (content: string) => void, x: number, y: number) {
         let i18n: typeof this.I18N.zh_CN = window.siyuan.config.lang in this.I18N ? this.I18N[window.siyuan.config.lang] : this.I18N.en_US;
-        
         this.dialog = document.createElement('dialog');
-        // this.dialog.classList.add('block__popover');
-        this.content = initialContent;
         this.dialog.innerHTML = `
-            <div class="dialog-title" style="cursor: move;user-select: none;height: 22px;background-color: var(--b3-theme-on-background);margin: 0px;"></div>
-            <div style="min-width: 300px;max-width: 500px;padding: 0 16px; margin-top: 8px">
+            <div class="dialog-title" style="cursor: move;user-select: none;height: 22px;background-color: var(--b3-theme-background);margin: 0px; border-bottom: 1px solid var(--b3-border-color);display: flex;justify-content: space-between;align-items: center;padding: 0 4px;">
+                <div style="width: 22px;"></div>
+                <div style="font-size: 0.9em;color: var(--b3-theme-on-background);opacity: 0.9;">${i18n.addFootnote}</div>
+                <div class="close-button" style="width: 16px;height: 16px;display: flex;align-items: center;justify-content: center;cursor: pointer;">
+                    <svg><use xlink:href="#iconClose"></use></svg>
+                </div>
+            </div>
+            <div style="min-width: 300px;padding: 0 8px;">
 
                 <div class="protyle-wysiwyg" style="padding: 0px; margin-bottom: 8px">
-                    <div style="border-left: 0.5em solid var(--b3-border-color); padding: 8px; margin-bottom: 8px; background: var(--b3-theme-background);">${title}</div>
+                    <div style="border-left: 0.5em solid var(--b3-border-color); padding: 8px; margin: 8px 0; background: var(--b3-theme-background);">${title}</div>
                 </div>
-                <div style="margin-bottom: 8px;">
-                    <div style="font-weight: bold; margin-bottom: 4px;">${i18n.footnoteContent}:</div>
-                    <textarea style="width: 95%; min-height: 100px; padding: 8px; resize: vertical"></textarea>
-                </div>
-                <div style="display: flex; justify-content: flex-end; gap: 8px;margin-bottom: 7px;">
-                    <button class="cancel">${i18n.cancel}</button>
-                    <button class="submit">${i18n.ok}</button>
-                </div>
+                <div style="font-weight: bold; margin-bottom: 4px;">${i18n.footnoteContent}:</div>
+                <div id="footnote-protyle-container"></div>
             </div>
         `;
 
@@ -70,12 +68,21 @@ class FootnoteDialog {
         this.dialog.style.borderRadius = '4px';
         this.dialog.style.background = 'var(--b3-theme-background)';
         this.dialog.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)';
-
+        this.dialog.style.resize = 'auto';
         document.body.appendChild(this.dialog);
-        
-        this.textarea = this.dialog.querySelector('textarea');
-        this.textarea.value = initialContent;
-        this.textarea.spellcheck = false;
+
+        // Initialize Protyle
+        const protyleContainer = this.dialog.querySelector('#footnote-protyle-container');
+        this.protyle = new Protyle(window.siyuan.ws.app, protyleContainer as HTMLElement, {
+            blockId: blockId,
+            action: ['cb-get-focus'],
+            render: {
+                breadcrumb: false,
+                background: false,
+                title: false,
+                gutter: true,
+            },
+        });
 
         // Add drag event listeners
         const titleBar = this.dialog.querySelector('.dialog-title') as HTMLElement;
@@ -83,13 +90,8 @@ class FootnoteDialog {
         document.addEventListener('mousemove', this.drag.bind(this));
         document.addEventListener('mouseup', this.stopDragging.bind(this));
 
-        this.dialog.querySelector('.cancel').addEventListener('click', () => {
-            this.dialog.close();
-            this.dialog.remove();
-        });
-
-        this.dialog.querySelector('.submit').addEventListener('click', () => {
-            onSubmit(this.textarea.value);
+        // Add close button handler
+        this.dialog.querySelector('.close-button').addEventListener('click', () => {
             this.dialog.close();
             this.dialog.remove();
         });
@@ -99,7 +101,8 @@ class FootnoteDialog {
         });
 
         this.dialog.showModal();
-        this.textarea.focus();
+        
+
     }
 
     private startDragging(e: MouseEvent) {
@@ -853,7 +856,7 @@ export default class PluginFootnote extends Plugin {
         
         // 需要先清除样式，避免带上选中文本的样式
         try {
-            protyle.toolbar.setInlineMark(protyle, "clear", "range");
+            protyle.toolbar.setInlineMark(protyle, "clear", "toolbar");
         }catch (e) {
         }
 
@@ -896,33 +899,10 @@ export default class PluginFootnote extends Plugin {
         // Instead of showing float layer, show dialog
         new FootnoteDialog(
             cleanSelection, 
-            '', 
-            async (content) => {
-                // Get existing block attributes before update
-                const existingAttrs = await getBlockAttrs(newBlockId);
-
-                // Update the footnote content
-                const templates = this.settingUtils.get("templates")
-                    .replace(/\$\{selection\}/g, cleanSelection)
-                    .replace(/\$\{content\}/g, content)
-                    .replace(/\$\{refID\}/g, currentBlockId);
-
-                const renderedTemplate = await renderTemplates(templates);
-                
-                // Update block content
-                await updateBlock("markdown", renderedTemplate, newBlockId);
-
-                // Restore block attributes that could have been reset by updateBlock
-                if (existingAttrs) {
-                    await setBlockAttrs(newBlockId, {
-                        "custom-plugin-footnote-content": existingAttrs["custom-plugin-footnote-content"],
-                        "name": existingAttrs["name"],
-                        "alias": existingAttrs["alias"]
-                    });
-                }
-            },
+            newBlockId,
+            null, // onSubmit is no longer needed since changes are saved automatically via Protyle
             x,
-            y + 20 // Position below cursor
+            y + 20
         );
 
         // Update numbers immediately for better UX
