@@ -725,16 +725,16 @@ export default class PluginFootnote extends Plugin {
             case '1':
                 footnoteContainerTitle = this.settingUtils.get("footnoteContainerTitle").replace(/\$\{filename\}/g, currentDocTitle);
                 // 需要检测输入的title有没有#，没有会自动变为二级title
-                if (!footnoteContainerTitle.startsWith("#")) {
-                    footnoteContainerTitle = `## ${footnoteContainerTitle}`;
-                }
+                // if (!footnoteContainerTitle.startsWith("#")) {
+                //     footnoteContainerTitle = `## ${footnoteContainerTitle}`;
+                // }
                 break;
             case '2':
                 footnoteContainerTitle = this.settingUtils.get("footnoteContainerTitle2").replace(/\$\{filename\}/g, currentDocTitle);
                 // 需要检测输入的title有没有#，没有会自动变为二级title
-                if (!footnoteContainerTitle.startsWith("#")) {
-                    footnoteContainerTitle = `## ${footnoteContainerTitle}`;
-                }
+                // if (!footnoteContainerTitle.startsWith("#")) {
+                //     footnoteContainerTitle = `## ${footnoteContainerTitle}`;
+                // }
                 break;
             case '3':
                 footnoteContainerTitle = this.settingUtils.get("footnoteContainerTitle3").replace(/\$\{filename\}/g, currentDocTitle);
@@ -751,7 +751,7 @@ export default class PluginFootnote extends Plugin {
                 query_res = await sql(
                     `SELECT * FROM blocks AS b 
          WHERE root_id = '${docID}' 
-         AND b.type='h' 
+         AND b.type !='d' 
          AND b.ial like '%custom-plugin-footnote-parent="${protyle.block.id}"%' 
          ORDER BY created DESC 
          limit 1`
@@ -780,7 +780,7 @@ export default class PluginFootnote extends Plugin {
                 query_res = await sql(
                     `SELECT * FROM blocks AS b 
          WHERE root_id = '${docID}' 
-         AND b.type='h' 
+         AND b.type !='d' 
          AND b.ial like '%custom-plugin-footnote-parent="${protyle.block.id}"%' 
          ORDER BY created DESC 
          limit 1`
@@ -824,6 +824,13 @@ export default class PluginFootnote extends Plugin {
                     await setBlockAttrs(docID, {
                         "custom-plugin-footnote-parent": protyle.block.id
                     });
+
+                    // 删除默认生成的块
+                    // const defaultBlock = await sql(`SELECT * FROM blocks WHERE root_id = '${docID}' AND type != 'd'`);
+                    // console.log(defaultBlock);
+                    // if (defaultBlock.length > 0) {
+                    //     await deleteBlock(defaultBlock[0].id);
+                    // }
                 }
                 footnoteContainerID = docID;
                 break;
@@ -972,19 +979,29 @@ export default class PluginFootnote extends Plugin {
                 case '1':
                 default:
                     if (this.settingUtils.get("saveLocation") != 3) {
-                        let children = await getChildBlocks(footnoteContainerID);
+
+                        let footnoteContainerDom = (await getBlockDOM(docID)).dom;
+                        console.log(docID);
                         // 默认顺序插入
-                        if (children.length > 0) {
-                            // 在最后一个子块后面添加(使用 insertBlock 并指定 previousID)
+                        const parser = new DOMParser();
+                        // 将DOM字符串解析为DOM文档
+                        const doc = parser.parseFromString(footnoteContainerDom, 'text/html');
+
+                        // 查找所有符合条件的div元素
+                        const footnotes = doc.querySelectorAll(`div[custom-plugin-footnote-content="${protyle.block.id}"]`);
+                        console.log(footnotes);
+                        if (footnotes.length > 0) {
+                            const lastFootnote = footnotes[footnotes.length - 1];
+                            let lastFootnoteID = lastFootnote.getAttribute('data-node-id');
                             back = await insertBlock(
                                 "markdown",
                                 templates,
                                 undefined, // nextID 
-                                children[children.length - 1].id, // previousID - 放在最后一个子块后面
+                                lastFootnoteID, // previousID - 放在最后一个子块后面
                                 undefined // parentID
                             );
                         } else {
-                            // 如果没有子块,直接在标题下添加
+                            // 如果没有找到子块,直接在标题下添加
                             back = await appendBlock("markdown", templates, footnoteContainerID);
                         }
                     }
