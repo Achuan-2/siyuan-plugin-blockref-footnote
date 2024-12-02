@@ -11,7 +11,7 @@
         },
         "saveLocation": {
             "title": "脚注存放位置",
-            "description": "将脚注存放于当前文档末尾、指定文档、子文档、父块后",
+            "description": "可选择将脚注存放于当前文档末尾 or 指定文档 or 子文档 or 父块后",
             "current": "当前文档末尾",
             "specified": "指定文档",
             "childDoc": "子文档",
