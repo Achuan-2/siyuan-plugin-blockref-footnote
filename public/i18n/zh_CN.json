@@ -24,7 +24,7 @@
         "footnoteContainerTitle": {
             "title": "当前文档的脚注容器标题",
             "description": "当脚注存放位置为“当前文档”时，设置存放脚注的标题名<br/>模板变量：<code>${filename}</code>当前文档标题",
-            "value": "## 脚注"
+            "value": "脚注"
         },
         "footnoteContainerTitle2": {
             "title": "指定文档的脚注容器标题",

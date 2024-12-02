@@ -24,7 +24,7 @@
         "footnoteContainerTitle": {
             "title": "Footnote Container Title",
             "description": "Set the document title to store footnotes when the footnote location is set to Current Document.<br/>Template variable: Current document title <code>${filename}</code>",
-            "value": "## Footnotes"
+            "value": "Footnotes"
         },
         "footnoteContainerTitle2": {
             "title": "Footnote Container Title",
