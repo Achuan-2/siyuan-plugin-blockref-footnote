@@ -19,7 +19,7 @@
         },
         "docId": {
             "title": "指定文档的文档ID",
-            "description": "当脚注存放位置为“指定文档”时，通过文档ID指定文档，设置这个文档存放所有的脚注，方便导出"
+            "description": "当脚注存放位置为“指定文档”时，通过文档ID指定文档，设置这个文档存放所有的脚注"
         },
         "footnoteContainerTitle": {
             "title": "当前文档的脚注容器标题",
