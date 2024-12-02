@@ -339,6 +339,8 @@ export default class PluginFootnote extends Plugin {
 {: style="width: 2.5em; flex: 0 0 auto;"}
 
 {{{row
+> \${selection}
+
 \${content}
 }}}
 }}}
@@ -868,8 +870,8 @@ export default class PluginFootnote extends Plugin {
         templates = templates.replace(/\$\{selection\}/g, cleanSelection);
         templates = templates.replace(/\$\{content\}/g, zeroWhite);
         templates = templates.replace(/\$\{refID\}/g, currentBlockId);
-        templates = templates.replace(/\$\{index\}/g, `<span data-type="custom-footnote-index a" data-href="siyuan://blocks/${currentBlockId}">[注]</span>`); // 支持添加脚注编号
-        templates = templates.replace(/\$\{index:text\}/g, `<span data-type="custom-footnote-index">[注]</span>`); // 支持添加脚注编号
+        templates = templates.replace(/\$\{index\}/g, `<span data-type="custom-footnote-index a" data-href="siyuan://blocks/${currentBlockId}">${this.i18n.indexAnchor}</span>`); // 支持添加脚注编号
+        templates = templates.replace(/\$\{index:text\}/g, `<span data-type="custom-footnote-index>${this.i18n.indexAnchor}</span>`); // 支持添加脚注编号
         templates = await renderTemplates(templates);
 
         async function renderTemplates(templates: string): Promise<string> {
@@ -1270,7 +1272,6 @@ export default class PluginFootnote extends Plugin {
         // );
     }
 
-    // TODO: 脚注内容块改为用(await getBlockDOM(footnoteId)).dom获取dom，然后使用正则表达式将span[data-type*="custom-footnote-index"]的textContent替换[注]
     private async cancelReorderFootnotes(docID: string, reorderBlocks: boolean) {
         // Get current document DOM
         const doc = await getDoc(docID);
@@ -1298,7 +1299,7 @@ export default class PluginFootnote extends Plugin {
             Array.from(footnoteIds).map(async footnoteId => {
                 let footnoteBlock = (await getBlockDOM(footnoteId)).dom;
                 if (footnoteBlock) {
-                    footnoteBlock = footnoteBlock.replace(/(<span data-type=".*?custom-footnote-index[^>]*>)\[\d+\](<\/span>)/g, '$1[注]$2');
+                    footnoteBlock = footnoteBlock.replace(/(<span data-type=".*?custom-footnote-index[^>]*>)\[\d+\](<\/span>)/g, '$1${this.i18n.indexAnchor}$2');
                 }
                 updateBlock("dom", footnoteBlock, footnoteId);
                 // return setBlockAttrs(footnoteId, { "name": "" });

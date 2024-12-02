@@ -61,7 +61,7 @@
         "footnoteBlockref": {
             "title": "Footnote Blockref Anchor Text",
             "description": "Custom anchor text",
-            "value": "[Footnote]"
+            "value": "[*]"
         },
         "enableOrderedFootnotes": {
             "title": "Enable Footnote Numbering",
@@ -88,5 +88,6 @@
     "cancelReorderFootnotes": "Cancel Reorder Footnotes",
     "errors": {
         "noDocId": "[Block Ref Footnote Plugin] Please fill in the specified document ID"
-    }
+    },
+    "indexAnchor": "[*]"
 }
