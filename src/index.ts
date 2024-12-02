@@ -412,8 +412,8 @@ export default class PluginFootnote extends Plugin {
             },
             editorCallback: async (protyle: any) => {
                 if (protyle.block?.rootID) {
-                    await this.reorderFootnotes(protyle.block.rootID, true);
                     await pushMsg(this.i18n.cancelReorderFootnotes + " ...");
+                    await this.reorderFootnotes(protyle.block.rootID, true);
                     await pushMsg(this.i18n.cancelReorderFootnotes + " Finished");
                 }
             },
@@ -1316,12 +1316,13 @@ export default class PluginFootnote extends Plugin {
             Array.from(footnoteIds).map(async footnoteId => {
                 let footnoteBlock = (await getBlockDOM(footnoteId)).dom;
                 if (footnoteBlock) {
-                    footnoteBlock = footnoteBlock.replace(/(<span data-type=".*?custom-footnote-index[^>]*>)\[\d+\](<\/span>)/g, `$1${this.i18n.indexAnchor}$2`);
+                    footnoteBlock = footnoteBlock.replace(/(<span data-type=".*?custom-footnote-index[^>]*>)[^<]*(<\/span>)/g, "$1" + this.i18n.indexAnchor + "$2");
+                    updateBlock("dom", footnoteBlock, footnoteId);
                 }
-                updateBlock("dom", footnoteBlock, footnoteId);
                 // return setBlockAttrs(footnoteId, { "name": "" });
             })
         );
+
     }
 
 }
