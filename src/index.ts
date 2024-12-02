@@ -1129,9 +1129,9 @@ export default class PluginFootnote extends Plugin {
             await new Promise(resolve => setTimeout(resolve, 500));
             if (this.settingUtils.get("saveLocation") == 4) {
                 //脚注内容块放在块后，不进行脚注内容块排序
-                await this.reorderFootnotes(protyle.block.id, false, protyle);
+                await this.reorderFootnotes(protyle.block.id, false);
             } else {
-                await this.reorderFootnotes(protyle.block.id, true, protyle);
+                await this.reorderFootnotes(protyle.block.id, true);
             }
 
         } else {
@@ -1155,6 +1155,7 @@ export default class PluginFootnote extends Plugin {
         let currentDom;
         if (protyle) {
             currentDom = protyle.wysiwyg.element;
+            console.log(currentDom);
         } else {
             const doc = await getDoc(docID);
             if (!doc) return;
@@ -1267,26 +1268,6 @@ export default class PluginFootnote extends Plugin {
         if (footnoteContainerDocID !== docID) {
             await updateBlock("dom", footnoteContainerDom.body.innerHTML, footnoteContainerDocID);
         }
-
-        // Update footnote block attributes
-        // await Promise.all(
-        //     Array.from(blockRefs).map(async ref => {
-        //         const blockId = ref.getAttribute('custom-footnote');
-        //         const number = footnoteOrder.get(blockId);
-
-        //         // Improved block existence check
-        //         if (blockId && number) {
-        //                 // Query the database to check if block exists
-        //                 const blockExists = await sql(
-        //                     `SELECT id FROM blocks WHERE id = '${blockId}' LIMIT 1`
-        //                 );
-
-        //                 if (blockExists && blockExists.length > 0) {
-        //                     return setBlockAttrs(blockId, { "name": number.toString() });
-        //                 }
-        //         }
-        //     }).filter(Boolean)
-        // );
     }
 
     private async cancelReorderFootnotes(docID: string, reorderBlocks: boolean) {
