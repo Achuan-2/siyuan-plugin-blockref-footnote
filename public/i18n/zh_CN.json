@@ -93,5 +93,7 @@
     "errors": {
         "noDocId": "【块引脚注插件】请填写指定文档ID"
     },
-    "indexAnchor": "[注]"
+    "indexAnchor": "[注]",
+    "showFootnoteSelection": "显示选中文本",
+    "hideFootnoteSelection": "隐藏选中文本"
 }

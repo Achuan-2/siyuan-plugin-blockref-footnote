@@ -93,5 +93,7 @@
     "errors": {
         "noDocId": "[Block Ref Footnote Plugin] Please fill in the specified document ID"
     },
-    "indexAnchor": "[*]"
+    "indexAnchor": "[*]",
+    "showFootnoteSelection":"Show selected text",
+    "hideFootnoteSelection": "Hide selected text"
 }

@@ -419,6 +419,60 @@ export default class PluginFootnote extends Plugin {
                 }
             },
         });
+
+        this.addCommand({
+            langKey: "hideFootnoteSelection",
+            langText: this.i18n.hideFootnoteSelection,
+            hotkey: "",
+            callback: async () => {
+                // Get the current doc ID from protyle
+                const docId = this.getDocumentId();
+                console.log(docId)
+                if (!docId) return;
+                await pushMsg(this.i18n.hideFootnoteSelection + " ...");
+
+                // Get the full DOM
+                const docResp = await getBlockDOM(docId);
+                if (!docResp) return;
+
+                // Parse the DOM and replace hidden classes
+                let newDom = docResp.dom;
+                newDom = newDom.replace(
+                    /(<span\b[^>]*?\bdata-type=")custom-footnote-selected-text-([^"]*)"/g,
+                    '$1custom-footnote-hidden-selected-text-$2"'
+                );
+
+                // Update the document with modified DOM
+                await updateBlock("dom", newDom, docId);
+                await pushMsg(this.i18n.hideFootnoteSelection + " Finished");
+            }
+        });
+        this.addCommand({
+            langKey: "showFootnoteSelection",
+            langText: this.i18n.showFootnoteSelection,
+            hotkey: "",
+            callback: async () => {
+                // Get the current doc ID from protyle
+                const docId = this.getDocumentId();
+                console.log(docId)
+                if (!docId) return;
+                await pushMsg(this.i18n.showFootnoteSelection + " ...");
+                // Get the full DOM
+                const docResp = await getBlockDOM(docId);
+                if (!docResp) return;
+
+                // Parse the DOM and replace hidden classes
+                let newDom = docResp.dom;
+                newDom = newDom.replace(
+                    /(<span\b[^>]*?\bdata-type=")custom-footnote-hidden-selected-text-([^"]*)"/g,
+                    '$1custom-footnote-selected-text-$2"'
+                );
+
+                // Update the document with modified DOM
+                await updateBlock("dom", newDom, docId);
+                await pushMsg(this.i18n.showFootnoteSelection + " Finished!");
+            }
+        });
         this.settingUtils = new SettingUtils({
             plugin: this, name: STORAGE_NAME
         });
@@ -868,6 +922,7 @@ export default class PluginFootnote extends Plugin {
 
         // 正则表达式匹配并替换 data-type 中的 custom-footnote-selected-text（包含可能的空格）
         let selectedTextPattern = /\s*custom-footnote-selected-text(?:|-[^"\s>]*)(?="|>|\s)/g;
+        let selectedTextPattern2 = /\s*custom-footnote-hidden-selected-text(?:|-[^"\s>]*)(?="|>|\s)/g;
         // 正则表达式匹配不含data-type的普通span标签，提取其中的文本
         let plainSpanPattern = /<span(?![^>]*data-type)[^>]*>(.*?)<\/span>/g;
         // 正则表达式中匹配data-type=为空的span标签，提取其��的文本
@@ -879,6 +934,7 @@ export default class PluginFootnote extends Plugin {
             .replace(katexPattern, '')
             .replace(customFootnotePattern, '')
             .replace(selectedTextPattern, '')
+            .replace(selectedTextPattern2, '')
             .replace(plainSpanPattern, '$1') // 保留span标签中的文本内容
             .replace(plainSpanPattern2, '$1') // 保留span标签中的文本内容
         let templates = this.settingUtils.get("templates");
@@ -1026,8 +1082,9 @@ export default class PluginFootnote extends Plugin {
         // 选中的文本添加样式
         let range = protyle.toolbar.range;
         if (this.settingUtils.get("selectFontStyle") === '2') {
-            // 在想要不要不用时间戳，用id来标识，这样貌似更方便删除
             protyle.toolbar.setInlineMark(protyle, `custom-footnote-selected-text-${newBlockId}`, "range");
+        } else {
+            protyle.toolbar.setInlineMark(protyle, `custom-footnote-hidden-selected-text-${newBlockId}`, "range");
         }
 
         // --------------------------添加脚注引用 -------------------------- // 
@@ -1153,8 +1210,6 @@ export default class PluginFootnote extends Plugin {
                 );
             }
         }
-
-
     }
 
 
@@ -1313,6 +1368,19 @@ export default class PluginFootnote extends Plugin {
             })
         );
 
+    }
+
+    private getDocumentId() {
+        // 尝试获取第一个选择器
+        let element = document.querySelector('.layout__wnd--active .protyle.fn__flex-1:not(.fn__none) .protyle-title');
+
+        // 如果第一个选择器获取不到，则尝试获取第二个选择器
+        if (!element) {
+            element = document.querySelector('.protyle.fn__flex-1:not(.fn__none) .protyle-title');
+        }
+
+        // 返回获取到的元素的 data-node-id 属性
+        return element?.getAttribute('data-node-id');
     }
 
 }
