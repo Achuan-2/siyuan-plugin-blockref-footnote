@@ -699,6 +699,7 @@ export default class PluginFootnote extends Plugin {
 
     private async addMemoBlock(protyle: IProtyle) {
         await this.settingUtils.load(); //导入配置
+        // console.log(protyle.block.rootID);
         // 获取当前光标所在块的 ID
         const currentBlockId = protyle.toolbar.range.startContainer.parentElement.closest('[data-node-id]')?.getAttribute('data-node-id');
         const currentParentBlockId = protyle.toolbar.range.startContainer.parentElement.closest('.protyle-wysiwyg > [data-node-id]')?.getAttribute('data-node-id');
@@ -716,7 +717,7 @@ export default class PluginFootnote extends Plugin {
         const selection = getSelectedHtml(protyle.toolbar.range);
 
         // 获取当前文档标题
-        let currentDoc = await sql(`SELECT * FROM blocks WHERE id = '${protyle.block.id}' LIMIT 1`);
+        let currentDoc = await sql(`SELECT * FROM blocks WHERE id = '${protyle.block.rootID}' LIMIT 1`);
         let currentDocTitle = currentDoc[0].content;
 
         // 获取脚注容器标题
@@ -747,12 +748,12 @@ export default class PluginFootnote extends Plugin {
         switch (this.settingUtils.get("saveLocation")) {
             default:
             case '1': // 当前文档
-                docID = protyle.block.id;
+                docID = protyle.block.rootID;
                 query_res = await sql(
                     `SELECT * FROM blocks AS b 
          WHERE root_id = '${docID}' 
          AND b.type !='d' 
-         AND b.ial like '%custom-plugin-footnote-parent="${protyle.block.id}"%' 
+         AND b.ial like '%custom-plugin-footnote-parent="${protyle.block.rootID}"%' 
          ORDER BY created DESC 
          limit 1`
                 );
@@ -767,7 +768,7 @@ export default class PluginFootnote extends Plugin {
                 }
 
                 await setBlockAttrs(footnoteContainerID, {
-                    "custom-plugin-footnote-parent": protyle.block.id
+                    "custom-plugin-footnote-parent": protyle.block.rootID
                 });
                 break;
 
@@ -781,7 +782,7 @@ export default class PluginFootnote extends Plugin {
                     `SELECT * FROM blocks AS b 
          WHERE root_id = '${docID}' 
          AND b.type !='d' 
-         AND b.ial like '%custom-plugin-footnote-parent="${protyle.block.id}"%' 
+         AND b.ial like '%custom-plugin-footnote-parent="${protyle.block.rootID}"%' 
          ORDER BY created DESC 
          limit 1`
                 );
@@ -796,13 +797,13 @@ export default class PluginFootnote extends Plugin {
                 }
 
                 await setBlockAttrs(footnoteContainerID, {
-                    "custom-plugin-footnote-parent": protyle.block.id
+                    "custom-plugin-footnote-parent": protyle.block.rootID
                 });
                 break;
 
             case '3': // 子文档
                 const existingDoc = await sql(
-                    `SELECT * FROM blocks WHERE type='d' AND ial like '%custom-plugin-footnote-parent="${protyle.block.id}"%' LIMIT 1`
+                    `SELECT * FROM blocks WHERE type='d' AND ial like '%custom-plugin-footnote-parent="${protyle.block.rootID}"%' LIMIT 1`
                 );
 
                 if (existingDoc?.length > 0) {
@@ -822,7 +823,7 @@ export default class PluginFootnote extends Plugin {
                     }
 
                     await setBlockAttrs(docID, {
-                        "custom-plugin-footnote-parent": protyle.block.id
+                        "custom-plugin-footnote-parent": protyle.block.rootID
                     });
 
                     // 删除默认生成的块
@@ -836,7 +837,7 @@ export default class PluginFootnote extends Plugin {
                 break;
 
             case '4': // 父块后
-                docID = protyle.block.id;
+                docID = protyle.block.rootID;
                 if (currentParentBlockId == null) {
                     footnoteContainerID = currentBlockId;
                 }
@@ -988,7 +989,7 @@ export default class PluginFootnote extends Plugin {
                         const doc = parser.parseFromString(footnoteContainerDom, 'text/html');
 
                         // 查找所有符合条件的div元素
-                        const footnotes = doc.querySelectorAll(`div[custom-plugin-footnote-content="${protyle.block.id}"]`);
+                        const footnotes = doc.querySelectorAll(`div[custom-plugin-footnote-content="${protyle.block.rootID}"]`);
                         console.log(footnotes);
                         if (footnotes.length > 0) {
                             const lastFootnote = footnotes[footnotes.length - 1];
@@ -1014,7 +1015,7 @@ export default class PluginFootnote extends Plugin {
 
         let newBlockId = back[0].doOperations[0].id
         // 添加脚注内容属性
-        await setBlockAttrs(newBlockId, { "custom-plugin-footnote-content": protyle.block.id });
+        await setBlockAttrs(newBlockId, { "custom-plugin-footnote-content": protyle.block.rootID });
         await setBlockAttrs(newBlockId, { "alias": this.settingUtils.get("footnoteAlias") });
 
         // 选中的文本添加样式
@@ -1129,9 +1130,9 @@ export default class PluginFootnote extends Plugin {
             await new Promise(resolve => setTimeout(resolve, 500));
             if (this.settingUtils.get("saveLocation") == 4) {
                 //脚注内容块放在块后，不进行脚注内容块排序
-                await this.reorderFootnotes(protyle.block.id, false);
+                await this.reorderFootnotes(protyle.block.rootID, false);
             } else {
-                await this.reorderFootnotes(protyle.block.id, true);
+                await this.reorderFootnotes(protyle.block.rootID, true);
             }
 
         } else {
