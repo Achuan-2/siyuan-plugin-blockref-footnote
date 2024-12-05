@@ -2,7 +2,7 @@
   "name": "siyuan-plugin-blockref-footnote",
   "author": "Achuan-2",
   "url": "https://github.com/Achuan-2/siyuan-plugin-blockref-footnote",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "minAppVersion": "3.1.13",
   "backends": [
     "windows",
