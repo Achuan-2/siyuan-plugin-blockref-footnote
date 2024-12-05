@@ -347,7 +347,8 @@ export default class PluginFootnote extends Plugin {
 `,
             enableOrderedFootnotes: false, // Add new setting
             footnoteAlias: '',
-            css: this.STYLES
+            css: this.STYLES,
+            floatDialogEnable: true
         };
     }
     updateCSS(css: string) {
@@ -553,6 +554,13 @@ export default class PluginFootnote extends Plugin {
                 1: this.i18n.settings.selectFontStyle.none,
                 2: this.i18n.settings.selectFontStyle.custom
             }
+        });
+        this.settingUtils.addItem({
+            key: "floatDialogEnable",
+            value: true,
+            type: "checkbox",
+            title: this.i18n.settings.floatDialog.title,
+            description: this.i18n.settings.floatDialog.description,
         });
 
         this.settingUtils.addItem({
@@ -1072,57 +1080,59 @@ export default class PluginFootnote extends Plugin {
         protyle.toolbar.element.classList.add("fn__none")
 
         if (this.settingUtils.get("enableOrderedFootnotes")) {
-            // Instead of showing float layer, show dialog
-            new FootnoteDialog2(
-                cleanSelection,
-                '',
-                async (content) => {
-                    // TODO: 如果关的时候恰好内容块在刷新，编号可能会获取不到
-                    // Get existing block attributes before update
+            if (this.settingUtils.get("floatDialogEnable")) {
+                // Instead of showing float layer, show dialog
+                new FootnoteDialog2(
+                    cleanSelection,
+                    '',
+                    async (content) => {
+                        // TODO: 如果关的时候恰好内容块在刷新，编号可能会获取不到
+                        // Get existing block attributes before update
 
-                    // 获取脚注内容块的内容
-                    const originDOM = (await getBlockDOM(newBlockId)).dom;
+                        // 获取脚注内容块的内容
+                        const originDOM = (await getBlockDOM(newBlockId)).dom;
 
-                    // DOM是string，使用正则表达式检测是否span[data - type*= "custom-footnote-index"]节点，如果有则提取其[number]中的数字
-                    let number = 1;
-                    if (originDOM) {
-                        // 使用 .*? 来匹配 data-type 中任意的前缀值
-                        const match = originDOM.match(/<span data-type=".*?custom-footnote-index[^>]*>\[(\d+)\]<\/span>/);
-                        if (match) {
-                            number = parseInt(match[1]);
+                        // DOM是string，使用正则表达式检测是否span[data - type*= "custom-footnote-index"]节点，如果有则提取其[number]中的数字
+                        let number = 1;
+                        if (originDOM) {
+                            // 使用 .*? 来匹配 data-type 中任意的前缀值
+                            const match = originDOM.match(/<span data-type=".*?custom-footnote-index[^>]*>\[(\d+)\]<\/span>/);
+                            if (match) {
+                                number = parseInt(match[1]);
+                            }
                         }
-                    }
 
-                    // 
-                    // 把content的多余空行去除
-                    content = content.replace(/(\r\n|\n|\r){2,}/g, '\n');
+                        // 
+                        // 把content的多余空行去除
+                        content = content.replace(/(\r\n|\n|\r){2,}/g, '\n');
 
-                    // Update the footnote content
-                    const templates = this.settingUtils.get("templates")
-                        .replace(/\$\{selection\}/g, cleanSelection)
-                        .replace(/\$\{content\}/g, content)
-                        .replace(/\$\{refID\}/g, currentBlockId)
-                        .replace(/\$\{index\}/g, `<span data-type="custom-footnote-index a" data-href="siyuan://blocks/${currentBlockId}">[${number}]</span>`) // 支持添加脚注编号
-                        .replace(/\$\{index:text\}/g, `<span data-type="custom-footnote-index">[${number}]</span>`); // 支持添加脚注编号
+                        // Update the footnote content
+                        const templates = this.settingUtils.get("templates")
+                            .replace(/\$\{selection\}/g, cleanSelection)
+                            .replace(/\$\{content\}/g, content)
+                            .replace(/\$\{refID\}/g, currentBlockId)
+                            .replace(/\$\{index\}/g, `<span data-type="custom-footnote-index a" data-href="siyuan://blocks/${currentBlockId}">[${number}]</span>`) // 支持添加脚注编号
+                            .replace(/\$\{index:text\}/g, `<span data-type="custom-footnote-index">[${number}]</span>`); // 支持添加脚注编号
 
-                    const renderedTemplate = await renderTemplates(templates);
+                        const renderedTemplate = await renderTemplates(templates);
 
-                    // Update block content
-                    const existingAttrs = await getBlockAttrs(newBlockId);
-                    await updateBlock("markdown", renderedTemplate, newBlockId);
-                    // Restore block attributes that could have been reset by updateBlock
+                        // Update block content
+                        const existingAttrs = await getBlockAttrs(newBlockId);
+                        await updateBlock("markdown", renderedTemplate, newBlockId);
+                        // Restore block attributes that could have been reset by updateBlock
 
-                    if (existingAttrs) {
-                        await setBlockAttrs(newBlockId, {
-                            "custom-plugin-footnote-content": existingAttrs["custom-plugin-footnote-content"],
-                            // "name": existingAttrs["name"],
-                            "alias": existingAttrs["alias"]
-                        });
-                    }
-                },
-                x,
-                y + 20 // Position below cursor
-            );
+                        if (existingAttrs) {
+                            await setBlockAttrs(newBlockId, {
+                                "custom-plugin-footnote-content": existingAttrs["custom-plugin-footnote-content"],
+                                // "name": existingAttrs["name"],
+                                "alias": existingAttrs["alias"]
+                            });
+                        }
+                    },
+                    x,
+                    y + 20 // Position below cursor
+                );
+            }
             // 等500ms
             await new Promise(resolve => setTimeout(resolve, 500));
             if (this.settingUtils.get("saveLocation") == 4) {
@@ -1131,17 +1141,19 @@ export default class PluginFootnote extends Plugin {
             } else {
                 await this.reorderFootnotes(protyle.block.rootID, true);
             }
-
         } else {
-            // Instead of showing float layer, show dialog
-            new FootnoteDialog(
-                cleanSelection,
-                newBlockId,
-                null, // onSubmit is no longer needed since changes are saved automatically via Protyle
-                x,
-                y + 20
-            );
+            if (this.settingUtils.get("floatDialogEnable")) {
+                // Instead of showing float layer, show dialog
+                new FootnoteDialog(
+                    cleanSelection,
+                    newBlockId,
+                    null, // onSubmit is no longer needed since changes are saved automatically via Protyle
+                    x,
+                    y + 20
+                );
+            }
         }
+
 
     }
 

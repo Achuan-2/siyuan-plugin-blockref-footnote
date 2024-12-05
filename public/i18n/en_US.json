@@ -72,6 +72,10 @@
             "description": "Set the alias for footnote content blocks",
             "value": ""
         },
+        "floatDialog": {
+            "title": "Enable Footnote Dialog",
+            "description": "Enable the dialog for adding footnotes"
+        },
         "template": {
             "title": "Footnote Template",
             "description": "Template variables: <code>${selection}</code> is the content of the selected text , <code>${content}</code> is the placeholder for footnote content, and <code>${refID}</code> is the block ID containing the selected text <br/> ${{...}} for Sprig templated, e.g. ${{now | date \"20060102 15:04:05\"}} </br>You can use kramdown syntax to style the block."
