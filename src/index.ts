@@ -681,11 +681,10 @@ export default class PluginFootnote extends Plugin {
 
                     // Delete blockref
                     detail.element.remove();
-
                     // Get current document ID and reorder footnotes if enabled
                     if (this.settingUtils.get("enableOrderedFootnotes")) {
                         // 获取docID
-                        const docID = document.querySelector('.layout__wnd--active .protyle.fn__flex-1:not(.fn__none) .protyle-title')?.getAttribute('data-node-id');
+                        const docID = detail.protyle.block.rootID;
                         if (docID) {
                             // Wait a bit for DOM updates
                             await new Promise(resolve => setTimeout(resolve, 500));
@@ -982,7 +981,6 @@ export default class PluginFootnote extends Plugin {
                     if (this.settingUtils.get("saveLocation") != 3) {
 
                         let footnoteContainerDom = (await getBlockDOM(docID)).dom;
-                        console.log(docID);
                         // 默认顺序插入
                         const parser = new DOMParser();
                         // 将DOM字符串解析为DOM文档
@@ -990,7 +988,6 @@ export default class PluginFootnote extends Plugin {
 
                         // 查找所有符合条件的div元素
                         const footnotes = doc.querySelectorAll(`div[custom-plugin-footnote-content="${protyle.block.rootID}"]`);
-                        console.log(footnotes);
                         if (footnotes.length > 0) {
                             const lastFootnote = footnotes[footnotes.length - 1];
                             let lastFootnoteID = lastFootnote.getAttribute('data-node-id');
@@ -1156,7 +1153,6 @@ export default class PluginFootnote extends Plugin {
         let currentDom;
         if (protyle) {
             currentDom = protyle.wysiwyg.element;
-            console.log(currentDom);
         } else {
             const doc = await getDoc(docID);
             if (!doc) return;
