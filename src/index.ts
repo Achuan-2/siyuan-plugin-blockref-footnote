@@ -94,20 +94,33 @@ class FootnoteDialog {
         document.addEventListener('mousemove', this.drag.bind(this));
         document.addEventListener('mouseup', this.stopDragging.bind(this));
 
-        // Add close button handler
+        // 添加关闭按钮事件
         this.dialog.querySelector('.close-button').addEventListener('click', () => {
             this.dialog.close();
             this.dialog.remove();
+            document.removeEventListener('dblclick', this.handleOutsideDoubleClick);
         });
+
+        // 添加在弹窗外双击关闭弹窗的事件监听
+        document.addEventListener('dblclick', this.handleOutsideDoubleClick);
 
         this.dialog.addEventListener('close', () => {
             this.dialog.remove();
+            document.removeEventListener('dblclick', this.handleOutsideDoubleClick);
         });
 
         this.dialog.show();
-
-
     }
+
+    // 处理在弹窗外双击的事件
+    private handleOutsideDoubleClick = (event: MouseEvent) => {
+        if (!this.dialog.contains(event.target as Node)) {
+            this.dialog.close();
+            this.dialog.remove();
+            document.removeEventListener('dblclick', this.handleOutsideDoubleClick);
+        }
+    }
+
 
     private startDragging(e: MouseEvent) {
         this.isDragging = true;
@@ -219,19 +232,39 @@ class FootnoteDialog2 {
         document.addEventListener('mousemove', this.drag.bind(this));
         document.addEventListener('mouseup', this.stopDragging.bind(this));
 
+
+
         this.dialog.addEventListener('close', () => {
             onSubmit(this.textarea.value);
             this.dialog.remove();
+            // 移除全局双击事件监听器
+            document.removeEventListener('dblclick', this.handleOutsideDoubleClick);
         });
-        // Add close button handler
+
+        // 添加在弹窗外双击关闭弹窗的事件监听
+        document.addEventListener('dblclick', this.handleOutsideDoubleClick);
+        
+        // 添加关闭按钮事件
         this.dialog.querySelector('.close-button').addEventListener('click', () => {
             onSubmit(this.textarea.value);
             this.dialog.close();
             this.dialog.remove();
+            // 移除全局双击事件监听器
+            document.removeEventListener('dblclick', this.handleOutsideDoubleClick);
         });
 
         this.dialog.showModal();
         this.textarea.focus();
+    }
+
+    // 处理在弹窗外双击的事件
+    private handleOutsideDoubleClick = (event: MouseEvent) => {
+        if (!this.dialog.contains(event.target as Node)) {
+            this.dialog.close();
+            this.dialog.remove();
+            // 移除全局双击事件监听器
+            document.removeEventListener('dblclick', this.handleOutsideDoubleClick);
+        }
     }
 
     private startDragging(e: MouseEvent) {
@@ -287,6 +320,15 @@ export default class PluginFootnote extends Plugin {
 /* 自定义选中文本样式 */
 .protyle-wysiwyg [data-node-id] span[data-type*="custom-footnote-selected-text"] {
     border-bottom: 2px dashed var(--b3-font-color5);
+}
+/* 导出pdf脚注引用为上标样式 */
+.b3-typography a[custom-footnote],
+#preview .protyle-wysiwyg a[custom-footnote] {
+    top: -0.5em;
+    font-size: 75%;
+    line-height: 0;
+    vertical-align: baseline;
+    position: relative;
 }
 
 /* 自定义脚注内容块样式 */
