@@ -70,7 +70,7 @@ class FootnoteDialog {
         this.dialog.style.boxShadow = 'var(--b3-dialog-shadow)';
         this.dialog.style.resize = 'auto';
         this.dialog.style.overflow = 'auto';
-        this.dialog.style.zIndex = '99';
+        this.dialog.style.zIndex = '2';
         this.dialog.style.width = "400px"
         document.body.appendChild(this.dialog);
 
@@ -81,7 +81,7 @@ class FootnoteDialog {
             mode: "wysiwyg",
             action: ['cb-get-focus'],
             render: {
-                breadcrumb: false,
+                breadcrumb: true,
                 background: false,
                 title: false,
                 gutter: true,
