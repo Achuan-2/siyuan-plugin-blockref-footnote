@@ -2,6 +2,7 @@ import {
     Plugin,
     // getFrontend,
     fetchSyncPost,
+    Dialog,
     Protyle
 } from "siyuan";
 import "@/index.scss";
@@ -9,7 +10,7 @@ import { IMenuItem } from "siyuan/types";
 
 import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd, getDoc, getBlockKramdown, getBlockDOM } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
-
+import LoadingDialog from "./components/LoadingDialog.svelte";
 const STORAGE_NAME = "config";
 const zeroWhite = "​"
 
@@ -60,7 +61,7 @@ class FootnoteDialog {
 
         // Position dialog
         this.dialog.style.position = 'fixed';
-        this.dialog.style.top = `40%`;
+        this.dialog.style.top = `30%`;
         this.dialog.style.left = `40%`;
         this.dialog.style.margin = '0';
         this.dialog.style.padding = '0px 0px 20px 0px';
@@ -71,7 +72,8 @@ class FootnoteDialog {
         this.dialog.style.resize = 'auto';
         this.dialog.style.overflow = 'auto';
         this.dialog.style.zIndex = '2';
-        this.dialog.style.width = "400px"
+        this.dialog.style.width = "500px"
+        this.dialog.style.height = "500px"
         document.body.appendChild(this.dialog);
 
         // Initialize Protyle
@@ -209,7 +211,7 @@ class FootnoteDialog2 {
 
         // Position dialog
         this.dialog.style.position = 'fixed';
-        this.dialog.style.top = '40%';
+        this.dialog.style.top = '30%';
         this.dialog.style.left = '40%';
         this.dialog.style.margin = '0';
         this.dialog.style.padding = '0px';
@@ -218,7 +220,8 @@ class FootnoteDialog2 {
         this.dialog.style.background = 'var(--b3-theme-background)';
         this.dialog.style.boxShadow = 'var(--b3-dialog-shadow)';
         this.dialog.style.resize = 'auto';
-        this.dialog.style.width = '400px';
+        this.dialog.style.width = "500px";
+        this.dialog.style.height = "500px";
 
         document.body.appendChild(this.dialog);
 
@@ -307,6 +310,8 @@ export default class PluginFootnote extends Plugin {
     // private isMobile: boolean;
     private settingUtils: SettingUtils;
     private styleElement: HTMLStyleElement;
+    private loadingDialog: Dialog;
+
     private readonly STYLES = `/* 自定义脚注引用样式 */
 .protyle-wysiwyg [data-node-id] span[custom-footnote],
 .protyle-wysiwyg [data-node-id] span[data-type*="block-ref"][custom-footnote],
@@ -424,15 +429,17 @@ export default class PluginFootnote extends Plugin {
                 const activeElement = document.querySelector('.layout__wnd--active .protyle.fn__flex-1:not(.fn__none) .protyle-title')?.getAttribute('data-node-id');
                 if (activeElement) {
                     // 添加pushMsg
-                    await pushMsg(this.i18n.reorderFootnotes + " ...");
+                    this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
                     await this.reorderFootnotes(activeElement, true);
+                    this.closeLoadingDialog();
                     await pushMsg(this.i18n.reorderFootnotes + " Finished");
                 }
             },
             editorCallback: async (protyle: any) => {
                 if (protyle.block?.rootID) {
-                    await pushMsg(this.i18n.reorderFootnotes + " ...");
+                    this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
                     await this.reorderFootnotes(protyle.block.rootID, true);
+                    this.closeLoadingDialog();
                     await pushMsg(this.i18n.reorderFootnotes + " Finished");
                 }
             },
@@ -448,15 +455,17 @@ export default class PluginFootnote extends Plugin {
                 const activeElement = document.querySelector('.layout__wnd--active .protyle.fn__flex-1:not(.fn__none) .protyle-title')?.getAttribute('data-node-id');
                 if (activeElement) {
                     // 添加pushMsg
-                    await pushMsg(this.i18n.cancelReorderFootnotes + " ...");
+                    this.showLoadingDialog(this.i18n.cancelReorderFootnotes + " ...");
                     await this.cancelReorderFootnotes(activeElement, true);
+                    this.closeLoadingDialog();
                     await pushMsg(this.i18n.cancelReorderFootnotes + " Finished");
                 }
             },
             editorCallback: async (protyle: any) => {
                 if (protyle.block?.rootID) {
-                    await pushMsg(this.i18n.cancelReorderFootnotes + " ...");
+                    this.showLoadingDialog(this.i18n.cancelReorderFootnotes + " ...");
                     await this.reorderFootnotes(protyle.block.rootID, true);
+                    this.closeLoadingDialog();
                     await pushMsg(this.i18n.cancelReorderFootnotes + " Finished");
                 }
             },
@@ -468,10 +477,10 @@ export default class PluginFootnote extends Plugin {
             hotkey: "",
             callback: async () => {
                 // Get the current doc ID from protyle
+                this.showLoadingDialog(this.i18n.hideFootnoteSelection + " ...");
                 const docId = this.getDocumentId();
                 console.log(docId)
                 if (!docId) return;
-                await pushMsg(this.i18n.hideFootnoteSelection + " ...");
 
                 // Get the full DOM
                 const docResp = await getBlockDOM(docId);
@@ -486,6 +495,7 @@ export default class PluginFootnote extends Plugin {
 
                 // Update the document with modified DOM
                 await updateBlock("dom", newDom, docId);
+                this.closeLoadingDialog();
                 await pushMsg(this.i18n.hideFootnoteSelection + " Finished");
             }
         });
@@ -498,7 +508,7 @@ export default class PluginFootnote extends Plugin {
                 const docId = this.getDocumentId();
                 console.log(docId)
                 if (!docId) return;
-                await pushMsg(this.i18n.showFootnoteSelection + " ...");
+                this.showLoadingDialog(this.i18n.showFootnoteSelection + " ...");
                 // Get the full DOM
                 const docResp = await getBlockDOM(docId);
                 if (!docResp) return;
@@ -512,6 +522,7 @@ export default class PluginFootnote extends Plugin {
 
                 // Update the document with modified DOM
                 await updateBlock("dom", newDom, docId);
+                this.closeLoadingDialog();
                 await pushMsg(this.i18n.showFootnoteSelection + " Finished!");
             }
         });
@@ -712,7 +723,7 @@ export default class PluginFootnote extends Plugin {
             }
         });
 
-        await this.settingUtils.load(); //导入配置并���并
+        await this.settingUtils.load(); //导入配置并合并
 
 
         this.eventBus.on("open-menu-blockref", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
@@ -1260,6 +1271,7 @@ export default class PluginFootnote extends Plugin {
 
     // Add new function to reorder footnotes
     private async reorderFootnotes(docID: string, reorderBlocks: boolean, protyle?: any) {
+        
         // Get current document DOM
         let currentDom;
         if (protyle) {
@@ -1427,6 +1439,30 @@ export default class PluginFootnote extends Plugin {
         return element?.getAttribute('data-node-id');
     }
 
+    private showLoadingDialog(message: string) {
+        if (this.loadingDialog) {
+            this.loadingDialog.destroy();
+        }
+        this.loadingDialog = new Dialog({
+            title: "Processing",
+            content: `<div id="loadingDialogContent"></div>`,
+            width: "300px",
+            height: "150px",
+            disableClose: true, // 禁止点击外部关闭
+            destroyCallback: null // 禁止自动关闭
+        });
+        new LoadingDialog({
+            target: this.loadingDialog.element.querySelector('#loadingDialogContent'),
+            props: { message }
+        });
+    }
+
+    private closeLoadingDialog() {
+        if (this.loadingDialog) {
+            this.loadingDialog.destroy();
+            this.loadingDialog = null;
+        }
+    }
 }
 
 
