@@ -1,20 +1,13 @@
-import {
-    Plugin,
-    // getFrontend,
-    fetchSyncPost,
-    Dialog,
-    Protyle
-} from "siyuan";
+import { Plugin, fetchSyncPost, Dialog, Protyle } from "siyuan";
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
 import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd, getDoc, getBlockKramdown, getBlockDOM } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
+import SettingExample from "@/setting-example.svelte";
 import LoadingDialog from "./components/LoadingDialog.svelte";
 const STORAGE_NAME = "config";
 const zeroWhite = "​"
-
-
 
 class FootnoteDialog {
     private dialog: HTMLDialogElement;
@@ -451,7 +444,6 @@ export default class PluginFootnote extends Plugin {
             hotkey: "",
             callback: async () => {
                 // Get current doc ID
-                // TODO: 分屏应该选哪个？
                 const activeElement = document.querySelector('.layout__wnd--active .protyle.fn__flex-1:not(.fn__none) .protyle-title')?.getAttribute('data-node-id');
                 if (activeElement) {
                     // 添加pushMsg
@@ -743,9 +735,6 @@ export default class PluginFootnote extends Plugin {
     onunload() {
     }
 
-
-
-
     private deleteMemo = ({ detail }: any) => {
         if (detail.element && detail.element.getAttribute("custom-footnote")) {
             detail.menu.addItem({
@@ -961,11 +950,6 @@ export default class PluginFootnote extends Plugin {
                 break;
         }
 
-
-
-
-
-
         // 过滤掉脚注文本 <sup>((id "text"))</sup>
         // 正则表达式匹配包含 custom-footnote="true" 的 <span> 标签
         let customFootnotePattern = /<span[^>]*?custom-footnote=[^>]*?>.*?<\/span>/g;
@@ -978,11 +962,11 @@ export default class PluginFootnote extends Plugin {
         let selectedTextPattern2 = /\s*custom-footnote-hidden-selected-text(?:|-[^"\s>]*)(?="|>|\s)/g;
         // 正则表达式匹配不含data-type的普通span标签，提取其中的文本
         let plainSpanPattern = /<span(?![^>]*data-type)[^>]*>(.*?)<\/span>/g;
-        // 正则表达式中匹配data-type=为空的span标签，提取其��的文本
+        // 正则表达式中匹配data-type=为空的span标签，提取其中的文本
         let plainSpanPattern2 = /<span[^>]*data-type=""[^>]*>(.*?)<\/span>/g;
 
 
-        // 使用 replace() 方法替换匹配的部分为空字符���
+        // 使用 replace() 方法替换匹配的部分为空字符
         let cleanSelection = selection
             .replace(katexPattern, '')
             .replace(customFootnotePattern, '')
@@ -1267,8 +1251,6 @@ export default class PluginFootnote extends Plugin {
         }
     }
 
-
-
     // Add new function to reorder footnotes
     private async reorderFootnotes(docID: string, reorderBlocks: boolean, protyle?: any) {
         
@@ -1439,6 +1421,7 @@ export default class PluginFootnote extends Plugin {
         return element?.getAttribute('data-node-id');
     }
 
+
     private showLoadingDialog(message: string) {
         if (this.loadingDialog) {
             this.loadingDialog.destroy();
@@ -1463,10 +1446,29 @@ export default class PluginFootnote extends Plugin {
             this.loadingDialog = null;
         }
     }
+    // async openSetting() {
+    //     // Load settings before opening dialog
+    //     await this.settingUtils.load();
+        
+    //     let dialog = new Dialog({
+    //         title: "SettingPannel",
+    //         content: `<div id="SettingPanel" style="height: 100%;"></div>`,
+    //         width: "800px",
+    //         destroyCallback: (options) => {
+    //             console.log("destroyCallback", options);
+    //             pannel.$destroy();
+    //         }
+    //     });
+        
+    //     let pannel = new SettingExample({
+    //         target: dialog.element.querySelector("#SettingPanel"),
+    //         props: { 
+    //             i18n: this.i18n,
+    //             plugin: this
+    //         }
+    //     });
+    // }
 }
-
-
-
 
 export function saveViaTransaction(protyleElem) {
     let protyle: HTMLElement
