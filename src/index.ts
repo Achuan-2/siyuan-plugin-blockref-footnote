@@ -981,6 +981,7 @@ export default class PluginFootnote extends Plugin {
             .replace(plainSpanPattern2, '$1') // 保留span标签中的文本内容
         let templates = this.settingUtils.get("templates");
         templates = templates.replace(/\$\{selection\}/g, cleanSelection);
+        templates = templates.replace(/\$\{selection:text\}/g, selectionText);
         templates = templates.replace(/\$\{content\}/g, zeroWhite);
         templates = templates.replace(/\$\{refID\}/g, currentBlockId);
         templates = templates.replace(/\$\{index\}/g, `<span data-type="custom-footnote-index a" data-href="siyuan://blocks/${currentBlockId}">${this.i18n.indexAnchor}</span>`); // 支持添加脚注编号
@@ -1208,6 +1209,7 @@ export default class PluginFootnote extends Plugin {
                         // Update the footnote content
                         const templates = this.settingUtils.get("templates")
                             .replace(/\$\{selection\}/g, cleanSelection)
+                            .replace(/\$\{selection:text\}/g, selectionText)
                             .replace(/\$\{content\}/g, content)
                             .replace(/\$\{refID\}/g, currentBlockId)
                             .replace(/\$\{index\}/g, `<span data-type="custom-footnote-index a" data-href="siyuan://blocks/${currentBlockId}">[${number}]</span>`) // 支持添加脚注编号
