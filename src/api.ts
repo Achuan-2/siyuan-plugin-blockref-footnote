@@ -131,6 +131,15 @@ export async function moveDocs(fromPaths: string[], toNotebook: NotebookId, toPa
     return request(url, data);
 }
 
+export async function moveDocsByID(fromIDs: string[], toPath: string) {
+    let data = {
+        fromIDs: fromIDs,
+        toPath: toPath
+    };
+    let url = '/api/filetree/moveDocsByID';
+    return request(url, data);
+}
+
 
 export async function getHPathByPath(notebook: NotebookId, path: string): Promise<string> {
     let data = {
