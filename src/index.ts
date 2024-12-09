@@ -66,7 +66,7 @@ class FootnoteDialog {
         this.dialog.style.overflow = 'auto';
         this.dialog.style.zIndex = '2';
         this.dialog.style.width = "500px"
-        this.dialog.style.height = "500px"
+        this.dialog.style.maxHeight = "500px"
         document.body.appendChild(this.dialog);
 
         // Initialize Protyle
@@ -213,8 +213,8 @@ class FootnoteDialog2 {
         this.dialog.style.background = 'var(--b3-theme-background)';
         this.dialog.style.boxShadow = 'var(--b3-dialog-shadow)';
         this.dialog.style.resize = 'auto';
-        this.dialog.style.width = "500px";
-        this.dialog.style.height = "500px";
+        this.dialog.style.width = "500px"
+        this.dialog.style.maxHeight = "500px"
 
         document.body.appendChild(this.dialog);
 
