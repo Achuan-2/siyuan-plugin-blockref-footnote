@@ -11,7 +11,7 @@ const zeroWhite = "​"
 
 class FootnoteDialog {
     private dialog: HTMLDialogElement;
-    private protyle: Protyle;
+    public protyle: Protyle;
     private isDragging: boolean = false;
     private currentX: number;
     private currentY: number;
@@ -83,6 +83,7 @@ class FootnoteDialog {
             },
         });
 
+
         // Add drag event listeners
         const titleBar = this.dialog.querySelector('.dialog-title') as HTMLElement;
         titleBar.addEventListener('mousedown', this.startDragging.bind(this));
@@ -105,6 +106,9 @@ class FootnoteDialog {
         });
 
         this.dialog.show();
+
+
+
     }
 
     // 处理在弹窗外双击的事件
@@ -239,7 +243,7 @@ class FootnoteDialog2 {
 
         // 添加在弹窗外双击关闭弹窗的事件监听
         document.addEventListener('dblclick', this.handleOutsideDoubleClick);
-        
+
         // 添加关闭按钮事件
         this.dialog.querySelector('.close-button').addEventListener('click', () => {
             onSubmit(this.textarea.value);
@@ -1129,6 +1133,7 @@ export default class PluginFootnote extends Plugin {
 
         protyle.toolbar.range = range;
         const { x, y } = protyle.toolbar.range.getClientRects()[0]
+
         // 将range的起始点和结束点都移动到选中文本的末尾
         range.collapse(false); // false 表示将光标移动到选中文本的末尾
 
@@ -1240,20 +1245,27 @@ export default class PluginFootnote extends Plugin {
         } else {
             if (this.settingUtils.get("floatDialogEnable")) {
                 // Instead of showing float layer, show dialog
-                new FootnoteDialog(
+                let Dialog = new FootnoteDialog(
                     cleanSelection,
                     newBlockId,
                     null, // onSubmit is no longer needed since changes are saved automatically via Protyle
                     x,
                     y + 20
                 );
+                // console.log(Dialog.protyle);
+
+                // 等500ms
+                setTimeout(() => {
+                    Dialog.protyle.enable();;
+                }, 500);
+
             }
         }
     }
 
     // Add new function to reorder footnotes
     private async reorderFootnotes(docID: string, reorderBlocks: boolean, protyle?: any) {
-        
+
         // Get current document DOM
         let currentDom;
         if (protyle) {
@@ -1449,7 +1461,7 @@ export default class PluginFootnote extends Plugin {
     // async openSetting() {
     //     // Load settings before opening dialog
     //     await this.settingUtils.load();
-        
+
     //     let dialog = new Dialog({
     //         title: "SettingPannel",
     //         content: `<div id="SettingPanel" style="height: 100%;"></div>`,
@@ -1459,7 +1471,7 @@ export default class PluginFootnote extends Plugin {
     //             pannel.$destroy();
     //         }
     //     });
-        
+
     //     let pannel = new SettingExample({
     //         target: dialog.element.querySelector("#SettingPanel"),
     //         props: { 
