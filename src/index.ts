@@ -980,6 +980,19 @@ export default class PluginFootnote extends Plugin {
             .replace(plainSpanPattern2, '$1') // 保留span标签中的文本内容
         let templates = this.settingUtils.get("templates");
         templates = templates.replace(/\$\{selection\}/g, cleanSelection);
+        // selectionText要对特殊符号进行处理，比如把英文双引号变为&quot;
+        const escapeHtml = (text: string) => {
+            const map: { [key: string]: string } = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;',
+            };
+            return text.replace(/[&<>"']/g, (m) => map[m]);
+        };
+        const escapedSelectionText = escapeHtml(selectionText);
+        templates = templates.replace(/\$\{selection:text\}/g, escapedSelectionText);
         templates = templates.replace(/\$\{selection:text\}/g, selectionText);
         templates = templates.replace(/\$\{content\}/g, zeroWhite);
         templates = templates.replace(/\$\{refID\}/g, currentBlockId);
