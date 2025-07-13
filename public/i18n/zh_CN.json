@@ -86,7 +86,8 @@
             "title": "重置设置",
             "description": "重置所有设置为默认值",
             "label": "重置",
-            "confirm": "是否重置该插件所有设置为默认值？"
+            "confirm": "是否重置该插件所有设置为默认值？",
+            "message": "已重置所有设置为默认值"
         }
     },
     "deleteFootnote": "删除脚注",

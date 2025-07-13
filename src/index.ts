@@ -5,6 +5,7 @@ import { IMenuItem } from "siyuan/types";
 import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd, getDoc, getBlockKramdown, getBlockDOM } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
 import SettingPanel from "@/setting-example.svelte";
+import { getDefaultSettings } from "./defaultSettings";
 import LoadingDialog from "./components/LoadingDialog.svelte";
 import { setPluginInstance, t } from "./utils/i18n";
 
@@ -12,65 +13,7 @@ const STORAGE_NAME = "stroage";
 export const SETTINGS_FILE = "config.json";
 const zeroWhite = "​"
 
-// 默认设置
-export const DEFAULT_SETTINGS = {
-    // Container Settings
-    saveLocation: '1',
-    footnoteContainerTitle: '',
-    docID: "",
-    footnoteContainerTitle2: '',
-    footnoteContainerTitle3: '',
-    updateFootnoteContainerTitle: true,
-    order: '1',
 
-    // Style Settings
-    footnoteRefStyle: '1',
-    footnoteBlockref: '',
-    selectFontStyle: '1',
-    enableOrderedFootnotes: false,
-    footnoteAlias: '',
-    floatDialogEnable: true,
-
-    // Template Settings
-    templates: `>> \${selection} [[↩️]](siyuan://blocks/\${refID})
->> 
-> \${content}
-`,
-
-    // Advanced Settings
-    css: `/* 自定义脚注引用样式 */
-.protyle-wysiwyg [data-node-id] span[custom-footnote],
-.protyle-wysiwyg [data-node-id] span[data-type*="block-ref"][custom-footnote],
-.protyle-wysiwyg [data-node-id] span[data-ref*="siyuan://blocks"][custom-footnote] {
-    background-color: var(--b3-font-background5) !important;
-    color: var(--b3-theme-on-background) !important;
-    border: none !important;
-    margin: 0 1px;
-    border-radius: 3px;
-}
-/* 自定义选中文本样式 */
-.protyle-wysiwyg [data-node-id] span[data-type*="custom-footnote-selected-text"] {
-    border-bottom: 2px dashed var(--b3-font-color5);
-}
-/* 导出pdf脚注引用为上标样式 */
-.b3-typography a[custom-footnote],
-#preview .protyle-wysiwyg a[custom-footnote] {
-    top: -0.5em;
-    font-size: 75%;
-    line-height: 0;
-    vertical-align: baseline;
-    position: relative;
-}
-
-/* 自定义脚注内容块样式 */
-/* 脚注内容块如果设置为横排超级块则减少间距 */
-.protyle-wysiwyg .sb[custom-plugin-footnote-content][data-sb-layout="col"] {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    column-gap: 0em;
-}`,
-};
 
 class FootnoteDialog {
     private dialog: HTMLDialogElement;
@@ -392,16 +335,7 @@ export default class PluginFootnote extends Plugin {
     }
 
 
-    private getDefaultSettings() {
-        return {
-            ...DEFAULT_SETTINGS,
-            footnoteContainerTitle: this.i18n.settings.footnoteContainerTitle.value,
-            footnoteContainerTitle2: this.i18n.settings.footnoteContainerTitle2.value,
-            footnoteContainerTitle3: this.i18n.settings.footnoteContainerTitle3.value,
-            footnoteBlockref: this.i18n.settings.footnoteBlockref.value,
-            footnoteAlias: this.i18n.settings.footnoteAlias.value,
-        };
-    }
+
 
     updateCSS(css: string) {
         this.styleElement.textContent = css;
@@ -584,7 +518,7 @@ export default class PluginFootnote extends Plugin {
      */
     async loadSettings() {
         const settings = await this.loadData(SETTINGS_FILE);
-        const defaultSettings = this.getDefaultSettings();
+        const defaultSettings = getDefaultSettings();
         return { ...defaultSettings, ...settings };
     }
 

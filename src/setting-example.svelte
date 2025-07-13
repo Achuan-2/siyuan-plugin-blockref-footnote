@@ -1,11 +1,12 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import SettingPanel from '@/libs/components/setting-panel.svelte';
-    import { DEFAULT_SETTINGS, SETTINGS_FILE } from './index';
+    import { getDefaultSettings } from './defaultSettings';
     import { t } from './utils/i18n';
+    import { pushMsg } from './api';
     export let plugin;
 
-    let settings = { ...DEFAULT_SETTINGS };
+    let settings = { ...getDefaultSettings() };
 
     interface ISettingGroup {
         name: string;
@@ -186,12 +187,13 @@
                     button: {
                         label: t('settings.reset.label') || 'Reset',
                         callback: async () => {
-                            settings = { ...DEFAULT_SETTINGS };
+                            settings = { ...getDefaultSettings() };
                             updateGroupItems();
                             await saveSettings();
                             if (plugin.updateCSS) {
                                 plugin.updateCSS(settings.css);
                             }
+                            await pushMsg(t('settings.reset.message'));
                         },
                     },
                 },
