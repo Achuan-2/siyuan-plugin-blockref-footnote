@@ -378,16 +378,9 @@ export default class PluginFootnote extends Plugin {
             footnoteRefStyle: '1',
             footnoteBlockref: this.i18n.settings.footnoteBlockref.value,
             selectFontStyle: '1',
-            templates: `{{{col
-\${index}
-{: style="width: 2.5em; flex: 0 0 auto;"}
-
-{{{row
-> \${selection}
-
-\${content}
-}}}
-}}}
+            templates: `>> \${selection} [[↩️]](siyuan://blocks/\${refID})
+>> 
+> \${content}
 `,
             enableOrderedFootnotes: false, // Add new setting
             footnoteAlias: '',
