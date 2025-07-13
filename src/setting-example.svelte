@@ -1,217 +1,294 @@
 <script lang="ts">
-    import type PluginFootnote from './index';
-    import SettingPanel from "./libs/components/setting-panel.svelte";
-    
-    export let i18n;
-    export let plugin: PluginFootnote; // Add plugin as prop
+    import { onMount } from 'svelte';
+    import SettingPanel from '@/libs/components/setting-panel.svelte';
+    import { DEFAULT_SETTINGS, SETTINGS_FILE } from './index';
+    import { t } from './utils/i18n';
+    export let plugin;
 
-    let groups: string[] = [
-        i18n.settings.groups.container,
-        i18n.settings.groups.style
-    ];
-    let focusGroup = groups[0];
+    let settings = { ...DEFAULT_SETTINGS };
 
-    // Container Settings
-    const containerItems: ISettingItem[] = [
-        {
-            type: 'select',
-            title: i18n.settings.saveLocation.title,
-            description: i18n.settings.saveLocation.description,
-            key: 'saveLocation',
-            value: '1',
-            options: {
-                1: i18n.settings.saveLocation.current,
-                2: i18n.settings.saveLocation.specified,
-                3: i18n.settings.saveLocation.childDoc,  
-                4: i18n.settings.saveLocation.afterParent
-            }
-        },
-        {
-            type: 'textinput',
-            title: i18n.settings.footnoteContainerTitle.title,
-            description: i18n.settings.footnoteContainerTitle.description,
-            key: 'footnoteContainerTitle',
-            value: i18n.settings.footnoteContainerTitle.value
-        },
-        {
-            type: 'textinput',
-            title: i18n.settings.docId.title,
-            description: i18n.settings.docId.description,
-            key: 'docID',
-            value: ''
-        },
-        {
-            type: 'checkbox',
-            title: i18n.settings.updateFootnoteContainerTitle.title,
-            description: i18n.settings.updateFootnoteContainerTitle.description,
-            key: 'updateFootnoteContainerTitle',
-            value: true
-        },
-        {
-            type: 'select',
-            title: i18n.settings.order.title,
-            description: i18n.settings.order.description,
-            key: 'order',
-            value: '1',
-            options: {
-                1: i18n.settings.order.asc,
-                2: i18n.settings.order.desc
-            }
-        }
-    ];
-
-    // Style Settings
-    const styleItems: ISettingItem[] = [
-        {
-            type: 'select',
-            title: i18n.settings.footnoteRefStyle.title,
-            description: i18n.settings.footnoteRefStyle.description,
-            key: 'footnoteRefStyle',
-            value: '1',
-            options: {
-                1: i18n.settings.footnoteRefStyle.ref,
-                2: i18n.settings.footnoteRefStyle.link
-            }
-        },
-        {
-            type: 'textinput',
-            title: i18n.settings.footnoteBlockref.title,
-            description: i18n.settings.footnoteBlockref.description,
-            key: 'footnoteBlockref',
-            value: i18n.settings.footnoteBlockref.value
-        },
-        {
-            type: 'checkbox',
-            title: i18n.settings.enableOrderedFootnotes.title,
-            description: i18n.settings.enableOrderedFootnotes.description,
-            key: 'enableOrderedFootnotes',
-            value: false
-        },
-        {
-            type: 'select',
-            title: i18n.settings.selectFontStyle.title,
-            description: i18n.settings.selectFontStyle.description,
-            key: 'selectFontStyle',
-            value: '1',
-            options: {
-                1: i18n.settings.selectFontStyle.none,
-                2: i18n.settings.selectFontStyle.custom
-            }
-        },
-        {
-            type: 'checkbox',
-            title: i18n.settings.floatDialog.title,
-            description: i18n.settings.floatDialog.description,
-            key: 'floatDialogEnable',
-            value: true
-        },
-        {
-            type: 'textarea',
-            title: i18n.settings.template.title,
-            description: i18n.settings.template.description,
-            key: 'templates',
-            value: '',
-            direction: 'row'
-        },
-        {
-            type: 'textinput',
-            title: i18n.settings.footnoteAlias.title,
-            description: i18n.settings.footnoteAlias.description,
-            key: 'footnoteAlias',
-            value: ''
-        },
-        {
-            type: 'textarea',
-            title: i18n.settings.css.title,
-            description: i18n.settings.css.description,
-            key: 'css',
-            value: '',
-            direction: 'row'
-        }
-    ];
-
-    // Initialize settings values from plugin
-    $: {
-        if (plugin) {
-            containerItems.forEach(item => {
-                item.value = plugin.settingUtils.get(item.key);
-            });
-            styleItems.forEach(item => {
-                item.value = plugin.settingUtils.get(item.key);
-            });
-        }
+    interface ISettingGroup {
+        name: string;
+        items: ISettingItem[];
     }
 
-    const onChanged = async ({ detail }: CustomEvent<ChangeEvent>) => {
-        if (detail.group === groups[0] || detail.group === groups[1]) {
-            // Update plugin settings
-            await plugin.settingUtils.set(detail.key, detail.value);
-            await plugin.settingUtils.save();
+    let groups: ISettingGroup[] = [
+        {
+            name: t('settings.groups.container') || 'Container Settings',
+            items: [
+                {
+                    key: 'saveLocation',
+                    value: settings.saveLocation,
+                    type: 'select',
+                    title: t('settings.saveLocation.title') || 'Save Location',
+                    description:
+                        t('settings.saveLocation.description') || 'Choose where to save footnotes',
+                    options: {
+                        '1': t('settings.saveLocation.current') || 'Current Document',
+                        '2': t('settings.saveLocation.specified') || 'Specified Document',
+                        '3': t('settings.saveLocation.childDoc') || 'Child Document',
+                        '4': t('settings.saveLocation.afterParent') || 'After Parent Block',
+                    },
+                },
+                {
+                    key: 'footnoteContainerTitle',
+                    value: settings.footnoteContainerTitle,
+                    type: 'textinput',
+                    title: t('settings.footnoteContainerTitle.title') || 'Footnote Container Title',
+                    description:
+                        t('settings.footnoteContainerTitle.description') ||
+                        'Title for footnote container',
+                },
+                {
+                    key: 'docID',
+                    value: settings.docID,
+                    type: 'textinput',
+                    title: t('settings.docId.title') || 'Document ID',
+                    description:
+                        t('settings.docId.description') || 'Specify document ID for footnotes',
+                },
+                {
+                    key: 'footnoteContainerTitle2',
+                    value: settings.footnoteContainerTitle2,
+                    type: 'textinput',
+                    title: t('settings.footnoteContainerTitle2.title') || 'Container Title 2',
+                    description:
+                        t('settings.footnoteContainerTitle2.description') ||
+                        'Alternative container title',
+                },
+                {
+                    key: 'footnoteContainerTitle3',
+                    value: settings.footnoteContainerTitle3,
+                    type: 'textinput',
+                    title: t('settings.footnoteContainerTitle3.title') || 'Container Title 3',
+                    description:
+                        t('settings.footnoteContainerTitle3.description') ||
+                        'Third container title option',
+                },
+                {
+                    key: 'updateFootnoteContainerTitle',
+                    value: settings.updateFootnoteContainerTitle,
+                    type: 'checkbox',
+                    title:
+                        t('settings.updateFootnoteContainerTitle.title') ||
+                        'Update Container Title',
+                    description:
+                        t('settings.updateFootnoteContainerTitle.description') ||
+                        'Automatically update container title',
+                },
+                {
+                    key: 'order',
+                    value: settings.order,
+                    type: 'select',
+                    title: t('settings.order.title') || 'Order',
+                    description: t('settings.order.description') || 'Footnote ordering',
+                    options: {
+                        '1': t('settings.order.asc') || 'Ascending',
+                        '2': t('settings.order.desc') || 'Descending',
+                    },
+                },
+            ],
+        },
+        {
+            name: t('settings.groups.style') || 'Style Settings',
+            items: [
+                {
+                    key: 'footnoteRefStyle',
+                    value: settings.footnoteRefStyle,
+                    type: 'select',
+                    title: t('settings.footnoteRefStyle.title') || 'Reference Style',
+                    description:
+                        t('settings.footnoteRefStyle.description') ||
+                        'Style for footnote references',
+                    options: {
+                        '1': t('settings.footnoteRefStyle.ref') || 'Block Reference',
+                        '2': t('settings.footnoteRefStyle.link') || 'Link',
+                    },
+                },
+                {
+                    key: 'footnoteBlockref',
+                    value: settings.footnoteBlockref,
+                    type: 'textinput',
+                    title: t('settings.footnoteBlockref.title') || 'Footnote Reference Text',
+                    description:
+                        t('settings.footnoteBlockref.description') ||
+                        'Text for footnote references',
+                },
+                {
+                    key: 'selectFontStyle',
+                    value: settings.selectFontStyle,
+                    type: 'select',
+                    title: t('settings.selectFontStyle.title') || 'Selection Style',
+                    description:
+                        t('settings.selectFontStyle.description') || 'Style for selected text',
+                    options: {
+                        '1': t('settings.selectFontStyle.none') || 'None',
+                        '2': t('settings.selectFontStyle.custom') || 'Custom',
+                    },
+                },
+                {
+                    key: 'enableOrderedFootnotes',
+                    value: settings.enableOrderedFootnotes,
+                    type: 'checkbox',
+                    title: t('settings.enableOrderedFootnotes.title') || 'Enable Ordered Footnotes',
+                    description:
+                        t('settings.enableOrderedFootnotes.description') ||
+                        'Automatically number footnotes',
+                },
+                {
+                    key: 'footnoteAlias',
+                    value: settings.footnoteAlias,
+                    type: 'textinput',
+                    title: t('settings.footnoteAlias.title') || 'Footnote Alias',
+                    description:
+                        t('settings.footnoteAlias.description') || 'Alias for footnote blocks',
+                },
+                {
+                    key: 'floatDialogEnable',
+                    value: settings.floatDialogEnable,
+                    type: 'checkbox',
+                    title: t('settings.floatDialog.title') || 'Enable Float Dialog',
+                    description:
+                        t('settings.floatDialog.description') ||
+                        'Show floating dialog for footnote editing',
+                },
+                {
+                    key: 'templates',
+                    value: settings.templates,
+                    type: 'textarea',
+                    title: t('settings.template.title') || 'Template',
+                    description:
+                        t('settings.template.description') || 'Template for footnote content',
+                    direction: 'row',
+                    rows: 6,
+                },
+                {
+                    key: 'css',
+                    value: settings.css,
+                    type: 'textarea',
+                    title: t('settings.css.title') || 'Custom CSS',
+                    description: t('settings.css.description') || 'Custom CSS styles for footnotes',
+                    direction: 'row',
+                    rows: 20,
+                },
+            ],
+        },
+        {
+            name: t('settings.groups.reset') || 'Reset Settings',
+            items: [
+                {
+                    key: 'resetConfig',
+                    value: '',
+                    type: 'button',
+                    title: t('settings.reset.title') || 'Reset Settings',
+                    description:
+                        t('settings.reset.description') || 'Reset all settings to default values',
+                    button: {
+                        label: t('settings.reset.label') || 'Reset',
+                        callback: async () => {
+                            settings = { ...DEFAULT_SETTINGS };
+                            updateGroupItems();
+                            await saveSettings();
+                            if (plugin.updateCSS) {
+                                plugin.updateCSS(settings.css);
+                            }
+                        },
+                    },
+                },
+            ],
+        },
+    ];
 
-            // Update CSS if needed 
-            if (detail.key === 'css') {
+    let focusGroup = groups[0].name;
+
+    interface ChangeEvent {
+        group: string;
+        key: string;
+        value: any;
+    }
+
+    const onChanged = ({ detail }: CustomEvent<ChangeEvent>) => {
+        console.log(detail.key, detail.value);
+        if (settings.hasOwnProperty(detail.key)) {
+            settings[detail.key] = detail.value;
+            saveSettings();
+
+            // Handle special cases
+            if (detail.key === 'css' && plugin.updateCSS) {
                 plugin.updateCSS(detail.value);
             }
         }
     };
+
+    async function saveSettings() {
+        await plugin.saveSettings(settings);
+    }
+
+    onMount(async () => {
+        await runload();
+    });
+
+    async function runload() {
+        const loadedSettings = await plugin.loadSettings();
+        settings = { ...loadedSettings };
+        updateGroupItems();
+        console.debug('加载配置文件完成');
+    }
+
+    function updateGroupItems() {
+        groups = groups.map(group => ({
+            ...group,
+            items: group.items.map(item => ({
+                ...item,
+                value: settings[item.key] ?? item.value,
+            })),
+        }));
+    }
+
+    $: currentGroup = groups.find(group => group.name === focusGroup);
 </script>
 
 <div class="fn__flex-1 fn__flex config__panel">
     <ul class="b3-tab-bar b3-list b3-list--background">
         {#each groups as group}
-            <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
             <li
                 data-name="editor"
-                class:b3-list-item--focus={group === focusGroup}
+                class:b3-list-item--focus={group.name === focusGroup}
                 class="b3-list-item"
                 on:click={() => {
-                    focusGroup = group;
+                    focusGroup = group.name;
                 }}
                 on:keydown={() => {}}
             >
-                <span class="b3-list-item__text">{group}</span>
+                <span class="b3-list-item__text">{group.name}</span>
             </li>
         {/each}
     </ul>
     <div class="config__tab-wrap">
         <SettingPanel
-            group={groups[0]}
-            settingItems={containerItems}
-            display={focusGroup === groups[0]}
+            group={currentGroup?.name || ''}
+            settingItems={currentGroup?.items || []}
+            display={true}
             on:changed={onChanged}
-            on:click={({ detail }) => { console.debug("Click:", detail.key); }}
-        >
-            <div class="fn__flex b3-label">
-                💡 This is our default settings.
-            </div>
-        </SettingPanel>
-        <SettingPanel
-            group={groups[1]}
-            settingItems={styleItems}
-            display={focusGroup === groups[1]}
-            on:changed={onChanged}
-            on:click={({ detail }) => { console.debug("Click:", detail.key); }}
-        >
-        </SettingPanel>
+        />
     </div>
 </div>
 
 <style lang="scss">
     .config__panel {
         height: 100%;
-    }
-    .config__panel > ul > li {
-        padding-left: 1rem;
-    }
-    .config__tab-wrap {
-        overflow: auto;
-        box-sizing: border-box;
-        background-color: var(--b3-theme-background);
-        border-radius: 0 var(--b3-border-radius-b) var(--b3-border-radius-b) 0;
-        width: 100%;
-        height: 600px;
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
+        overflow: hidden;
+    }
+    .config__panel > .b3-tab-bar {
+        width: 170px;
+    }
+
+    .config__tab-wrap {
+        flex: 1;
+        height: 100%;
+        overflow: auto;
+        padding: 2px;
     }
 </style>
-

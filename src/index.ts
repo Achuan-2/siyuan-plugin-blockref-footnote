@@ -4,10 +4,73 @@ import { IMenuItem } from "siyuan/types";
 
 import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd, getDoc, getBlockKramdown, getBlockDOM } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
-import SettingExample from "@/setting-example.svelte";
+import SettingPanel from "@/setting-example.svelte";
 import LoadingDialog from "./components/LoadingDialog.svelte";
-const STORAGE_NAME = "config";
+import { setPluginInstance, t } from "./utils/i18n";
+
+const STORAGE_NAME = "stroage";
+export const SETTINGS_FILE = "config.json";
 const zeroWhite = "​"
+
+// 默认设置
+export const DEFAULT_SETTINGS = {
+    // Container Settings
+    saveLocation: '1',
+    footnoteContainerTitle: '',
+    docID: "",
+    footnoteContainerTitle2: '',
+    footnoteContainerTitle3: '',
+    updateFootnoteContainerTitle: true,
+    order: '1',
+
+    // Style Settings
+    footnoteRefStyle: '1',
+    footnoteBlockref: '',
+    selectFontStyle: '1',
+    enableOrderedFootnotes: false,
+    footnoteAlias: '',
+    floatDialogEnable: true,
+
+    // Template Settings
+    templates: `>> \${selection} [[↩️]](siyuan://blocks/\${refID})
+>> 
+> \${content}
+`,
+
+    // Advanced Settings
+    css: `/* 自定义脚注引用样式 */
+.protyle-wysiwyg [data-node-id] span[custom-footnote],
+.protyle-wysiwyg [data-node-id] span[data-type*="block-ref"][custom-footnote],
+.protyle-wysiwyg [data-node-id] span[data-ref*="siyuan://blocks"][custom-footnote] {
+    background-color: var(--b3-font-background5) !important;
+    color: var(--b3-theme-on-background) !important;
+    border: none !important;
+    margin: 0 1px;
+    border-radius: 3px;
+}
+/* 自定义选中文本样式 */
+.protyle-wysiwyg [data-node-id] span[data-type*="custom-footnote-selected-text"] {
+    border-bottom: 2px dashed var(--b3-font-color5);
+}
+/* 导出pdf脚注引用为上标样式 */
+.b3-typography a[custom-footnote],
+#preview .protyle-wysiwyg a[custom-footnote] {
+    top: -0.5em;
+    font-size: 75%;
+    line-height: 0;
+    vertical-align: baseline;
+    position: relative;
+}
+
+/* 自定义脚注内容块样式 */
+/* 脚注内容块如果设置为横排超级块则减少间距 */
+.protyle-wysiwyg .sb[custom-plugin-footnote-content][data-sb-layout="col"] {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    column-gap: 0em;
+}`,
+};
 
 class FootnoteDialog {
     private dialog: HTMLDialogElement;
@@ -309,44 +372,7 @@ export default class PluginFootnote extends Plugin {
     private styleElement: HTMLStyleElement;
     private loadingDialog: Dialog;
 
-    private readonly STYLES = `/* 自定义脚注引用样式 */
-.protyle-wysiwyg [data-node-id] span[custom-footnote],
-.protyle-wysiwyg [data-node-id] span[data-type*="block-ref"][custom-footnote],
-.protyle-wysiwyg [data-node-id] span[data-ref*="siyuan://blocks"][custom-footnote] {
-    background-color: var(--b3-font-background5) !important;
-    color: var(--b3-theme-on-background) !important;
-    border: none !important;
-    margin: 0 1px;
-    border-radius: 3px;
-}
-/* 自定义选中文本样式 */
-.protyle-wysiwyg [data-node-id] span[data-type*="custom-footnote-selected-text"] {
-    border-bottom: 2px dashed var(--b3-font-color5);
-}
-/* 导出pdf脚注引用为上标样式 */
-.b3-typography a[custom-footnote],
-#preview .protyle-wysiwyg a[custom-footnote] {
-    top: -0.5em;
-    font-size: 75%;
-    line-height: 0;
-    vertical-align: baseline;
-    position: relative;
-}
 
-/* 自定义脚注内容块样式 */
-/* 脚注内容块如果设置为横排超级块则减少间距 */
-.protyle-wysiwyg .sb[custom-plugin-footnote-content][data-sb-layout="col"] {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    column-gap: 0em;
-}
-/* 脚注内容块设置字体样式 */
-/*.protyle-wysiwyg [data-node-id][custom-plugin-footnote-content] {
-    font-size: 0.8em;
-    color: var(--b3-font-color5);
-}*/
-`;
     // 添加工具栏按钮
     updateProtyleToolbar(toolbar: Array<string | IMenuItem>) {
         toolbar.push(
@@ -368,31 +394,22 @@ export default class PluginFootnote extends Plugin {
 
     private getDefaultSettings() {
         return {
-            saveLocation: '1',
+            ...DEFAULT_SETTINGS,
             footnoteContainerTitle: this.i18n.settings.footnoteContainerTitle.value,
-            docID: "",
             footnoteContainerTitle2: this.i18n.settings.footnoteContainerTitle2.value,
             footnoteContainerTitle3: this.i18n.settings.footnoteContainerTitle3.value,
-            updateFootnoteContainerTitle: true,
-            order: '1',
-            footnoteRefStyle: '1',
             footnoteBlockref: this.i18n.settings.footnoteBlockref.value,
-            selectFontStyle: '1',
-            templates: `>> \${selection} [[↩️]](siyuan://blocks/\${refID})
->> 
-> \${content}
-`,
-            enableOrderedFootnotes: false, // Add new setting
-            footnoteAlias: '',
-            css: this.STYLES,
-            floatDialogEnable: true
+            footnoteAlias: this.i18n.settings.footnoteAlias.value,
         };
     }
+
     updateCSS(css: string) {
         this.styleElement.textContent = css;
 
     }
     async onload() {
+        // 设置i18n插件实例
+        setPluginInstance(this);
 
         // 注册快捷键
         this.addCommand({
@@ -515,9 +532,7 @@ export default class PluginFootnote extends Plugin {
                 await pushMsg(this.i18n.showFootnoteSelection + " Finished!");
             }
         });
-        this.settingUtils = new SettingUtils({
-            plugin: this, name: STORAGE_NAME
-        });
+
 
         // 添加自定义图标
         this.addIcons(`<symbol id="iconFootnote"  viewBox="0 0 32 32">
@@ -526,193 +541,8 @@ export default class PluginFootnote extends Plugin {
   <path d="M30.58,4.85v21.53h-6.57v-2.53h3.05V7.36h-3.05v-2.51h6.57Z" />
 </symbol>`);
 
-        /*
-          通过 type 自动指定 action 元素类型； value 填写默认值
-        */
-
-        // Container Settings Group
-        this.settingUtils.addItem({
-            type: 'hint',
-            key: 'containerGroup',
-            value: '',
-            title: this.i18n.settings.groups?.container || 'Container Settings',
-            class: ""
-        });
-
-        this.settingUtils.addItem({
-            key: "saveLocation",
-            value: '1',
-            type: "select",
-            title: this.i18n.settings.saveLocation.title,
-            description: this.i18n.settings.saveLocation.description,
-            options: {
-                1: this.i18n.settings.saveLocation.current,
-                2: this.i18n.settings.saveLocation.specified,
-                3: this.i18n.settings.saveLocation.childDoc,
-                4: this.i18n.settings.saveLocation.afterParent
-            }
-        });
 
 
-        this.settingUtils.addItem({
-            key: "footnoteContainerTitle",
-            value: this.i18n.settings.footnoteContainerTitle.value,
-            type: "textinput",
-            title: this.i18n.settings.footnoteContainerTitle.title,
-            description: this.i18n.settings.footnoteContainerTitle.description,
-        });
-        this.settingUtils.addItem({
-            key: "docID",
-            value: "",
-            type: "textinput",
-            title: this.i18n.settings.docId.title,
-            description: this.i18n.settings.docId.description,
-        });
-
-        this.settingUtils.addItem({
-            key: "footnoteContainerTitle2",
-            value: this.i18n.settings.footnoteContainerTitle2.value,
-            type: "textinput",
-            title: this.i18n.settings.footnoteContainerTitle2.title,
-            description: this.i18n.settings.footnoteContainerTitle2.description,
-        });
-
-        this.settingUtils.addItem({
-            key: "footnoteContainerTitle3",
-            value: this.i18n.settings.footnoteContainerTitle3.value,
-            type: "textinput",
-            title: this.i18n.settings.footnoteContainerTitle3.title,
-            description: this.i18n.settings.footnoteContainerTitle3.description,
-        });
-
-        this.settingUtils.addItem({
-            key: "updateFootnoteContainerTitle",
-            value: true,
-            type: "checkbox",
-            title: this.i18n.settings.updateFootnoteContainerTitle.title,
-            description: this.i18n.settings.updateFootnoteContainerTitle.description,
-        });
-        this.settingUtils.addItem({
-            key: "order",
-            value: '1',
-            type: "select",
-            title: this.i18n.settings.order.title,
-            description: this.i18n.settings.order.description,
-            options: {
-                1: this.i18n.settings.order.asc,
-                2: this.i18n.settings.order.desc,
-            }
-        });
-
-        // Style Settings Group
-        this.settingUtils.addItem({
-            type: 'hint',
-            key: 'styleGroup',
-            value: '',
-            title: this.i18n.settings.groups?.style || 'Style Settings',
-            class: 'fn__flex-center config-group-header'
-        });
-
-        this.settingUtils.addItem({
-            key: "footnoteRefStyle",
-            value: '1',
-            type: "select",
-            title: this.i18n.settings.footnoteRefStyle.title,
-            description: this.i18n.settings.footnoteRefStyle.description,
-            options: {
-                1: this.i18n.settings.footnoteRefStyle.ref,
-                2: this.i18n.settings.footnoteRefStyle.link,
-            }
-        });
-
-        this.settingUtils.addItem({
-            key: "footnoteBlockref",
-            value: this.i18n.settings.footnoteBlockref.value,
-            type: "textinput",
-            title: this.i18n.settings.footnoteBlockref.title,
-            description: this.i18n.settings.footnoteBlockref.description,
-        });
-        // Add ordered footnotes setting
-        this.settingUtils.addItem({
-            key: "enableOrderedFootnotes",
-            value: false,
-            type: "checkbox",
-            title: this.i18n.settings.enableOrderedFootnotes.title,
-            description: this.i18n.settings.enableOrderedFootnotes.description,
-        });
-        this.settingUtils.addItem({
-            key: "selectFontStyle",
-            value: '1',
-            type: "select",
-            title: this.i18n.settings.selectFontStyle.title,
-            description: this.i18n.settings.selectFontStyle.description,
-            options: {
-                1: this.i18n.settings.selectFontStyle.none,
-                2: this.i18n.settings.selectFontStyle.custom
-            }
-        });
-        this.settingUtils.addItem({
-            key: "floatDialogEnable",
-            value: true,
-            type: "checkbox",
-            title: this.i18n.settings.floatDialog.title,
-            description: this.i18n.settings.floatDialog.description,
-        });
-
-        this.settingUtils.addItem({
-            key: "templates",
-            value: this.getDefaultSettings().templates,
-            type: "textarea",
-            title: this.i18n.settings.template.title,
-            description: this.i18n.settings.template.description,
-        });
-
-        // Add after other style settings
-        this.settingUtils.addItem({
-            key: "footnoteAlias",
-            value: this.i18n.settings.footnoteAlias.value,
-            type: "textinput",
-            title: this.i18n.settings.footnoteAlias.title,
-            description: this.i18n.settings.footnoteAlias.description,
-        });
-        // Add CSS setting
-        this.settingUtils.addItem({
-            key: "css",
-            value: this.STYLES,
-            type: "textarea",
-            title: this.i18n.settings.css.title,
-            description: this.i18n.settings.css.description,
-            action: {
-                callback: () => {
-                    const newCSS = this.settingUtils.take('css');
-                    this.updateCSS(newCSS);
-                }
-            }
-        });
-        // Reset Settings Button
-        this.settingUtils.addItem({
-            key: "resetConfig",
-            value: "",
-            type: "button",
-            title: this.i18n.settings.reset?.title || "Reset Settings",
-            description: this.i18n.settings.reset?.description || "Reset all settings to default values",
-            button: {
-                label: this.i18n.settings.reset?.label || "Reset",
-                callback: async () => {
-                    // if (confirm(this.i18n.settings.reset.confirm)) {
-                    const defaultSettings = this.getDefaultSettings();
-                    // Update each setting item's value and UI element  只是UI改了，json的值没有改
-                    for (const [key, value] of Object.entries(defaultSettings)) {
-                        await this.settingUtils.set(key, value);
-                    }
-                    // Update the UI
-                    this.updateCSS(this.settingUtils.get("css"));
-
-                }
-            }
-        });
-
-        await this.settingUtils.load(); //导入配置并合并
 
 
         this.eventBus.on("open-menu-blockref", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
@@ -723,7 +553,46 @@ export default class PluginFootnote extends Plugin {
         this.styleElement = document.createElement('style');
         this.styleElement.id = 'snippetCSS-Footnote';
         document.head.appendChild(this.styleElement);
-        this.updateCSS(this.settingUtils.get("css"));
+        const settings = await this.loadSettings();
+        this.updateCSS(settings.css);
+    }
+
+    /**
+     * 打开设置对话框
+     */
+    async openSetting() {
+        let dialog = new Dialog({
+            title: t("settingsPanel"),
+            content: `<div id="SettingPanel" style="height: 100%;"></div>`,
+            width: "800px",
+            height: "700px",
+            destroyCallback: (options) => {
+                pannel.$destroy();
+            }
+        });
+
+        let pannel = new SettingPanel({
+            target: dialog.element.querySelector("#SettingPanel"),
+            props: {
+                plugin: this
+            }
+        });
+    }
+
+    /**
+     * 加载设置
+     */
+    async loadSettings() {
+        const settings = await this.loadData(SETTINGS_FILE);
+        const defaultSettings = this.getDefaultSettings();
+        return { ...defaultSettings, ...settings };
+    }
+
+    /**
+     * 保存设置
+     */
+    async saveSettings(settings: any) {
+        await this.saveData(SETTINGS_FILE, settings);
     }
 
     onLayoutReady() {
@@ -783,7 +652,8 @@ export default class PluginFootnote extends Plugin {
                     // Delete blockref
                     detail.element.remove();
                     // Get current document ID and reorder footnotes if enabled
-                    if (this.settingUtils.get("enableOrderedFootnotes")) {
+                    const settings = await this.loadSettings();
+                    if (settings.enableOrderedFootnotes) {
                         // 获取docID
                         const docID = detail.protyle.block.rootID;
                         if (docID) {
@@ -798,7 +668,7 @@ export default class PluginFootnote extends Plugin {
     }
 
     private async addMemoBlock(protyle: IProtyle) {
-        await this.settingUtils.load(); //导入配置
+        const settings = await this.loadSettings();
         // console.log(protyle.block.rootID);
         // 获取当前光标所在块的 ID
         const currentBlockId = protyle.toolbar.range.startContainer.parentElement.closest('[data-node-id]')?.getAttribute('data-node-id');
@@ -822,30 +692,30 @@ export default class PluginFootnote extends Plugin {
 
         // 获取脚注容器标题
         let footnoteContainerTitle;
-        switch (this.settingUtils.get("saveLocation")) {
+        switch (settings.saveLocation) {
             case '1':
-                footnoteContainerTitle = this.settingUtils.get("footnoteContainerTitle").replace(/\$\{filename\}/g, currentDocTitle);
+                footnoteContainerTitle = settings.footnoteContainerTitle.replace(/\$\{filename\}/g, currentDocTitle);
                 // 需要检测输入的title有没有#，没有会自动变为二级title
                 // if (!footnoteContainerTitle.startsWith("#")) {
                 //     footnoteContainerTitle = `## ${footnoteContainerTitle}`;
                 // }
                 break;
             case '2':
-                footnoteContainerTitle = this.settingUtils.get("footnoteContainerTitle2").replace(/\$\{filename\}/g, currentDocTitle);
+                footnoteContainerTitle = settings.footnoteContainerTitle2.replace(/\$\{filename\}/g, currentDocTitle);
                 // 需要检测输入的title有没有#，没有会自动变为二级title
                 // if (!footnoteContainerTitle.startsWith("#")) {
                 //     footnoteContainerTitle = `## ${footnoteContainerTitle}`;
                 // }
                 break;
             case '3':
-                footnoteContainerTitle = this.settingUtils.get("footnoteContainerTitle3").replace(/\$\{filename\}/g, currentDocTitle);
+                footnoteContainerTitle = settings.footnoteContainerTitle3.replace(/\$\{filename\}/g, currentDocTitle);
                 break;
         }
         // 处理文档 ID 和脚注容器 ID
         let docID;
         let footnoteContainerID: string;
         let query_res;
-        switch (this.settingUtils.get("saveLocation")) {
+        switch (settings.saveLocation) {
             default:
             case '1': // 当前文档
                 docID = protyle.block.rootID;
@@ -862,7 +732,7 @@ export default class PluginFootnote extends Plugin {
                     footnoteContainerID = (await appendBlock("markdown", `${footnoteContainerTitle}`, docID))[0].doOperations[0].id;
                 } else {
                     footnoteContainerID = query_res[0].id;
-                    if (this.settingUtils.get("updateFootnoteContainerTitle")) {
+                    if (settings.updateFootnoteContainerTitle) {
                         await updateBlock("markdown", `${footnoteContainerTitle}`, footnoteContainerID);
                     }
                 }
@@ -873,7 +743,7 @@ export default class PluginFootnote extends Plugin {
                 break;
 
             case '2': // 指定文档
-                docID = this.settingUtils.get("docID");
+                docID = settings.docID;
                 if (!docID) {
                     pushErrMsg(this.i18n.errors.noDocId);
                     return;
@@ -891,7 +761,7 @@ export default class PluginFootnote extends Plugin {
                     footnoteContainerID = (await appendBlock("markdown", `${footnoteContainerTitle}`, docID))[0].doOperations[0].id;
                 } else {
                     footnoteContainerID = query_res[0].id;
-                    if (this.settingUtils.get("updateFootnoteContainerTitle")) {
+                    if (settings.updateFootnoteContainerTitle) {
                         await updateBlock("markdown", `${footnoteContainerTitle}`, footnoteContainerID);
                     }
                 }
@@ -908,7 +778,7 @@ export default class PluginFootnote extends Plugin {
 
                 if (existingDoc?.length > 0) {
                     docID = existingDoc[0].id;
-                    if (this.settingUtils.get("updateFootnoteContainerTitle")) {
+                    if (settings.updateFootnoteContainerTitle) {
                         await renameDocByID(docID, footnoteContainerTitle);
                     }
 
@@ -971,16 +841,16 @@ export default class PluginFootnote extends Plugin {
             .replace(selectedTextPattern2, '')
             .replace(plainSpanPattern, '$1') // 保留span标签中的文本内容
             .replace(plainSpanPattern2, '$1') // 保留span标签中的文本内容
-        let templates = this.settingUtils.get("templates");
+        let templates = settings.templates;
         templates = templates.replace(/\$\{selection\}/g, cleanSelection);
         // selectionText要对特殊符号进行处理，比如把英文双引号变为&quot;
         const escapeHtml = (text: string) => {
             const map: { [key: string]: string } = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;',
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;',
             };
             return text.replace(/[&<>"']/g, (m) => map[m]);
         };
@@ -1015,9 +885,9 @@ export default class PluginFootnote extends Plugin {
 
         // 插入脚注内容
         let back;
-        // 如果this.settingUtils.get("saveLocation")不等于4，则按照设置来插入，否则直接在父块后插入
-        if (this.settingUtils.get("saveLocation") == '4') {
-            switch (this.settingUtils.get("order")) {
+        // 如果settings.saveLocation不等于4，则按照设置来插入，否则直接在父块后插入
+        if (settings.saveLocation == '4') {
+            switch (settings.order) {
                 case '2':
                     // 逆序
                     back = await insertBlock(
@@ -1079,10 +949,10 @@ export default class PluginFootnote extends Plugin {
             }
         }
         else {
-            switch (this.settingUtils.get("order")) {
+            switch (settings.order) {
                 case '2':
                     // 倒序
-                    if (this.settingUtils.get("saveLocation") != 3) {
+                    if (settings.saveLocation != 3) {
                         back = await appendBlock("markdown", templates, footnoteContainerID);
                     } else {
                         back = await prependBlock("markdown", templates, footnoteContainerID);
@@ -1090,7 +960,7 @@ export default class PluginFootnote extends Plugin {
                     break;
                 case '1':
                 default:
-                    if (this.settingUtils.get("saveLocation") != 3) {
+                    if (settings.saveLocation != 3) {
 
                         let footnoteContainerDom = (await getBlockDOM(docID)).dom;
                         // 默认顺序插入
@@ -1125,11 +995,11 @@ export default class PluginFootnote extends Plugin {
         let newBlockId = back[0].doOperations[0].id
         // 添加脚注内容属性
         await setBlockAttrs(newBlockId, { "custom-plugin-footnote-content": protyle.block.rootID });
-        await setBlockAttrs(newBlockId, { "alias": this.settingUtils.get("footnoteAlias") });
+        await setBlockAttrs(newBlockId, { "alias": settings.footnoteAlias });
 
         // 选中的文本添加样式
         let range = protyle.toolbar.range;
-        if (this.settingUtils.get("selectFontStyle") === '2') {
+        if (settings.selectFontStyle === '2') {
             protyle.toolbar.setInlineMark(protyle, `custom-footnote-selected-text-${newBlockId}`, "range");
         } else {
             protyle.toolbar.setInlineMark(protyle, `custom-footnote-hidden-selected-text-${newBlockId}`, "range");
@@ -1155,12 +1025,12 @@ export default class PluginFootnote extends Plugin {
         let memoELement;
 
 
-        switch (this.settingUtils.get("footnoteRefStyle")) {
+        switch (settings.footnoteRefStyle) {
             case '2':
                 // 插入块链接
                 protyle.toolbar.setInlineMark(protyle, "a sup", "range", {
                     type: "a",
-                    color: `${"siyuan://blocks/" + newBlockId + zeroWhite + this.settingUtils.get("footnoteBlockref")}`
+                    color: `${"siyuan://blocks/" + newBlockId + zeroWhite + settings.footnoteBlockref}`
                 });
                 memoELement = protyle.element.querySelector(`span[data-href="siyuan://blocks/${newBlockId}"]`);
                 break;
@@ -1168,7 +1038,7 @@ export default class PluginFootnote extends Plugin {
                 // 插入块引
                 protyle.toolbar.setInlineMark(protyle, "block-ref sup", "range", {
                     type: "id",
-                    color: `${newBlockId + zeroWhite + "s" + zeroWhite + this.settingUtils.get("footnoteBlockref")}`
+                    color: `${newBlockId + zeroWhite + "s" + zeroWhite + settings.footnoteBlockref}`
                 });
                 memoELement = protyle.element.querySelector(`span[data-id="${newBlockId}"]`);
                 break;
@@ -1185,8 +1055,8 @@ export default class PluginFootnote extends Plugin {
 
         protyle.toolbar.element.classList.add("fn__none")
 
-        if (this.settingUtils.get("enableOrderedFootnotes")) {
-            if (this.settingUtils.get("floatDialogEnable")) {
+        if (settings.enableOrderedFootnotes) {
+            if (settings.floatDialogEnable) {
                 // Instead of showing float layer, show dialog
                 new FootnoteDialog2(
                     cleanSelection,
@@ -1213,7 +1083,7 @@ export default class PluginFootnote extends Plugin {
                         content = content.replace(/(\r\n|\n|\r){2,}/g, '\n');
 
                         // Update the footnote content
-                        const templates = this.settingUtils.get("templates")
+                        const templates = settings.templates
                             .replace(/\$\{selection\}/g, cleanSelection)
                             .replace(/\$\{selection:text\}/g, selectionText)
                             .replace(/\$\{content\}/g, content)
@@ -1242,14 +1112,14 @@ export default class PluginFootnote extends Plugin {
             }
             // 等500ms
             await new Promise(resolve => setTimeout(resolve, 500));
-            if (this.settingUtils.get("saveLocation") == 4) {
+            if (settings.saveLocation == 4) {
                 //脚注内容块放在块后，不进行脚注内容块排序
                 await this.reorderFootnotes(protyle.block.rootID, false);
             } else {
                 await this.reorderFootnotes(protyle.block.rootID, true);
             }
         } else {
-            if (this.settingUtils.get("floatDialogEnable")) {
+            if (settings.floatDialogEnable) {
                 // Instead of showing float layer, show dialog
                 let Dialog = new FootnoteDialog(
                     cleanSelection,
@@ -1271,7 +1141,7 @@ export default class PluginFootnote extends Plugin {
 
     // Add new function to reorder footnotes
     private async reorderFootnotes(docID: string, reorderBlocks: boolean, protyle?: any) {
-
+        const settings = await this.loadSettings();
         // Get current document DOM
         let currentDom;
         if (protyle) {
@@ -1286,9 +1156,9 @@ export default class PluginFootnote extends Plugin {
         let footnoteContainerDocID = docID;
         let footnoteContainerDom = currentDom;
 
-        switch (this.settingUtils.get("saveLocation")) {
+        switch (settings.saveLocation) {
             case '2': // Specified document
-                footnoteContainerDocID = this.settingUtils.get("docID");
+                footnoteContainerDocID = settings.docID;
                 if (!footnoteContainerDocID) return;
                 break;
             case '3': // Child document
@@ -1391,13 +1261,14 @@ export default class PluginFootnote extends Plugin {
     }
 
     private async cancelReorderFootnotes(docID: string, reorderBlocks: boolean) {
+        const settings = await this.loadSettings();
         // Get current document DOM
         const doc = await getDoc(docID);
         if (!doc) return;
         const currentDom = new DOMParser().parseFromString(doc.content, 'text/html');
 
         // Get default footnote reference format
-        const defaultAnchor = this.settingUtils.get("footnoteBlockref");
+        const defaultAnchor = settings.footnoteBlockref;
 
         // Reset all footnote references
         const footnoteRefs = currentDom.querySelectorAll('span[custom-footnote]');
@@ -1464,28 +1335,7 @@ export default class PluginFootnote extends Plugin {
             this.loadingDialog = null;
         }
     }
-    // async openSetting() {
-    //     // Load settings before opening dialog
-    //     await this.settingUtils.load();
 
-    //     let dialog = new Dialog({
-    //         title: "SettingPannel",
-    //         content: `<div id="SettingPanel" style="height: 100%;"></div>`,
-    //         width: "800px",
-    //         destroyCallback: (options) => {
-    //             console.log("destroyCallback", options);
-    //             pannel.$destroy();
-    //         }
-    //     });
-
-    //     let pannel = new SettingExample({
-    //         target: dialog.element.querySelector("#SettingPanel"),
-    //         props: { 
-    //             i18n: this.i18n,
-    //             plugin: this
-    //         }
-    //     });
-    // }
 }
 
 export function saveViaTransaction(protyleElem) {

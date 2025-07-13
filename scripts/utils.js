@@ -150,7 +150,6 @@ export function copyDirectory(srcDir, dstDir) {
             copyDirectory(src, dst);
         } else {
             fs.copyFileSync(src, dst);
-            log(`Copied file: ${src} --> ${dst}`);
         }
     });
     log(`All files copied!`);

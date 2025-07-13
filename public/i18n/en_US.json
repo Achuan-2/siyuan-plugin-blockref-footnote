@@ -1,4 +1,5 @@
 {
+    "settingsPanel": "Settings Panel",
     "tips": "Add footnote",
     "settings": {
         "css": {
@@ -6,8 +7,9 @@
             "description": "Customize footnote blockref, selected text style, and footnote content block style"
         },
         "groups": {
-            "container": "<b style='font-size: 130%'>Footnote Storage Settings</b>",
-            "style": "<b style='font-size: 130%'>Footnote Style Settings</b>"
+            "container": "Footnote Storage Settings",
+            "style": "Footnote Style Settings",
+            "reset": "Reset Settings"
         },
         "saveLocation": {
             "title": "Footnote Location",
@@ -74,14 +76,14 @@
         },
         "floatDialog": {
             "title": "Enable Footnote Dialog",
-            "description": "Enable the dialog for adding footnotes"
+            "description": "When enabled, a dialog will pop up when adding footnotes for convenient footnote content entry"
         },
         "template": {
             "title": "Footnote Template",
-            "description": "Template variables: <code>${selection}</code> is the content of the selected text , <code>${content}</code> is the placeholder for footnote content, and <code>${refID}</code> is the block ID containing the selected text <br/> ${{...}} for Sprig templated, e.g. ${{now | date \"20060102 15:04:05\"}} </br>You can use kramdown syntax to style the block."
+            "description": "Template variables: <code>${selection}</code> rich text content of selected text, <code>${selection:text}</code> plain text content of selected text, <code>${content}</code> footnote content placeholder, <code>${refID}</code> block ID containing the selected text, <code>${index}</code> footnote reference anchor text with original block link by default, <code>${index:text}</code> footnote reference anchor text plain text</br>Use <code>${{...}}</code> for Sprig syntax, e.g. insert current time <code>${{now | date \"20060102 15:04:05\"}}</code></br>You can use kramdown syntax to style the block"
         },
         "reset": {
-            "title": "<span data-type=\"strong text\" style=\"color: var(--b3-font-color1); font-size: 130%\">Reset Settings</span>",
+            "title": "Reset Settings",
             "description": "Reset all settings to default values",
             "label": "Reset",
             "confirm": "Are you sure you want to reset all settings of this plugin to default values?"
@@ -94,6 +96,6 @@
         "noDocId": "[Block Ref Footnote Plugin] Please fill in the specified document ID"
     },
     "indexAnchor": "[*]",
-    "showFootnoteSelection":"Show selected text",
+    "showFootnoteSelection": "Show selected text",
     "hideFootnoteSelection": "Hide selected text"
 }

@@ -13,6 +13,7 @@ interface ISettingItemCore {
     key: string;
     value: any;
     placeholder?: string;
+    rows?: number; // 为 textarea 类型使用
     slider?: {
         min: number;
         max: number;
@@ -29,6 +30,7 @@ interface ISettingItem extends ISettingItemCore {
     title: string;
     description: string;
     direction?: "row" | "column";
+    rows?: number;
 }
 
 
