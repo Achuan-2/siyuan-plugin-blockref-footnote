@@ -1,3 +1,7 @@
+## v1.4.1 / 2025.07.15
+- ✨ dock栏显示当前所有脚注 [[#41](https://github.com/Achuan-2/siyuan-plugin-footnote/issues/41)](https://github.com/Achuan-2/siyuan-plugin-footnote/issues/41)
+- ✨命令面板：脚注编号，编号时将自动排序内容块
+
 ## v1.4.0 / 2025.07.14
 - ✨ 插件设置支持多Tab
 - 📝 更改脚注默认模板
