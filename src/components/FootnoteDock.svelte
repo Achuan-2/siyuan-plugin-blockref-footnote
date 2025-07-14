@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import { Protyle } from 'siyuan';
-    import { sql, getBlockDOM } from '../api';
+    import { sql, getBlockDOM, getDoc } from '../api';
     import { t } from '../utils/i18n';
 
     export let plugin;
@@ -39,9 +39,6 @@
         const docId = await getCurrentDocId();
         if (!docId) return;
 
-        // 移除阻止同一文档重新加载的条件，以便更新脚注数量
-        // if (docId === currentDocId && footnotes.length > 0) return;
-
         currentDocId = docId;
         isLoading = true;
         hasError = false;
@@ -61,50 +58,71 @@
         try {
             console.log('Loading footnotes for doc:', docId);
 
-            // 查询当前文档的所有脚注
-            const footnoteBlocks = await sql(`
-                SELECT * FROM blocks 
-                WHERE ial LIKE '%custom-plugin-footnote-content="${docId}"%' 
-                ORDER BY created ASC
-            `);
+            // 获取完整文档内容
+            const doc = await getDoc(docId);
+            if (!doc) {
+                console.error('Failed to get document:', docId);
+                footnotes = [];
+                hasError = true;
+                isLoading = false;
+                return;
+            }
 
-            console.log('Found footnote blocks:', footnoteBlocks);
+            // 解析文档DOM
+            const currentDom = new DOMParser().parseFromString(doc.content, 'text/html');
+
+            // 查找所有脚注引用元素 (custom-footnote 属性的元素)
+            const footnoteRefs = currentDom.querySelectorAll('[custom-footnote]');
+            console.log('Found footnote references:', footnoteRefs.length);
 
             // 确保创建新数组以触发响应式更新
             let newFootnotes = [];
+            const processedIds = new Set(); // 跟踪已处理的脚注ID，避免重复
 
-            // 为每个脚注块获取引用的块内容
-            for (let block of footnoteBlocks) {
+            // 按顺序处理每个脚注引用
+            for (const ref of footnoteRefs) {
+                const footnoteId = ref.getAttribute('custom-footnote');
+
+                // 跳过已处理的脚注ID
+                if (processedIds.has(footnoteId)) continue;
+                processedIds.add(footnoteId);
+
                 try {
-                    // 查找包含此脚注引用的块
-                    const refBlocks = await sql(`
-                        SELECT id, content FROM blocks 
-                        WHERE (content LIKE '%${block.id}%' OR markdown LIKE '%${block.id}%')
-                        AND root_id = '${docId}' 
-                        AND id != '${block.id}'
-                        AND type IN ('p', 'h')
-                        LIMIT 1
-                    `);
-
+                    // 获取引用这个脚注的块内容（找到包含引用的最近的块）
+                    let refBlock = ref.closest('[data-node-id]');
                     let refBlockContent = '';
-                    if (refBlocks.length > 0) {
-                        refBlockContent = refBlocks[0].content;
+                    let refBlockId = '';
+
+                    if (refBlock) {
+                        refBlockId = refBlock.getAttribute('data-node-id');
+                        refBlockContent = refBlock.textContent || '';
                     }
 
-                    newFootnotes.push({
-                        id: block.id,
-                        content: block.content,
-                        refBlockContent: refBlockContent || `脚注 ${block.id.substring(0, 8)}...`,
-                        created: block.created,
-                    });
+                    // 如果没有找到引用块或内容为空，尝试从引用元素本身获取一些上下文
+                    if (!refBlockContent) {
+                        refBlockContent = ref.parentElement
+                            ? ref.parentElement.textContent ||
+                              `脚注引用 [${footnoteId.substring(0, 8)}...]`
+                            : `脚注引用 [${footnoteId.substring(0, 8)}...]`;
+                    }
+
+                    // 获取脚注内容块
+                    const footnoteBlock = await sql(`
+                        SELECT * FROM blocks WHERE id = '${footnoteId}'
+                    `);
+
+                    if (footnoteBlock && footnoteBlock.length > 0) {
+                        newFootnotes.push({
+                            id: footnoteId,
+                            content: footnoteBlock[0].content,
+                            refBlockContent: refBlockContent,
+                            created: footnoteBlock[0].created,
+                        });
+                    } else {
+                        console.warn('Footnote block not found:', footnoteId);
+                    }
                 } catch (error) {
-                    console.warn('Error processing footnote:', block.id, error);
-                    newFootnotes.push({
-                        id: block.id,
-                        content: block.content,
-                        refBlockContent: `脚注 ${block.id.substring(0, 8)}...`,
-                        created: block.created,
-                    });
+                    console.warn('Error processing footnote reference:', footnoteId, error);
                 }
             }
 
@@ -207,18 +225,22 @@
             await loadFootnotes();
             return;
         }
-        
+
         // 检查同一文档内脚注数量是否有变化
         try {
             const footnoteBlocks = await sql(`
                 SELECT COUNT(*) as count FROM blocks 
                 WHERE ial LIKE '%custom-plugin-footnote-content="${currentDocId}"%'
             `);
-            
+
             const currentCount = footnoteBlocks[0]?.count || 0;
-            
+
             if (currentCount !== footnotes.length) {
-                console.log('Footnote count changed, refreshing...', currentCount, footnotes.length);
+                console.log(
+                    'Footnote count changed, refreshing...',
+                    currentCount,
+                    footnotes.length
+                );
                 await loadFootnotes();
             }
         } catch (error) {
@@ -234,28 +256,31 @@
 
     onMount(async () => {
         console.log('FootnoteDock mounted');
-        await loadFootnotes();
+        await loadFootnotes(); // 仅在初始加载时获取一次脚注
 
-        // 定期检查文档变化
-        refreshInterval = setInterval(refreshFootnotes, 3000);
+        // 移除所有自动刷新逻辑
+        // 移除定时器
+        // refreshInterval = setInterval(refreshFootnotes, 3000);
 
-        // 监听文档切换事件
-        const handleDocChange = () => {
-            setTimeout(refreshFootnotes, 500);
-        };
+        // 移除文档切换时的自动刷新
+        // const handleDocChange = () => {
+        //     setTimeout(async () => {
+        //         const newDocId = await getCurrentDocId();
+        //         if (newDocId !== currentDocId) {
+        //             await loadFootnotes();
+        //         }
+        //     }, 500);
+        // };
 
-        document.addEventListener('click', handleDocChange);
+        // document.addEventListener('click', handleDocChange);
 
-        return () => {
-            document.removeEventListener('click', handleDocChange);
-        };
+        // return () => {
+        //     document.removeEventListener('click', handleDocChange);
+        // };
     });
 
     onDestroy(() => {
         console.log('FootnoteDock destroyed');
-        if (refreshInterval) {
-            clearInterval(refreshInterval);
-        }
 
         // 清理所有Protyle实例
         protyleInstances.forEach(protyle => {
@@ -446,7 +471,7 @@
         min-height: 100% !important;
     }
     :global(.footnote-dock .protyle .protyle-content) {
-        padding-bottom: 0!important;
+        padding-bottom: 0 !important;
     }
 
     :global(.footnote-item__content .protyle-wysiwyg) {
