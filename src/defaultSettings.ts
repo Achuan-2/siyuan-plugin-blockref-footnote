@@ -18,6 +18,9 @@ export const getDefaultSettings = () => ({
     footnoteAlias: t('settings.footnoteAlias.value'),
     floatDialogEnable: true,
 
+    // Dock Settings
+    enableFootnoteDock: false,
+
     // Template Settings
     templates: `>> \${selection} [[↩️]](siyuan://blocks/\${refID})
 >> 

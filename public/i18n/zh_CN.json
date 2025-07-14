@@ -69,9 +69,13 @@
             "title": "脚注自动数字编号",
             "description": "使用数字编号（如[1], [2]等）替代自定义锚文本。开启后每次新建和删除脚注会自动对所有脚注重新排序编号。</br>注意：目前开启此项，当脚注数量越多，文档内容越长，排序耗时越长，介意请勿开启。"
         },
-        "floatDialog":{
+        "floatDialog": {
             "title": "是否开启脚注弹窗",
             "description": "开启后，添加脚注时会弹出弹窗，方便填写脚注内容"
+        },
+        "footnoteDock": {
+            "title": "是否开启脚注侧栏",
+            "description": "开启后，会在右侧显示脚注侧栏，可以查看和编辑当前文档的所有脚注"
         },
         "template": {
             "title": "脚注内容模版",
@@ -98,5 +102,12 @@
     },
     "indexAnchor": "[注]",
     "showFootnoteSelection": "显示选中文本",
-    "hideFootnoteSelection": "隐藏选中文本"
+    "hideFootnoteSelection": "隐藏选中文本",
+    "footnoteDock": {
+        "title": "脚注列表",
+        "empty": "当前文档没有脚注",
+        "refresh": "刷新",
+        "loading": "加载中...",
+        "error": "加载脚注失败"
+    }
 }

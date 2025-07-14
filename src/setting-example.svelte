@@ -154,6 +154,15 @@
                         'Show floating dialog for footnote editing',
                 },
                 {
+                    key: 'enableFootnoteDock',
+                    value: settings.enableFootnoteDock,
+                    type: 'checkbox',
+                    title: t('settings.footnoteDock.title') || 'Enable Footnote Dock',
+                    description:
+                        t('settings.footnoteDock.description') ||
+                        'Show footnote dock panel for viewing and editing footnotes',
+                },
+                {
                     key: 'templates',
                     value: settings.templates,
                     type: 'textarea',

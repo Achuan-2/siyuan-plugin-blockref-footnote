@@ -78,6 +78,10 @@
             "title": "Enable Footnote Dialog",
             "description": "When enabled, a dialog will pop up when adding footnotes for convenient footnote content entry"
         },
+        "footnoteDock": {
+            "title": "Enable Footnote Dock",
+            "description": "When enabled, a footnote dock panel will be shown on the right side for viewing and editing all footnotes in the current document"
+        },
         "template": {
             "title": "Footnote Template",
             "description": "Template variables: <code>${selection}</code> rich text content of selected text, <code>${selection:text}</code> plain text content of selected text, <code>${content}</code> footnote content placeholder, <code>${refID}</code> block ID containing the selected text, <code>${index}</code> footnote reference anchor text with original block link by default, <code>${index:text}</code> footnote reference anchor text plain text</br>Use <code>${{...}}</code> for Sprig syntax, e.g. insert current time <code>${{now | date \"20060102 15:04:05\"}}</code></br>You can use kramdown syntax to style the block"
@@ -98,5 +102,12 @@
     },
     "indexAnchor": "[*]",
     "showFootnoteSelection": "Show selected text",
-    "hideFootnoteSelection": "Hide selected text"
+    "hideFootnoteSelection": "Hide selected text",
+    "footnoteDock": {
+        "title": "Footnote List",
+        "empty": "No footnotes in current document",
+        "refresh": "Refresh",
+        "loading": "Loading...",
+        "error": "Failed to load footnotes"
+    }
 }

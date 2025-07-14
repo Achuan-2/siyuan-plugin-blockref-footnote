@@ -8,6 +8,7 @@ import SettingPanel from "@/setting-example.svelte";
 import { getDefaultSettings } from "./defaultSettings";
 import LoadingDialog from "./components/LoadingDialog.svelte";
 import { setPluginInstance, t } from "./utils/i18n";
+import FootnoteDock from "@/components/FootnoteDock.svelte";
 
 const STORAGE_NAME = "stroage";
 export const SETTINGS_FILE = "config.json";
@@ -314,6 +315,8 @@ export default class PluginFootnote extends Plugin {
     private settingUtils: SettingUtils;
     private styleElement: HTMLStyleElement;
     private loadingDialog: Dialog;
+    private footnoteDock: any;
+    private footnoteDockElement: HTMLElement;
 
 
     // 添加工具栏按钮
@@ -489,6 +492,41 @@ export default class PluginFootnote extends Plugin {
         document.head.appendChild(this.styleElement);
         const settings = await this.loadSettings();
         this.updateCSS(settings.css);
+
+        // 初始化脚注Dock栏
+        await this.initFootnoteDock();
+    }
+
+    private async initFootnoteDock() {
+        const settings = await this.loadSettings();
+        if (settings.enableFootnoteDock) {
+            this.addDock({
+                config: {
+                    position: "RightBottom",
+                    size: { width: 300, height: 0 },
+                    icon: "iconFootnote",
+                    title: this.i18n.footnoteDock?.title || "脚注列表",
+                    show: false
+                },
+                data: {},
+                type: "footnote-dock",
+                init: (dock) => {
+                    this.footnoteDockElement = dock.element;
+                    this.footnoteDock = new FootnoteDock({
+                        target: dock.element,
+                        props: {
+                            plugin: this
+                        }
+                    });
+                },
+                destroy: () => {
+                    if (this.footnoteDock) {
+                        this.footnoteDock.$destroy();
+                        this.footnoteDock = null;
+                    }
+                }
+            });
+        }
     }
 
     /**
@@ -527,12 +565,34 @@ export default class PluginFootnote extends Plugin {
      */
     async saveSettings(settings: any) {
         await this.saveData(SETTINGS_FILE, settings);
+
+        // 检查脚注Dock设置变化
+        await this.handleFootnoteDockToggle(settings.enableFootnoteDock);
+    }
+
+    private async handleFootnoteDockToggle(enableFootnoteDock: boolean) {
+        if (enableFootnoteDock && !this.footnoteDock) {
+            // 启用脚注Dock
+            await this.initFootnoteDock();
+        } else if (!enableFootnoteDock && this.footnoteDock) {
+            // 禁用脚注Dock
+            this.footnoteDock.$destroy();
+            this.footnoteDock = null;
+
+            // 移除dock元素
+            if (this.footnoteDockElement && this.footnoteDockElement.parentNode) {
+                this.footnoteDockElement.parentNode.removeChild(this.footnoteDockElement);
+            }
+        }
     }
 
     onLayoutReady() {
     }
 
     onunload() {
+        if (this.footnoteDock) {
+            this.footnoteDock.$destroy();
+        }
     }
 
     private deleteMemo = ({ detail }: any) => {
