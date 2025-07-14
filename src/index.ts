@@ -2,7 +2,7 @@ import { Plugin, fetchSyncPost, Dialog, Protyle } from "siyuan";
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
-import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, createDocWithMd, getDoc, getBlockKramdown, getBlockDOM } from "./api";
+import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, moveBlock, createDocWithMd, getDoc, getBlockKramdown, getBlockDOM } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
 import SettingPanel from "@/setting-example.svelte";
 import { getDefaultSettings } from "./defaultSettings";
@@ -1142,11 +1142,10 @@ export default class PluginFootnote extends Plugin {
             if (!doc) return;
             currentDom = new DOMParser().parseFromString(doc.content, 'text/html');
         }
+        
 
-        // Determine target document based on save location setting
+        // 确定脚注容器文档ID
         let footnoteContainerDocID = docID;
-        let footnoteContainerDom = currentDom;
-
         switch (settings.saveLocation) {
             case '2': // Specified document
                 footnoteContainerDocID = settings.docID;
@@ -1162,101 +1161,110 @@ export default class PluginFootnote extends Plugin {
                 break;
         }
 
-        // Only fetch and parse target document if different from current
-        if (footnoteContainerDocID !== docID) {
-            const targetDoc = await getDoc(footnoteContainerDocID);
-            if (!targetDoc) return;
-            footnoteContainerDom = new DOMParser().parseFromString(targetDoc.content, 'text/html');
+        // 查找所有脚注引用元素，按文档顺序建立映射
+        const footnoteRefs = currentDom.querySelectorAll('[custom-footnote]');
+        const footnoteOrder = new Map();
+        const processedIds = new Set();
+        let counter = 1;
+
+        // 按顺序处理每个脚注引用
+        for (const ref of footnoteRefs) {
+            const footnoteId = ref.getAttribute('custom-footnote');
+
+            // 跳过已处理的脚注ID，但仍然更新引用编号
+            if (!processedIds.has(footnoteId)) {
+                footnoteOrder.set(footnoteId, counter);
+                processedIds.add(footnoteId);
+                counter++;
+            }
+
+            // 更新引用编号显示
+            const currentNumber = footnoteOrder.get(footnoteId);
+            if (currentNumber) {
+                ref.textContent = `[${currentNumber}]`;
+            }
         }
 
-        let counter = 1;
-        const footnoteOrder = new Map();
+        // 保存当前文档的更改（引用编号）
+        if (protyle) {
+            await updateBlock("dom", protyle.wysiwyg.element.innerHTML, docID);
+        } else {
+            
+            await updateBlock("dom", currentDom.body.innerHTML, docID);
+        }
 
-        // Parse current document to get reference order
-        const blockRefs = currentDom.querySelectorAll('span[custom-footnote]');
-        blockRefs.forEach((ref) => {
-            const footnoteId = ref.getAttribute('custom-footnote');
-            if (footnoteId && !footnoteOrder.has(footnoteId)) {
-                footnoteOrder.set(footnoteId, counter++);
-            }
-        });
+        // 如果需要重排序脚注块
+        if (reorderBlocks && footnoteOrder.size > 0) {
+            // 获取所有脚注内容块
+            const footnoteBlocks = await sql(`
+                SELECT * FROM blocks 
+                WHERE ial like '%custom-plugin-footnote-content="${docID}"%' 
+                ORDER BY created ASC
+            `);
 
-        // Update reference numbers in current document
-        blockRefs.forEach((ref) => {
-            const footnoteId = ref.getAttribute('custom-footnote');
-            if (footnoteId) {
-                const number = footnoteOrder.get(footnoteId);
-                ref.textContent = `[${number}]`;
-            }
-        });
+            if (footnoteBlocks.length > 0) {
+                // 找到脚注容器
+                const containerQuery = await sql(`
+                    SELECT * FROM blocks 
+                    WHERE root_id = '${footnoteContainerDocID}' 
+                    AND ial like '%custom-plugin-footnote-parent="${docID}"%' 
+                    LIMIT 1
+                `);
 
-        // Reorder footnote blocks if needed
-        // 获取脚注块并更新编号
-        const footnoteBlocks = Array.from(footnoteContainerDom.querySelectorAll(`[custom-plugin-footnote-content="${docID}"]`));
-        if (footnoteBlocks.length > 0) {
-            footnoteBlocks.forEach(block => {
-                // 获取脚注块的ID
-                const blockId = block.getAttribute('data-node-id');
-                if (blockId) {
-                    // 获取该块对应的编号
-                    const number = footnoteOrder.get(blockId);
-                    if (number) {
-                        // 查找并更新块内的索引编号元素
-                        const indexSpan = block.querySelector('span[data-type*="custom-footnote-index"]');
-                        if (indexSpan) {
-                            indexSpan.textContent = `[${number}]`;
+                if (containerQuery.length > 0) {
+                    const containerId = containerQuery[0].id;
+
+                    // 按照引用顺序排序脚注块
+                    const sortedBlocks = footnoteBlocks
+                        .filter(block => footnoteOrder.has(block.id))
+                        .sort((a, b) => {
+                            const aOrder = footnoteOrder.get(a.id) || Infinity;
+                            const bOrder = footnoteOrder.get(b.id) || Infinity;
+                            return aOrder - bOrder;
+                        });
+
+                    // 使用 moveBlock 重新排序
+                    let previousID = containerId;
+                    for (const block of sortedBlocks) {
+                        try {
+                            await moveBlock(block.id, previousID, containerId);
+                            previousID = block.id;
+                        } catch (error) {
+                            console.warn('Failed to move block:', block.id, error);
                         }
                     }
                 }
-            });
-
-            // 如果需要重排序
-            if (reorderBlocks) {
-                const parent = footnoteBlocks[0].parentNode;
-                if (parent) {
-                    let referenceNode = footnoteBlocks[0].previousSibling;
-                    footnoteBlocks.forEach(block => block.remove());
-
-                    // 排序并重新插入块
-                    footnoteBlocks
-                        .sort((a, b) => {
-                            const aId = a.getAttribute('data-node-id');
-                            const bId = b.getAttribute('data-node-id');
-                            const aOrder = footnoteOrder.get(aId) || Infinity;
-                            const bOrder = footnoteOrder.get(bId) || Infinity;
-                            return aOrder - bOrder;
-                        })
-                        .forEach(block => {
-                            if (referenceNode) {
-                                referenceNode.after(block);
-                                referenceNode = block;
-                            } else {
-                                parent.insertBefore(block, parent.firstChild);
-                            }
-                        });
-                }
             }
         }
-        // Save changes
-        if (protyle) {
-            // 应该获取protyle.wysiwyg.element.innerHTML
-            await updateBlock("dom", protyle.wysiwyg.element.innerHTML, docID);
-            // saveViaTransaction(protyle.wysiwyg.element) // 保存不了排序的
 
-        } else {
-            await updateBlock("dom", currentDom.body.innerHTML, docID);
-        }
-        if (footnoteContainerDocID !== docID) {
-            await updateBlock("dom", footnoteContainerDom.body.innerHTML, footnoteContainerDocID);
+        // 更新脚注内容块中的索引编号
+        for (const [footnoteId, number] of footnoteOrder) {
+            try {
+                // 获取脚注块的DOM
+                const footnoteBlockDOM = await getBlockDOM(footnoteId);
+                if (footnoteBlockDOM && footnoteBlockDOM.dom) {
+                    // 更新块内的索引编号
+                    let updatedDOM = footnoteBlockDOM.dom.replace(
+                        /(<span[^>]*data-type="[^"]*custom-footnote-index[^"]*"[^>]*>)\[[^\]]*\](<\/span>)/g,
+                        `$1[${number}]$2`
+                    );
+                    // 如果DOM有变化，更新块
+                    if (updatedDOM !== footnoteBlockDOM.dom) {
+                        await updateBlock("dom", updatedDOM, footnoteId);
+                    }
+                }
+            } catch (error) {
+                console.warn('Failed to update footnote index:', footnoteId, error);
+            }
         }
     }
 
     private async cancelReorderFootnotes(docID: string, reorderBlocks: boolean) {
         const settings = await this.loadSettings();
         // Get current document DOM
-        const doc = await getDoc(docID);
+        const doc = await getBlockDOM(docID);
         if (!doc) return;
-        const currentDom = new DOMParser().parseFromString(doc.content, 'text/html');
+        const currentDom = new DOMParser().parseFromString(doc.dom, 'text/html');
 
         // Get default footnote reference format
         const defaultAnchor = settings.footnoteBlockref;
