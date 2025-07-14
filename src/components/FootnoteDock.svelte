@@ -13,7 +13,7 @@
     let refreshInterval;
     let isLoading = false;
     let hasError = false;
-    let allCollapsed = false; // 跟踪所有脚注是否已折叠
+    let allCollapsed = true; // 跟踪所有脚注是否已折叠
     let collapsedFootnotes = new Set(); // 跟踪单个脚注的折叠状态
 
     interface Footnote {
