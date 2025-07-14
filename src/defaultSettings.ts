@@ -13,7 +13,7 @@ export const getDefaultSettings = () => ({
     // Style Settings
     footnoteRefStyle: '1',
     footnoteBlockref: t('settings.footnoteBlockref.value'),
-    selectFontStyle: '1',
+    selectFontStyle: '2',
     enableOrderedFootnotes: false,
     footnoteAlias: t('settings.footnoteAlias.value'),
     floatDialogEnable: true,

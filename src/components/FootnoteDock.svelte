@@ -104,6 +104,13 @@
                         : '';
                         
                     }
+                    if (!refBlockContent) {
+                        refBlockContent = refBlock
+                        ? refBlock.querySelector(
+                                `span[data-type="custom-footnote-hidden-selected-text-${footnoteId}"]`
+                            )?.textContent || ''
+                        : '';
+                    }
                     // 如果没有找到引用块或内容为空，尝试从引用元素本身获取一些上下文
                     if (!refBlockContent) {
                         refBlockContent = ref.parentElement
