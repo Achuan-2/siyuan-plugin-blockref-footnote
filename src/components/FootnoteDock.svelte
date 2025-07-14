@@ -487,7 +487,6 @@
     }
 
     .footnote-item {
-        margin-bottom: 12px;
         border: 1px solid var(--b3-border-color);
         border-radius: 4px;
         background: var(--b3-theme-surface);
