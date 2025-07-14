@@ -22,10 +22,16 @@ export const getDefaultSettings = () => ({
     enableFootnoteDock: true,
 
     // Template Settings
-    templates: `>> \${index} \${selection} 
+    templates: `{{{col
+\${index}
+{: style="width: 2.5em; flex: 0 0 auto;"}
+
+{{{row
+>> \${selection}
 >> 
 > \${content}
-
+}}}
+}}}
 `,
 
     // Advanced Settings

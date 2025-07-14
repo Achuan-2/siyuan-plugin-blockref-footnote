@@ -3,6 +3,7 @@
     import SettingPanel from '@/libs/components/setting-panel.svelte';
     import { getDefaultSettings } from './defaultSettings';
     import { t } from './utils/i18n';
+    import { confirm } from 'siyuan';
     import { pushMsg } from './api';
     export let plugin;
 
@@ -187,7 +188,7 @@
             name: t('settings.groups.reset') || 'Reset Settings',
             items: [
                 {
-                    key: 'resetConfig',
+                    key: 'reset',
                     value: '',
                     type: 'button',
                     title: t('settings.reset.title') || 'Reset Settings',
@@ -196,13 +197,22 @@
                     button: {
                         label: t('settings.reset.label') || 'Reset',
                         callback: async () => {
-                            settings = { ...getDefaultSettings() };
-                            updateGroupItems();
-                            await saveSettings();
-                            if (plugin.updateCSS) {
-                                plugin.updateCSS(settings.css);
-                            }
-                            await pushMsg(t('settings.reset.message'));
+                            confirm(
+                                t('settings.reset.title') || 'Reset Settings',
+                                t('settings.reset.confirmMessage') ||
+                                    'Are you sure you want to reset all settings to default values? This action cannot be undone.',
+                                async () => {
+                                    // 确认回调
+                                    settings = { ...getDefaultSettings() };
+                                    updateGroupItems();
+                                    await saveSettings();
+                                    await pushMsg(t('settings.reset.message'));
+                                },
+                                () => {
+                                    // 取消回调（可选）
+                                    console.log('Reset cancelled');
+                                }
+                            );
                         },
                     },
                 },
