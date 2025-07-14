@@ -22,9 +22,10 @@ export const getDefaultSettings = () => ({
     enableFootnoteDock: true,
 
     // Template Settings
-    templates: `>> \${selection} [[↩️]](siyuan://blocks/\${refID})
+    templates: `>> \${index} \${selection} 
 >> 
 > \${content}
+
 `,
 
     // Advanced Settings
