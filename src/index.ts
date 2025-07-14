@@ -500,13 +500,14 @@ export default class PluginFootnote extends Plugin {
     private async initFootnoteDock() {
         const settings = await this.loadSettings();
         if (settings.enableFootnoteDock) {
+
             this.addDock({
                 config: {
                     position: "RightBottom",
                     size: { width: 300, height: 0 },
                     icon: "iconFootnote",
                     title: this.i18n.footnoteDock?.title || "脚注列表",
-                    show: false
+                    show: true // 设置为 true，以便立即显示
                 },
                 data: {},
                 type: "footnote-dock",
@@ -566,23 +567,19 @@ export default class PluginFootnote extends Plugin {
     async saveSettings(settings: any) {
         await this.saveData(SETTINGS_FILE, settings);
 
-        // 检查脚注Dock设置变化
-        await this.handleFootnoteDockToggle(settings.enableFootnoteDock);
     }
 
-    private async handleFootnoteDockToggle(enableFootnoteDock: boolean) {
-        if (enableFootnoteDock && !this.footnoteDock) {
+    async handleFootnoteDockToggle(enableFootnoteDock: boolean) {
+        if (enableFootnoteDock) {
             // 启用脚注Dock
             await this.initFootnoteDock();
         } else if (!enableFootnoteDock && this.footnoteDock) {
             // 禁用脚注Dock
             this.footnoteDock.$destroy();
             this.footnoteDock = null;
-
             // 移除dock元素
-            if (this.footnoteDockElement && this.footnoteDockElement.parentNode) {
-                this.footnoteDockElement.parentNode.removeChild(this.footnoteDockElement);
-            }
+            document.querySelector('span[data-type="siyuan-plugin-blockref-footnotefootnote-dock"]').remove();
+
         }
     }
 

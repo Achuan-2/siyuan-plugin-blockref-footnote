@@ -108,6 +108,8 @@
         "empty": "当前文档没有脚注",
         "refresh": "刷新",
         "loading": "加载中...",
-        "error": "加载脚注失败"
+        "error": "加载脚注失败",
+        "collapseAll": "折叠所有",
+        "expandAll": "展开所有"
     }
 }

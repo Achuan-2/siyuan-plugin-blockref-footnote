@@ -13,6 +13,7 @@
     let refreshInterval;
     let isLoading = false;
     let hasError = false;
+    let allCollapsed = false; // 跟踪所有脚注是否已折叠
 
     interface Footnote {
         id: string;
@@ -153,7 +154,7 @@
         }
 
         try {
-            console.log('Creating Protyle for footnote:', footnoteId);
+            // console.log('Creating Protyle for footnote:', footnoteId);
 
             // 清空容器
             container.innerHTML = '';
@@ -183,7 +184,7 @@
         // 立即创建实例
         setTimeout(() => {
             if (node && footnoteId) {
-                console.log('Action directive creating protyle for:', footnoteId);
+                // console.log('Action directive creating protyle for:', footnoteId);
                 createProtyleForFootnote(footnoteId, node);
             }
         }, 10);
@@ -254,6 +255,16 @@
         await loadFootnotes();
     }
 
+    // 折叠所有脚注
+    function collapseAll() {
+        allCollapsed = true;
+    }
+
+    // 展开所有脚注
+    function expandAll() {
+        allCollapsed = false;
+    }
+
     onMount(async () => {
         console.log('FootnoteDock mounted');
         await loadFootnotes(); // 仅在初始加载时获取一次脚注
@@ -304,6 +315,22 @@
         <div class="footnote-dock__actions">
             <span class="footnote-dock__count">({footnotes.length})</span>
             <button
+                class="footnote-dock__collapse b3-button b3-button--outline"
+                on:click={collapseAll}
+                title={t('footnoteDock.collapseAll')}
+                disabled={footnotes.length === 0 || isLoading}
+            >
+                <svg><use xlink:href="#iconContract"></use></svg>
+            </button>
+            <button
+                class="footnote-dock__expand b3-button b3-button--outline"
+                on:click={expandAll}
+                title={t('footnoteDock.expandAll')}
+                disabled={footnotes.length === 0 || isLoading}
+            >
+                <svg><use xlink:href="#iconExpand"></use></svg>
+            </button>
+            <button
                 class="footnote-dock__refresh b3-button b3-button--outline"
                 on:click={forceRefresh}
                 disabled={isLoading}
@@ -332,7 +359,7 @@
             </div>
         {:else}
             {#each footnotes as footnote, index (footnote.id)}
-                <div class="footnote-item">
+                <div class="footnote-item" class:collapsed={allCollapsed}>
                     <div class="footnote-item__header">
                         <span class="footnote-item__index">[{index + 1}]</span>
                         <div class="footnote-item__ref" title={footnote.refBlockContent}>
@@ -384,14 +411,18 @@
         color: var(--b3-theme-on-surface-light);
     }
 
-    .footnote-dock__refresh {
+    .footnote-dock__refresh,
+    .footnote-dock__collapse,
+    .footnote-dock__expand {
         padding: 4px;
         min-width: auto;
         height: 24px;
         width: 24px;
     }
 
-    .footnote-dock__refresh:disabled {
+    .footnote-dock__refresh:disabled,
+    .footnote-dock__collapse:disabled,
+    .footnote-dock__expand:disabled {
         opacity: 0.5;
         cursor: not-allowed;
     }
@@ -430,6 +461,10 @@
         border-radius: 4px;
         background: var(--b3-theme-surface);
         overflow: hidden;
+    }
+
+    .footnote-item.collapsed .footnote-item__content {
+        display: none;
     }
 
     .footnote-item__header {

@@ -19,7 +19,7 @@ export const getDefaultSettings = () => ({
     floatDialogEnable: true,
 
     // Dock Settings
-    enableFootnoteDock: false,
+    enableFootnoteDock: true,
 
     // Template Settings
     templates: `>> \${selection} [[↩️]](siyuan://blocks/\${refID})

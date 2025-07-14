@@ -228,6 +228,11 @@
             if (detail.key === 'css' && plugin.updateCSS) {
                 plugin.updateCSS(detail.value);
             }
+
+            // 即时处理脚注Dock栏的显示和隐藏
+            if (detail.key === 'enableFootnoteDock' && plugin.handleFootnoteDockToggle) {
+                plugin.handleFootnoteDockToggle(detail.value);
+            }
         }
     };
 

@@ -108,6 +108,8 @@
         "empty": "No footnotes in current document",
         "refresh": "Refresh",
         "loading": "Loading...",
-        "error": "Failed to load footnotes"
+        "error": "Failed to load footnotes",
+        "collapseAll": "折叠所有",
+        "expandAll": "展开所有"
     }
 }
