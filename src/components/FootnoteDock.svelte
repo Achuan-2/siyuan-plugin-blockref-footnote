@@ -99,7 +99,7 @@
                         refBlockId = refBlock.getAttribute('data-node-id');
                         refBlockContent = refBlock
                         ? refBlock.querySelector(
-                                `span[data-type="custom-footnote-selected-text-${footnoteId}"]`
+                                `span[data-type*="custom-footnote-selected-text-${footnoteId}"]`
                             )?.textContent || ''
                         : '';
                         
@@ -107,7 +107,7 @@
                     if (!refBlockContent) {
                         refBlockContent = refBlock
                         ? refBlock.querySelector(
-                                `span[data-type="custom-footnote-hidden-selected-text-${footnoteId}"]`
+                                `span[data-type*="custom-footnote-hidden-selected-text-${footnoteId}"]`
                             )?.textContent || ''
                         : '';
                     }
