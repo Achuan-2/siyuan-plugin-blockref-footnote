@@ -273,15 +273,15 @@
     // 切换单个脚注的折叠状态
     function toggleFootnote(footnoteId) {
         const newCollapsedFootnotes = new Set(collapsedFootnotes);
-        
+
         if (newCollapsedFootnotes.has(footnoteId)) {
             newCollapsedFootnotes.delete(footnoteId);
         } else {
             newCollapsedFootnotes.add(footnoteId);
         }
-        
+
         collapsedFootnotes = newCollapsedFootnotes;
-        
+
         // 更新全局折叠状态
         if (collapsedFootnotes.size === footnotes.length) {
             allCollapsed = true;
@@ -384,18 +384,29 @@
             </div>
         {:else}
             {#each footnotes as footnote, index (footnote.id)}
-                <div class="footnote-item" class:collapsed={allCollapsed || collapsedFootnotes.has(footnote.id)}>
+                <div
+                    class="footnote-item"
+                    class:collapsed={allCollapsed || collapsedFootnotes.has(footnote.id)}
+                >
                     <div class="footnote-item__header">
                         <span class="footnote-item__index">[{index + 1}]</span>
                         <div class="footnote-item__ref" title={footnote.refBlockContent}>
                             {@html footnote.refBlockContent}
                         </div>
-                        <button 
+                        <button
                             class="footnote-item__toggle b3-button b3-button--outline"
                             on:click={() => toggleFootnote(footnote.id)}
-                            title={collapsedFootnotes.has(footnote.id) ? t('footnoteDock.expand') : t('footnoteDock.collapse')}
+                            title={collapsedFootnotes.has(footnote.id)
+                                ? t('footnoteDock.expand')
+                                : t('footnoteDock.collapse')}
                         >
-                            <svg><use xlink:href={collapsedFootnotes.has(footnote.id) ? "#iconExpand" : "#iconContract"}></use></svg>
+                            <svg>
+                                <use
+                                    xlink:href={collapsedFootnotes.has(footnote.id)
+                                        ? '#iconExpand'
+                                        : '#iconContract'}
+                                ></use>
+                            </svg>
                         </button>
                     </div>
                     <div
