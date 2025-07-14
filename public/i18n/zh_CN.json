@@ -110,6 +110,8 @@
         "loading": "加载中...",
         "error": "加载脚注失败",
         "collapseAll": "折叠所有",
-        "expandAll": "展开所有"
+        "expandAll": "展开所有",
+        "collapse": "折叠",
+        "expand": "展开"
     }
 }

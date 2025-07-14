@@ -109,7 +109,9 @@
         "refresh": "Refresh",
         "loading": "Loading...",
         "error": "Failed to load footnotes",
-        "collapseAll": "折叠所有",
-        "expandAll": "展开所有"
+        "collapseAll": "Collapse All",
+        "expandAll": "Expand All",
+        "collapse": "Collapse",
+        "expand": "Expand"
     }
 }

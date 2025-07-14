@@ -14,6 +14,7 @@
     let isLoading = false;
     let hasError = false;
     let allCollapsed = false; // 跟踪所有脚注是否已折叠
+    let collapsedFootnotes = new Set(); // 跟踪单个脚注的折叠状态
 
     interface Footnote {
         id: string;
@@ -258,11 +259,35 @@
     // 折叠所有脚注
     function collapseAll() {
         allCollapsed = true;
+        // 将所有脚注ID添加到折叠集合中
+        collapsedFootnotes = new Set(footnotes.map(fn => fn.id));
     }
 
     // 展开所有脚注
     function expandAll() {
         allCollapsed = false;
+        // 清空折叠集合
+        collapsedFootnotes = new Set();
+    }
+
+    // 切换单个脚注的折叠状态
+    function toggleFootnote(footnoteId) {
+        const newCollapsedFootnotes = new Set(collapsedFootnotes);
+        
+        if (newCollapsedFootnotes.has(footnoteId)) {
+            newCollapsedFootnotes.delete(footnoteId);
+        } else {
+            newCollapsedFootnotes.add(footnoteId);
+        }
+        
+        collapsedFootnotes = newCollapsedFootnotes;
+        
+        // 更新全局折叠状态
+        if (collapsedFootnotes.size === footnotes.length) {
+            allCollapsed = true;
+        } else if (collapsedFootnotes.size === 0) {
+            allCollapsed = false;
+        }
     }
 
     onMount(async () => {
@@ -359,12 +384,19 @@
             </div>
         {:else}
             {#each footnotes as footnote, index (footnote.id)}
-                <div class="footnote-item" class:collapsed={allCollapsed}>
+                <div class="footnote-item" class:collapsed={allCollapsed || collapsedFootnotes.has(footnote.id)}>
                     <div class="footnote-item__header">
                         <span class="footnote-item__index">[{index + 1}]</span>
                         <div class="footnote-item__ref" title={footnote.refBlockContent}>
                             {@html footnote.refBlockContent}
                         </div>
+                        <button 
+                            class="footnote-item__toggle b3-button b3-button--outline"
+                            on:click={() => toggleFootnote(footnote.id)}
+                            title={collapsedFootnotes.has(footnote.id) ? t('footnoteDock.expand') : t('footnoteDock.collapse')}
+                        >
+                            <svg><use xlink:href={collapsedFootnotes.has(footnote.id) ? "#iconExpand" : "#iconContract"}></use></svg>
+                        </button>
                     </div>
                     <div
                         class="footnote-item__content"
@@ -430,7 +462,6 @@
     .footnote-dock__content {
         flex: 1;
         overflow-y: auto;
-        padding: 8px;
     }
 
     .footnote-dock__status {
@@ -538,5 +569,19 @@
 
     :global(.footnote-item__content .protyle-title) {
         display: none !important;
+    }
+
+    .footnote-item__toggle {
+        padding: 2px;
+        min-width: auto;
+        height: 20px;
+        width: 20px;
+        flex-shrink: 0;
+        align-self: flex-start;
+    }
+
+    .footnote-item__toggle svg {
+        height: 14px;
+        width: 14px;
     }
 </style>
