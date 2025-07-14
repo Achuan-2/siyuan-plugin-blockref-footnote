@@ -6,7 +6,7 @@
  * API 文档见 [API_zh_CN.md](https://github.com/siyuan-note/siyuan/blob/master/API_zh_CN.md)
  */
 
-import { fetchPost, fetchSyncPost, IWebSocketData } from "siyuan";
+import { fetchPost, fetchSyncPost, openTab, IWebSocketData } from "siyuan";
 
 
 export async function request(url: string, data: any) {
@@ -23,7 +23,37 @@ export async function lsNotebooks(): Promise<IReslsNotebooks> {
     let url = '/api/notebook/lsNotebooks';
     return request(url, '');
 }
+export async function openBlock(blockId: string) {
+    // 检测块是否存在
+    const block = await getBlockByID(blockId);
+    if (!block) {
+        throw new Error('块不存在');
+    }
+    // 判断块的类型
+    const isDoc = block.type === 'd';
+    if (isDoc) {
+        openTab({
+            app: window.siyuan.ws.app,
+            doc: {
+                id: blockId,
+                action: ["cb-get-focus", "cb-get-scroll"]
+            },
+            keepCursor: false,
+            removeCurrentTab: false
+        });
+    } else {
+        openTab({
+            app: window.siyuan.ws.app,
+            doc: {
+                id: blockId,
+                action: ["cb-get-focus", "cb-get-context", "cb-get-hl"]
+            },
+            keepCursor: false,
+            removeCurrentTab: false
+        });
 
+    }
+}
 
 export async function openNotebook(notebook: NotebookId) {
     let url = '/api/notebook/openNotebook';

@@ -49,7 +49,7 @@
         "src/**/*.tsx",
         "src/**/*.vue",
         "src/**/*.svelte"
-    ],
+, "src/components/FootnoteDock.text", "src/components/FootnoteDock copy.text"    ],
     "references": [
         {
             "path": "./tsconfig.node.json"

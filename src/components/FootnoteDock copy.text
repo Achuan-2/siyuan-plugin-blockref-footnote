@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import { Protyle } from 'siyuan';
-    import { sql, getBlockDOM, getDoc,openBlock } from '../api';
+    import { sql, getBlockDOM, getDoc } from '../api';
     import { t } from '../utils/i18n';
 
     export let plugin;
@@ -396,8 +396,7 @@
                     <div class="footnote-item__header">
                         <span class="footnote-item__index">[{index + 1}]</span>
                         <div class="footnote-item__ref" title={footnote.refBlockContent}>
-                            <!-- 添加鼠标点击事件 -->
-                            <span data-type="a"  on:click={() => openBlock(footnote.refBlockId)}>{@html footnote.refBlockContent}</span>
+                            <span data-type="a" data-href="siyuan://blocks/{footnote.refBlockId}">{@html footnote.refBlockContent}</span>
                         </div>
                         <button
                             class="footnote-item__toggle b3-button b3-button--outline"
