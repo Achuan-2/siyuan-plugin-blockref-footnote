@@ -13,8 +13,8 @@
     let refreshInterval;
     let isLoading = false;
     let hasError = false;
-    let allCollapsed = false; // 跟踪所有脚注是否已折叠
-    let collapsedFootnotes = new Set(); // 跟踪单个脚注的折叠状态
+    // 跟踪单个脚注的折叠状态
+    let collapsedFootnotes = new Set(); 
 
     interface Footnote {
         id: string;
@@ -99,8 +99,8 @@
                         refBlockId = refBlock.getAttribute('data-node-id');
                         refBlockContent = refBlock
                         ? refBlock.querySelector(
-                              `span[data-type="custom-footnote-selected-text-${footnoteId}"]`
-                          )?.textContent || ''
+                                `span[data-type="custom-footnote-selected-text-${footnoteId}"]`
+                            )?.textContent || ''
                         : '';
                         
                     }
@@ -108,7 +108,7 @@
                     if (!refBlockContent) {
                         refBlockContent = ref.parentElement
                             ? ref.parentElement.textContent ||
-                              `脚注引用 [${footnoteId.substring(0, 8)}...]`
+                                `脚注引用 [${footnoteId.substring(0, 8)}...]`
                             : `脚注引用 [${footnoteId.substring(0, 8)}...]`;
                     }
 
@@ -136,6 +136,7 @@
             // 使用新数组替换旧数组，确保触发响应式更新
             footnotes = newFootnotes;
             console.log('Processed footnotes:', footnotes);
+            collapseAll(); // 默认/刷新后折叠所有
         } catch (error) {
             console.error('Failed to load footnotes:', error);
             footnotes = [];
@@ -263,14 +264,12 @@
 
     // 折叠所有脚注
     function collapseAll() {
-        allCollapsed = true;
         // 将所有脚注ID添加到折叠集合中
         collapsedFootnotes = new Set(footnotes.map(fn => fn.id));
     }
 
     // 展开所有脚注
     function expandAll() {
-        allCollapsed = false;
         // 清空折叠集合
         collapsedFootnotes = new Set();
     }
@@ -286,13 +285,6 @@
         }
 
         collapsedFootnotes = newCollapsedFootnotes;
-
-        // 更新全局折叠状态
-        if (collapsedFootnotes.size === footnotes.length) {
-            allCollapsed = true;
-        } else if (collapsedFootnotes.size === 0) {
-            allCollapsed = false;
-        }
     }
 
     onMount(async () => {
@@ -391,7 +383,7 @@
             {#each footnotes as footnote, index (footnote.id)}
                 <div
                     class="footnote-item"
-                    class:collapsed={allCollapsed || collapsedFootnotes.has(footnote.id)}
+                    class:collapsed={collapsedFootnotes.has(footnote.id)}
                 >
                     <div class="footnote-item__header">
                         <span class="footnote-item__index">[{index + 1}]</span>
