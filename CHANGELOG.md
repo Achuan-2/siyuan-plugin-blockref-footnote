@@ -1,3 +1,22 @@
+## v1.4.2 / 2025.07.15
+- ✨ 改进脚注编号体验
+  1. 改用protyle 弹窗显示块，关闭弹窗之后进行编号
+  2. 弃用getDoc改用getBlockDOM来更新脚注编号，避免折叠标题丢失 [#37](https://github.com/Achuan-2/siyuan-plugin-footnote/issues/37)
+  3. 脚注内容块的编号以及脚注内容块顺序调整只给需要更改的块进行更新，减少更新块时间
+- ♻️  refactor(Footnote): 优化脚注内容块排序逻辑 [#43](https://github.com/Achuan-2/siyuan-plugin-footnote/issues/43)
+
+  - 使用LCS算法智能排序脚注块
+  - 改进脚注引用元素的映射逻辑
+  - 更新相关注释以提高代码可读性
+- 💄 style(FootnoteDock): 移除脚注项头部背景色
+- ♻️ refactor(FootnoteDialog): 优化弹窗事件处理逻辑
+  总结关闭弹窗触发条件
+  - 按关闭按钮
+  - 按esc键
+  - 点击空白位置双击
+
+  
+
 ## v1.4.1 / 2025.07.15
 - ✨ dock栏显示当前所有脚注 [[#41](https://github.com/Achuan-2/siyuan-plugin-footnote/issues/41)](https://github.com/Achuan-2/siyuan-plugin-footnote/issues/41)
 - ✨命令面板：脚注编号，编号时将自动排序内容块
