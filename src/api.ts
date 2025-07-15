@@ -262,28 +262,27 @@ export async function updateBlock(dataType: DataType, data: string, id: BlockId)
 }
 
 
-// {
-//     "blocks": [
-//         {
-//             "id": "20250311104827-9fubw4s",
-//             "dataType": "markdown",
-//             "data": "bbbbbbbbbbba*b*c"
-//         },
-//         {
-//             "id": "20250311114126-iortkld",
-//             "dataType": "markdown",
-//             "data": "aaaaaaaa2a*b*c"
-//         },
-//         {
-//             "id": "20250311114126-vcvsxw8",
-//             "dataType": "markdown",
-//             "data": "11111113a*b*c"
-//         }
-//     ]
-// }
+
 export async function batchUpdateBlock(blocks: Block[]): Promise<IResdoOperations[]> {
     let payload = {
         blocks: blocks
+        //     blocks=[
+        //         {
+        //             "id": "20250311104827-9fubw4s",
+        //             "dataType": "markdown",
+        //             "data": "bbbbbbbbbbba*b*c"
+        //         },
+        //         {
+        //             "id": "20250311114126-iortkld",
+        //             "dataType": "markdown",
+        //             "data": "aaaaaaaa2a*b*c"
+        //         },
+        //         {
+        //             "id": "20250311114126-vcvsxw8",
+        //             "dataType": "markdown",
+        //             "data": "11111113a*b*c"
+        //         }
+        //     ]
     }
     let url = '/api/block/batchUpdateBlock';
     return request(url, payload);
