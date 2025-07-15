@@ -2,7 +2,7 @@ import { Plugin, fetchSyncPost, Dialog, Protyle } from "siyuan";
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
-import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, moveBlock, createDocWithMd, getDoc, getBlockKramdown, getBlockDOM } from "./api";
+import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, moveBlock, createDocWithMd, getDoc, getBlockKramdown, getBlockDOM, batchUpdateBlock } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
 import SettingPanel from "@/setting-example.svelte";
 import { getDefaultSettings } from "./defaultSettings";
@@ -38,7 +38,7 @@ class FootnoteDialog {
             ok: "OK"
         }
     };
-    constructor(title: string, blockId: string, onSubmit: (content: string) => void, x: number, y: number) {
+    constructor(title: string, blockId: string, onSubmit: () => void, x: number, y: number) {
         let i18n: typeof this.I18N.zh_CN = window.siyuan.config.lang in this.I18N ? this.I18N[window.siyuan.config.lang] : this.I18N.en_US;
         this.dialog = document.createElement('dialog');
         this.dialog.innerHTML = `
@@ -101,6 +101,8 @@ class FootnoteDialog {
         this.dialog.querySelector('.close-button').addEventListener('click', () => {
             this.dialog.close();
             this.dialog.remove();
+            onSubmit();
+            // 移除全局双击事件监听器
             document.removeEventListener('dblclick', this.handleOutsideDoubleClick);
         });
 
@@ -164,151 +166,7 @@ class FootnoteDialog {
     }
 }
 
-class FootnoteDialog2 {
-    private dialog: HTMLDialogElement;
-    private content: string;
-    private textarea: HTMLTextAreaElement;
-    private isDragging: boolean = false;
-    private currentX: number;
-    private currentY: number;
-    private initialX: number;
-    private initialY: number;
-    private I18N = {
-        zh_CN: {
-            addFootnote: "添加脚注",
-            footnoteContent: '脚注内容',
-            cancel: '取消',
-            ok: "确定"
-        },
-        en_US: {
-            addFootnote: "Add Footnote",
-            footnoteContent: 'Footnote Content',
-            cancel: 'Cancel',
-            ok: "OK"
-        }
-    };
-    constructor(title: string, initialContent: string, onSubmit: (content: string) => void, x: number, y: number) {
-        let i18n: typeof this.I18N.zh_CN = window.siyuan.config.lang in this.I18N ? this.I18N[window.siyuan.config.lang] : this.I18N.en_US;
 
-        this.dialog = document.createElement('dialog');
-        // this.dialog.classList.add('block__popover');
-        this.content = initialContent;
-        this.dialog.innerHTML = `
-            <div class="dialog-title" style="cursor: move;user-select: none;height: 22px;background-color: var(--b3-theme-background);margin: 0px; border: 1px solid var(--b3-border-color);display: flex;justify-content: space-between;align-items: center;padding: 0 4px;">
-                <div style="width: 22px;"></div>
-                <div style="font-size: 0.9em;color: var(--b3-theme-on-background);opacity: 0.9;">${i18n.addFootnote}</div>
-                <div class="close-button" style="width: 16px;height: 16px;display: flex;align-items: center;justify-content: center;cursor: pointer;color: var(--b3-theme-on-background);">
-                    <svg><use xlink:href="#iconClose"></use></svg>
-                </div>
-            </div>
-            <div style="padding: 0 16px; margin-top: 8px">
-
-                <div class="protyle-wysiwyg" style="padding: 0px; margin-bottom: 8px">
-                    <div style="border-left: 0.5em solid var(--b3-border-color); color: var(--b3-theme-on-background);padding: 8px; margin-bottom: 8px; background: var(--b3-theme-background);">${title}</div>
-                </div>
-                <div style="margin-bottom: 8px;">
-                    <div style="font-weight: bold; margin-bottom: 4px;color: var(--b3-theme-on-background)">${i18n.footnoteContent}:</div>
-                    <textarea style="width: 95%; min-height: 100px; padding: 8px; resize: none;background-color: var(--b3-theme-background);color: var(--b3-theme-on-background);"></textarea>
-                </div>
-            </div>
-        `;
-
-        // Position dialog
-        this.dialog.style.position = 'fixed';
-        this.dialog.style.top = '30%';
-        this.dialog.style.left = '40%';
-        this.dialog.style.margin = '0';
-        this.dialog.style.padding = '0px';
-        this.dialog.style.border = '0px solid var(--b3-border-color)';
-        this.dialog.style.borderRadius = '4px';
-        this.dialog.style.background = 'var(--b3-theme-background)';
-        this.dialog.style.boxShadow = 'var(--b3-dialog-shadow)';
-        this.dialog.style.resize = 'auto';
-        this.dialog.style.width = "500px"
-        this.dialog.style.maxHeight = "500px"
-
-        document.body.appendChild(this.dialog);
-
-        this.textarea = this.dialog.querySelector('textarea');
-        this.textarea.value = initialContent;
-        this.textarea.spellcheck = false;
-
-        // Add drag event listeners
-        const titleBar = this.dialog.querySelector('.dialog-title') as HTMLElement;
-        titleBar.addEventListener('mousedown', this.startDragging.bind(this));
-        document.addEventListener('mousemove', this.drag.bind(this));
-        document.addEventListener('mouseup', this.stopDragging.bind(this));
-
-
-
-        this.dialog.addEventListener('close', () => {
-            onSubmit(this.textarea.value);
-            this.dialog.remove();
-            // 移除全局双击事件监听器
-            document.removeEventListener('dblclick', this.handleOutsideDoubleClick);
-        });
-
-        // 添加在弹窗外双击关闭弹窗的事件监听
-        document.addEventListener('dblclick', this.handleOutsideDoubleClick);
-
-        // 添加关闭按钮事件
-        this.dialog.querySelector('.close-button').addEventListener('click', () => {
-            onSubmit(this.textarea.value);
-            this.dialog.close();
-            this.dialog.remove();
-            // 移除全局双击事件监听器
-            document.removeEventListener('dblclick', this.handleOutsideDoubleClick);
-        });
-
-        this.dialog.showModal();
-        this.textarea.focus();
-    }
-
-    // 处理在弹窗外双击的事件
-    private handleOutsideDoubleClick = (event: MouseEvent) => {
-        if (!this.dialog.contains(event.target as Node)) {
-            this.dialog.close();
-            this.dialog.remove();
-            // 移除全局双击事件监听器
-            document.removeEventListener('dblclick', this.handleOutsideDoubleClick);
-        }
-    }
-
-    private startDragging(e: MouseEvent) {
-        this.isDragging = true;
-        const rect = this.dialog.getBoundingClientRect();
-
-        this.initialX = e.clientX - rect.left;
-        this.initialY = e.clientY - rect.top;
-
-        this.dialog.style.cursor = 'move';
-    }
-
-    private drag(e: MouseEvent) {
-        if (!this.isDragging) return;
-
-        e.preventDefault();
-
-        this.currentX = e.clientX - this.initialX;
-        this.currentY = e.clientY - this.initialY;
-
-        // Ensure dialog stays within viewport bounds
-        const rect = this.dialog.getBoundingClientRect();
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-
-        this.currentX = Math.min(Math.max(0, this.currentX), viewportWidth - rect.width);
-        this.currentY = Math.min(Math.max(0, this.currentY), viewportHeight - rect.height);
-
-        this.dialog.style.left = `${this.currentX}px`;
-        this.dialog.style.top = `${this.currentY}px`;
-    }
-
-    private stopDragging() {
-        this.isDragging = false;
-        this.dialog.style.cursor = 'auto';
-    }
-}
 export default class PluginFootnote extends Plugin {
 
     // private isMobile: boolean;
@@ -650,7 +508,10 @@ export default class PluginFootnote extends Plugin {
                         if (docID) {
                             // Wait a bit for DOM updates
                             await new Promise(resolve => setTimeout(resolve, 500));
+                            this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
                             await this.reorderFootnotes(docID, false);
+                            this.closeLoadingDialog();
+                            await pushMsg(this.i18n.reorderFootnotes + " Finished");
                         }
                     }
                 }
@@ -1049,82 +910,48 @@ export default class PluginFootnote extends Plugin {
         if (settings.enableOrderedFootnotes) {
             if (settings.floatDialogEnable) {
                 // Instead of showing float layer, show dialog
-                new FootnoteDialog2(
+                new FootnoteDialog(
                     cleanSelection,
-                    '',
-                    async (content) => {
-                        // TODO: 如果关的时候恰好内容块在刷新，编号可能会获取不到
-                        // Get existing block attributes before update
+                    newBlockId,
+                    async () => {
+                        // 等500ms
+                        this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
+                        await whenBlockSaved().then(async (msg) => {
+                            if (settings.saveLocation == 4) {
+                                //脚注内容块放在块后，不进行脚注内容块排序
+                                await this.reorderFootnotes(protyle.block.rootID, false);
 
-                        // 获取脚注内容块的内容
-                        const originDOM = (await getBlockDOM(newBlockId)).dom;
+                            } else {
 
-                        // DOM是string，使用正则表达式检测是否span[data - type*= "custom-footnote-index"]节点，如果有则提取其[number]中的数字
-                        let number = 1;
-                        if (originDOM) {
-                            // 使用 .*? 来匹配 data-type 中任意的前缀值
-                            const match = originDOM.match(/<span data-type=".*?custom-footnote-index[^>]*>\[(\d+)\]<\/span>/);
-                            if (match) {
-                                number = parseInt(match[1]);
+                                await this.reorderFootnotes(protyle.block.rootID, true);
                             }
-                        }
+                            this.closeLoadingDialog();
+                            await pushMsg(this.i18n.reorderFootnotes + " Finished");
+                        });
 
-                        // 
-                        // 把content的多余空行去除
-                        content = content.replace(/(\r\n|\n|\r){2,}/g, '\n');
-
-                        // Update the footnote content
-                        const templates = settings.templates
-                            .replace(/\$\{selection\}/g, cleanSelection)
-                            .replace(/\$\{selection:text\}/g, selectionText)
-                            .replace(/\$\{content\}/g, content)
-                            .replace(/\$\{refID\}/g, currentBlockId)
-                            .replace(/\$\{index\}/g, `<span data-type="custom-footnote-index a" data-href="siyuan://blocks/${currentBlockId}">[${number}]</span>`) // 支持添加脚注编号
-                            .replace(/\$\{index:text\}/g, `<span data-type="custom-footnote-index">[${number}]</span>`); // 支持添加脚注编号
-
-                        const renderedTemplate = await renderTemplates(templates);
-
-                        // Update block content
-                        const existingAttrs = await getBlockAttrs(newBlockId);
-                        await updateBlock("markdown", renderedTemplate, newBlockId);
-                        // Restore block attributes that could have been reset by updateBlock
-
-                        if (existingAttrs) {
-                            await setBlockAttrs(newBlockId, {
-                                "custom-plugin-footnote-content": existingAttrs["custom-plugin-footnote-content"],
-                                // "name": existingAttrs["name"],
-                                "alias": existingAttrs["alias"]
-                            });
-                        }
                     },
                     x,
                     y + 20 // Position below cursor
                 );
             }
-            // 等500ms
-            await new Promise(resolve => setTimeout(resolve, 500));
-            if (settings.saveLocation == 4) {
-                //脚注内容块放在块后，不进行脚注内容块排序
-                await this.reorderFootnotes(protyle.block.rootID, false);
-            } else {
-                await this.reorderFootnotes(protyle.block.rootID, true);
-            }
+
+
         } else {
             if (settings.floatDialogEnable) {
                 // Instead of showing float layer, show dialog
                 let Dialog = new FootnoteDialog(
                     cleanSelection,
                     newBlockId,
-                    null, // onSubmit is no longer needed since changes are saved automatically via Protyle
+                    async () => { }, // onSubmit is no longer needed since changes are saved automatically via Protyle
                     x,
                     y + 20
                 );
                 // console.log(Dialog.protyle);
 
-                // 等500ms
-                setTimeout(() => {
-                    Dialog.protyle.enable();;
-                }, 500);
+                await whenBlockSaved().then(async (msg) => {
+                    Dialog.protyle.enable();
+                }
+                );
 
             }
         }
@@ -1138,11 +965,11 @@ export default class PluginFootnote extends Plugin {
         if (protyle) {
             currentDom = protyle.wysiwyg.element;
         } else {
-            const doc = await getDoc(docID);
+            const doc = await getBlockDOM(docID);
             if (!doc) return;
-            currentDom = new DOMParser().parseFromString(doc.content, 'text/html');
+            currentDom = new DOMParser().parseFromString(doc.dom, 'text/html');
         }
-        
+
 
         // 确定脚注容器文档ID
         let footnoteContainerDocID = docID;
@@ -1189,48 +1016,56 @@ export default class PluginFootnote extends Plugin {
         if (protyle) {
             await updateBlock("dom", protyle.wysiwyg.element.innerHTML, docID);
         } else {
-            
+
             await updateBlock("dom", currentDom.body.innerHTML, docID);
         }
 
-        // 如果需要重排序脚注块
         if (reorderBlocks && footnoteOrder.size > 0) {
-            // 获取所有脚注内容块
-            const footnoteBlocks = await sql(`
-                SELECT * FROM blocks 
-                WHERE ial like '%custom-plugin-footnote-content="${docID}"%' 
-                ORDER BY created ASC
-            `);
+            // 1. 获取所有相关的脚注内容块，按其当前物理顺序
+            const allFootnoteBlocks = await sql(`
+            SELECT * FROM blocks 
+            WHERE ial like '%custom-plugin-footnote-content="${docID}"%' 
+            ORDER BY sort ASC`); // 使用 'sort' 通常比 'created' 更能代表当前顺序
 
-            if (footnoteBlocks.length > 0) {
-                // 找到脚注容器
+            // 过滤出当前文档中实际引用的脚注块
+            const relevantBlocks = allFootnoteBlocks.filter(block => footnoteOrder.has(block.id));
+
+            if (relevantBlocks.length > 0) {
                 const containerQuery = await sql(`
-                    SELECT * FROM blocks 
-                    WHERE root_id = '${footnoteContainerDocID}' 
-                    AND ial like '%custom-plugin-footnote-parent="${docID}"%' 
-                    LIMIT 1
-                `);
+                SELECT * FROM blocks 
+                WHERE root_id = '${footnoteContainerDocID}' 
+                AND ial like '%custom-plugin-footnote-parent="${docID}"%' 
+                LIMIT 1`);
 
                 if (containerQuery.length > 0) {
                     const containerId = containerQuery[0].id;
 
-                    // 按照引用顺序排序脚注块
-                    const sortedBlocks = footnoteBlocks
-                        .filter(block => footnoteOrder.has(block.id))
-                        .sort((a, b) => {
-                            const aOrder = footnoteOrder.get(a.id) || Infinity;
-                            const bOrder = footnoteOrder.get(b.id) || Infinity;
-                            return aOrder - bOrder;
-                        });
+                    // 2. 创建代表【当前顺序】的 ID 数组
+                    const currentOrderIds = relevantBlocks.map(block => block.id);
 
-                    // 使用 moveBlock 重新排序
-                    let previousID = containerId;
-                    for (const block of sortedBlocks) {
-                        try {
-                            await moveBlock(block.id, previousID, containerId);
-                            previousID = block.id;
-                        } catch (error) {
-                            console.warn('Failed to move block:', block.id, error);
+                    // 3. 创建代表【目标顺序】的排序后块数组
+                    const sortedBlocks = [...relevantBlocks].sort((a, b) => {
+                        const aOrder = footnoteOrder.get(a.id) || Infinity;
+                        const bOrder = footnoteOrder.get(b.id) || Infinity;
+                        return aOrder - bOrder;
+                    });
+                    const targetOrderIds = sortedBlocks.map(block => block.id);
+
+                    // 4. 【核心改进】比较当前顺序和目标顺序
+                    if (JSON.stringify(currentOrderIds) === JSON.stringify(targetOrderIds)) {
+                        console.log('Footnote blocks are already in the correct order. No move operation is needed.');
+                    } else {
+                        // 5. 仅在顺序不匹配时，才执行移动操作
+                        console.log('Footnote order mismatch detected. Reordering blocks...');
+                        let previousID = containerId;
+                        for (const block of sortedBlocks) {
+                            try {
+                                // 注意: moveBlock 的第三个参数 'parentID' 在某些实现中可能需要，确保 API 签名正确
+                                await moveBlock(block.id, previousID, containerId);
+                                previousID = block.id;
+                            } catch (error) {
+                                console.warn('Failed to move block:', block.id, error);
+                            }
                         }
                     }
                 }
@@ -1238,23 +1073,51 @@ export default class PluginFootnote extends Plugin {
         }
 
         // 更新脚注内容块中的索引编号
-        for (const [footnoteId, number] of footnoteOrder) {
+        // **改进点**: 准备一个数组来收集所有需要更新的脚注内容块
+        const blocksToUpdate = [];
+
+        // 定义用于精确提取索引编号的正则表达式
+        const numberExtractionRegex = /<span[^>]*data-type="[^"]*custom-footnote-index[^"]*"[^>]*>\[(\d+)\]<\/span>/;
+
+        for (const [footnoteId, newNumber] of footnoteOrder) {
             try {
-                // 获取脚注块的DOM
                 const footnoteBlockDOM = await getBlockDOM(footnoteId);
-                if (footnoteBlockDOM && footnoteBlockDOM.dom) {
-                    // 更新块内的索引编号
-                    let updatedDOM = footnoteBlockDOM.dom.replace(
-                        /(<span[^>]*data-type="[^"]*custom-footnote-index[^"]*"[^>]*>)\[[^\]]*\](<\/span>)/g,
-                        `$1[${number}]$2`
-                    );
-                    // 如果DOM有变化，更新块
-                    if (updatedDOM !== footnoteBlockDOM.dom) {
-                        await updateBlock("dom", updatedDOM, footnoteId);
-                    }
+                if (!footnoteBlockDOM?.dom) {
+                    continue; // 如果无法获取DOM，则跳过
                 }
+                const originalDOM = footnoteBlockDOM.dom;
+
+                // 1. 从DOM中精确提取当前的索引编号
+                const match = numberExtractionRegex.exec(originalDOM);
+                // 2. 检查当前编号是否已经正确
+                // 如果在DOM中找到了编号，并且它与新编号相同，则无需更新，直接跳到下一个
+                if (match && match[1] && parseInt(match[1], 10) == newNumber) {
+                    continue;
+                }
+
+                // 3. 如果编号不正确或未找到（说明块格式需修复），则生成新DOM并加入更新队列
+                const updatedDOM = originalDOM.replace(
+                    /(<span[^>]*data-type="[^"]*custom-footnote-index[^"]*"[^>]*>)\[[^\]]*\](<\/span>)/g,
+                    `$1[${newNumber}]$2`
+                );
+
+                blocksToUpdate.push({
+                    id: footnoteId,
+                    dataType: "dom",
+                    data: updatedDOM,
+                });
+
             } catch (error) {
-                console.warn('Failed to update footnote index:', footnoteId, error);
+                console.warn(`Failed to process footnote content block ${footnoteId}:`, error);
+            }
+        }
+        // console.log(`Prepared ${blocksToUpdate.length} footnote content blocks for update.`);
+        if (blocksToUpdate.length > 0) {
+            try {
+                // console.log(`Batch updating ${blocksToUpdate.length} footnote indices that require changes.`);
+                await batchUpdateBlock(blocksToUpdate);
+            } catch (error) {
+                console.error('Failed to batch update footnote indices:', error);
             }
         }
     }
@@ -1349,4 +1212,54 @@ export function saveViaTransaction(protyleElem) {
     let e = document.createEvent('HTMLEvents')
     e.initEvent('input', true, false)
     protyle.dispatchEvent(e)
+}
+
+/**
+ * 等待一个块保存的 WebSocket 消息。
+ * @param {function|null} filter - 一个可选的过滤函数，用于检查消息。如果函数返回 true，则 promise 被兑现。
+ * @param {number} timeout - 超时时间（毫秒），默认为 1000ms。
+ * @returns {Promise<any>} - 在收到消息时兑现 (resolve) promise，超时或出错时拒绝 (reject) promise。
+ */
+function whenBlockSaved(filter = null, timeout = 500) {
+    return new Promise((resolve, reject) => {
+        const ws = window.siyuan.ws.ws;
+        let timeoutId = null;
+
+        // 清理函数，用于移除监听器和定时器
+        const cleanup = () => {
+            ws.removeEventListener('message', handler);
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+        };
+
+        const handler = (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+
+                // 检查是否是我们关心的 "transactions" 消息
+                if (msg.cmd === "transactions") {
+                    // 如果有过滤器，则使用它；否则直接认为是匹配的
+                    const isMatch = typeof filter === 'function' ? filter(msg) : true;
+
+                    if (isMatch) {
+                        cleanup(); // 成功，清理并兑现
+                        resolve(msg);
+                    }
+                }
+            } catch (e) {
+                cleanup(); // 出错，清理并拒绝
+                reject(e);
+            }
+        };
+
+        // 设置超时
+        timeoutId = setTimeout(() => {
+            cleanup(); // 超时，清理并拒绝
+            resolve(null)
+        }, timeout);
+
+        // 添加事件监听器
+        ws.addEventListener('message', handler);
+    });
 }
