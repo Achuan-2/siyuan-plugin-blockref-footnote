@@ -19,11 +19,14 @@ const zeroWhite = "​"
 class FootnoteDialog {
     private dialog: HTMLDialogElement;
     public protyle: Protyle;
+    private onSubmit: () => void;
+
     private isDragging: boolean = false;
     private currentX: number;
     private currentY: number;
     private initialX: number;
     private initialY: number;
+
     private I18N = {
         zh_CN: {
             addFootnote: "添加脚注",
@@ -38,8 +41,11 @@ class FootnoteDialog {
             ok: "OK"
         }
     };
+
     constructor(title: string, blockId: string, onSubmit: () => void, x: number, y: number) {
+        this.onSubmit = onSubmit;
         let i18n: typeof this.I18N.zh_CN = window.siyuan.config.lang in this.I18N ? this.I18N[window.siyuan.config.lang] : this.I18N.en_US;
+
         this.dialog = document.createElement('dialog');
         this.dialog.innerHTML = `
             <div class="dialog-title" style="cursor: move;user-select: none;height: 22px;background-color: var(--b3-theme-background);margin: 0px; border: 1px solid var(--b3-border-color);display: flex;justify-content: space-between;align-items: center;padding: 0 4px;">
@@ -50,7 +56,6 @@ class FootnoteDialog {
                 </div>
             </div>
             <div style="min-width: 300px;padding: 0 8px;">
-
                 <div class="protyle-wysiwyg" style="padding: 0px; margin-bottom: 8px">
                     <div style="border-left: 0.5em solid var(--b3-border-color); padding: 8px; margin: 8px 0; background: var(--b3-theme-background);color: var(--b3-theme-on-background);">${title}</div>
                 </div>
@@ -59,7 +64,7 @@ class FootnoteDialog {
             </div>
         `;
 
-        // Position dialog
+        // --- 弹窗样式 ---
         this.dialog.style.position = 'fixed';
         this.dialog.style.top = `30%`;
         this.dialog.style.left = `40%`;
@@ -76,7 +81,7 @@ class FootnoteDialog {
         this.dialog.style.maxHeight = "500px"
         document.body.appendChild(this.dialog);
 
-        // Initialize Protyle
+        // --- 初始化 Protyle 编辑器 ---
         const protyleContainer = this.dialog.querySelector('#footnote-protyle-container');
         this.protyle = new Protyle(window.siyuan.ws.app, protyleContainer as HTMLElement, {
             blockId: blockId,
@@ -90,69 +95,101 @@ class FootnoteDialog {
             },
         });
 
+        // --- 添加事件监听器 ---
 
-        // Add drag event listeners
-        const titleBar = this.dialog.querySelector('.dialog-title') as HTMLElement;
-        titleBar.addEventListener('mousedown', this.startDragging.bind(this));
-        document.addEventListener('mousemove', this.drag.bind(this));
-        document.addEventListener('mouseup', this.stopDragging.bind(this));
+        // 1. 监听 'close' 事件，执行所有清理操作
+        this.dialog.addEventListener('close', this.destroy);
 
-        // 添加关闭按钮事件
+        // 2. 点击关闭按钮，触发 'close' 事件
         this.dialog.querySelector('.close-button').addEventListener('click', () => {
             this.dialog.close();
-            this.dialog.remove();
-            onSubmit();
-            // 移除全局双击事件监听器
-            document.removeEventListener('dblclick', this.handleOutsideDoubleClick);
         });
 
-        // 添加在弹窗外双击关闭弹窗的事件监听
+        // 3. 将 keydown 事件监听器直接绑定到 dialog 上，需要捕获事件，true意味着在捕获阶段触发，使得 Esc 键从下到上可以被捕获
+        this.dialog.addEventListener('keydown', this.handleKeyDown,true);
+
+        // 4. 全局监听器现在只负责拖动和外部点击
         document.addEventListener('dblclick', this.handleOutsideDoubleClick);
-
-        this.dialog.addEventListener('close', () => {
-            this.dialog.remove();
-            document.removeEventListener('dblclick', this.handleOutsideDoubleClick);
-        });
+        const titleBar = this.dialog.querySelector('.dialog-title') as HTMLElement;
+        titleBar.addEventListener('mousedown', this.startDragging);
+        document.addEventListener('mousemove', this.drag);
+        document.addEventListener('mouseup', this.stopDragging);
 
         this.dialog.show();
 
-
-
+        // 确保 protyle 获得焦点，这样键盘事件才能被 dialog 捕获
+        this.protyle.focus();
     }
 
-    // 处理在弹窗外双击的事件
-    private handleOutsideDoubleClick = (event: MouseEvent) => {
-        if (!this.dialog.contains(event.target as Node)) {
-            this.dialog.close();
-            this.dialog.remove();
-            document.removeEventListener('dblclick', this.handleOutsideDoubleClick);
+    /**
+     * 统一的销毁方法，负责所有清理工作
+     */
+    private destroy = () => {
+        // 【关键改动】移除在 document 和 dialog 上添加的事件监听器
+        // 不再需要在 document 上移除 keydown
+        this.dialog.removeEventListener('keydown', this.handleKeyDown);
+        document.removeEventListener('dblclick', this.handleOutsideDoubleClick);
+        document.removeEventListener('mousemove', this.drag);
+        document.removeEventListener('mouseup', this.stopDragging);
+
+        // 销毁 Protyle 实例，释放资源 (这是一个好习惯)
+        if (this.protyle) {
+            this.protyle.destroy();
+        }
+
+        this.dialog.remove();
+        this.onSubmit();
+    }
+
+    /**
+     * 【关键改动】处理键盘事件的方法现在可以更有效地捕获 Esc
+     */
+    private handleKeyDown = (event: KeyboardEvent) => {
+        // 只关心 Escape 键
+        if (event.key === 'Escape') {
+            // 立即停止事件传播，防止 Protyle 或其他上层监听器响应
+            event.stopPropagation();
+            event.preventDefault();
+
+            // 关闭对话框
+            this.dialog.close(); // 这将触发上面定义的 'close' 事件监听器
         }
     }
 
+    /**
+     * 处理在弹窗外部双击的事件
+     */
+    private handleOutsideDoubleClick = (event: MouseEvent) => {
+        if (!this.dialog.contains(event.target as Node)) {
+            // 这里不需要 stopPropagation 和 preventDefault，因为我们只想关闭对话框
+            this.dialog.close();
+        }
+    }
 
-    private startDragging(e: MouseEvent) {
+    /**
+     * 开始拖动
+     */
+    private startDragging = (e: MouseEvent) => {
         this.isDragging = true;
         const rect = this.dialog.getBoundingClientRect();
-
         this.initialX = e.clientX - rect.left;
         this.initialY = e.clientY - rect.top;
-
         this.dialog.style.cursor = 'move';
     }
 
-    private drag(e: MouseEvent) {
+    /**
+     * 拖动中
+     */
+    private drag = (e: MouseEvent) => {
         if (!this.isDragging) return;
-
         e.preventDefault();
 
         this.currentX = e.clientX - this.initialX;
         this.currentY = e.clientY - this.initialY;
 
-        // Ensure dialog stays within viewport bounds
         const rect = this.dialog.getBoundingClientRect();
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
-
         this.currentX = Math.min(Math.max(0, this.currentX), viewportWidth - rect.width);
         this.currentY = Math.min(Math.max(0, this.currentY), viewportHeight - rect.height);
 
@@ -160,9 +197,14 @@ class FootnoteDialog {
         this.dialog.style.top = `${this.currentY}px`;
     }
 
-    private stopDragging() {
-        this.isDragging = false;
-        this.dialog.style.cursor = 'auto';
+    /**
+     * 停止拖动
+     */
+    private stopDragging = () => {
+        if (this.isDragging) {
+            this.isDragging = false;
+            this.dialog.style.cursor = 'auto';
+        }
     }
 }
 
