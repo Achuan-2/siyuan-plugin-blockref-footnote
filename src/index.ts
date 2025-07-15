@@ -949,6 +949,9 @@ export default class PluginFootnote extends Plugin {
 
         protyle.toolbar.element.classList.add("fn__none")
 
+        // 等待保存数据
+        await whenBlockSaved().then(async (msg) => {console.log("saved") });
+
         if (settings.enableOrderedFootnotes) {
             if (settings.floatDialogEnable) {
                 // Instead of showing float layer, show dialog
@@ -958,18 +961,16 @@ export default class PluginFootnote extends Plugin {
                     async () => {
                         // 等500ms
                         this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
-                        await whenBlockSaved().then(async (msg) => {
-                            if (settings.saveLocation == 4) {
-                                //脚注内容块放在块后，不进行脚注内容块排序
-                                await this.reorderFootnotes(protyle.block.rootID, false);
+                        if (settings.saveLocation == 4) {
+                            //脚注内容块放在块后，不进行脚注内容块排序
+                            await this.reorderFootnotes(protyle.block.rootID, false);
 
-                            } else {
+                        } else {
 
-                                await this.reorderFootnotes(protyle.block.rootID, true);
-                            }
-                            this.closeLoadingDialog();
-                            await pushMsg(this.i18n.reorderFootnotes + " Finished");
-                        });
+                            await this.reorderFootnotes(protyle.block.rootID, true);
+                        }
+                        this.closeLoadingDialog();
+                        await pushMsg(this.i18n.reorderFootnotes + " Finished");
 
                     },
                     x,
@@ -981,19 +982,15 @@ export default class PluginFootnote extends Plugin {
         } else {
             if (settings.floatDialogEnable) {
                 // Instead of showing float layer, show dialog
-                let Dialog = new FootnoteDialog(
+                new FootnoteDialog(
                     cleanSelection,
                     newBlockId,
-                    async () => { }, // onSubmit is no longer needed since changes are saved automatically via Protyle
+                    async () => { }, 
                     x,
                     y + 20
                 );
                 // console.log(Dialog.protyle);
 
-                await whenBlockSaved().then(async (msg) => {
-                    Dialog.protyle.enable();
-                }
-                );
 
             }
         }
