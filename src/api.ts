@@ -253,7 +253,7 @@ export async function appendBlock(dataType: DataType, data: string, parentID: Bl
 
 export async function updateBlock(dataType: DataType, data: string, id: BlockId): Promise<IResdoOperations[]> {
     let payload = {
-        dataType: dataType,
+        dataType: dataType, // dom or markdown
         data: data,
         id: id
     }
