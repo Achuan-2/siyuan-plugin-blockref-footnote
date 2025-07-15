@@ -516,7 +516,6 @@
     .footnote-item__header {
         padding: 6px 10px;
         border-bottom: 1px solid var(--b3-border-color);
-        background: var(--b3-theme-background-light);
         display: flex;
         align-items: flex-start;
         gap: 8px;
