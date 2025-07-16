@@ -1034,10 +1034,18 @@ export default class PluginFootnote extends Plugin {
                     }
                 },
                 x,
-                y + 20 // Position below cursor
+                y // Position below cursor
             );
         }
-        // --------------------------添加脚注弹窗 END-------------------------- // 
+        // --------------------------添加脚注弹窗 END-------------------------- //
+
+        // 如果.sy__siyuan-plugin-blockref-footnotefootnote-dock.layout__tab--active, 则点击button.footnote-dock__refresh进行更新
+        if (document.querySelector(':not(.fn__none) .sy__siyuan-plugin-blockref-footnotefootnote-dock')) {
+            const refreshButton = document.querySelector('.footnote-dock__refresh');
+            if (refreshButton) {
+                refreshButton.click();
+            }
+        }
 
     }
     private async reorderFootnotes(docID: string, reorderBlocks: boolean, protyle?: any) {
@@ -1289,6 +1297,8 @@ export default class PluginFootnote extends Plugin {
                 // 注意：合并更新后，回退逻辑变得复杂，因为可能涉及多个文档。
             }
         }
+
+
 
 
         /**
