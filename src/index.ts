@@ -76,7 +76,7 @@ class FootnoteDialog {
         this.dialog.style.boxShadow = 'var(--b3-dialog-shadow)';
         this.dialog.style.resize = 'auto';
         this.dialog.style.overflow = 'auto';
-        this.dialog.style.zIndex = '99';
+        this.dialog.style.zIndex = '4';
         this.dialog.style.width = "500px"
         this.dialog.style.maxHeight = "500px"
         document.body.appendChild(this.dialog);
@@ -91,7 +91,7 @@ class FootnoteDialog {
                 breadcrumb: false,
                 background: false,
                 title: false,
-                gutter: true,
+                gutter: false,
             },
         });
 
@@ -118,7 +118,7 @@ class FootnoteDialog {
         this.dialog.show();
 
         // 确保 protyle 获得焦点，这样键盘事件才能被 dialog 捕获
-        this.protyle.focus();
+        // this.protyle.focus();
     }
 
     /**
@@ -1020,40 +1020,22 @@ export default class PluginFootnote extends Plugin {
 
         // --------------------------脚注弹窗 Start-------------------------- // 
 
-        if (settings.enableOrderedFootnotes) {
-            if (settings.floatDialogEnable) {
-                // Instead of showing float layer, show dialog
-                new FootnoteDialog(
-                    cleanSelection,
-                    newBlockId,
-                    async () => {
-                        // 等500ms
+        if (settings.floatDialogEnable) {
+            // Show footnote dialog with original selection text
+            new FootnoteDialog(
+                cleanSelection,
+                newBlockId,
+                async () => {
+                    if (settings.enableOrderedFootnotes) {
                         this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
                         await this.reorderFootnotes(protyle.block.rootID, true);
                         this.closeLoadingDialog();
                         await pushMsg(this.i18n.reorderFootnotes + " Finished");
-
-                    },
-                    x,
-                    y + 20 // Position below cursor
-                );
-            }
-
-
-        } else {
-            if (settings.floatDialogEnable) {
-                // Instead of showing float layer, show dialog
-                new FootnoteDialog(
-                    cleanSelection,
-                    newBlockId,
-                    async () => { },
-                    x,
-                    y + 20
-                );
-                // console.log(Dialog.protyle);
-
-
-            }
+                    }
+                },
+                x,
+                y + 20 // Position below cursor
+            );
         }
         // --------------------------添加脚注弹窗 END-------------------------- // 
 
