@@ -186,7 +186,7 @@
             });
 
             protyleInstances.set(footnoteId, protyle);
-            console.log('Protyle created successfully for:', footnoteId);
+            // console.log('Protyle created successfully for:', footnoteId);
             return protyle;
         } catch (error) {
             console.error(`Failed to create Protyle for footnote ${footnoteId}:`, error);
@@ -218,7 +218,7 @@
                 }
             },
             destroy() {
-                console.log('Action directive destroying protyle for:', footnoteId);
+                // console.log('Action directive destroying protyle for:', footnoteId);
                 if (protyleInstances.has(footnoteId)) {
                     const protyle = protyleInstances.get(footnoteId);
                     if (protyle && protyle.destroy) {
