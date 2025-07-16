@@ -567,6 +567,8 @@ export default class PluginFootnote extends Plugin {
         // 获取当前光标所在块的 ID
         const currentBlockId = protyle.toolbar.range.startContainer.parentElement.closest('[data-node-id]')?.getAttribute('data-node-id');
         const currentParentBlockId = protyle.toolbar.range.startContainer.parentElement.closest('.protyle-wysiwyg > [data-node-id]')?.getAttribute('data-node-id');
+        const { x, y } = protyle.toolbar.range.getClientRects()[0]
+        let range = protyle.toolbar.range;
         // 先复制选中内容
         const getSelectedHtml = (range: Range): string => {
             // 创建临时容器
@@ -892,19 +894,18 @@ export default class PluginFootnote extends Plugin {
         await setBlockAttrs(newBlockId, { "alias": settings.footnoteAlias });
 
         // 选中的文本添加样式
-        let range = protyle.toolbar.range;
+        protyle.toolbar.range = range;
         if (settings.selectFontStyle === '2') {
             protyle.toolbar.setInlineMark(protyle, `custom-footnote-selected-text-${newBlockId}`, "range");
         } else {
             protyle.toolbar.setInlineMark(protyle, `custom-footnote-hidden-selected-text-${newBlockId}`, "range");
         }
 
+
         // --------------------------添加脚注引用 -------------------------- // 
 
-        protyle.toolbar.range = range;
-        const { x, y } = protyle.toolbar.range.getClientRects()[0]
-
         // 将range的起始点和结束点都移动到选中文本的末尾
+        protyle.toolbar.range = range;
         range.collapse(false); // false 表示将光标移动到选中文本的末尾
 
         // 需要先清除样式，避免带上选中文本的样式
@@ -915,10 +916,7 @@ export default class PluginFootnote extends Plugin {
 
 
         // 添加块引，同时添加上标样式
-        // protyle.toolbar.setInlineMark(protyle, "clear", "toolbar");
         let memoELement;
-
-
         switch (settings.footnoteRefStyle) {
             case '2':
                 // 插入块链接
@@ -946,11 +944,14 @@ export default class PluginFootnote extends Plugin {
         }
 
 
-
+        // 关闭工具栏
         protyle.toolbar.element.classList.add("fn__none")
 
         // 等待保存数据
         await whenBlockSaved().then(async (msg) => {console.log("saved") });
+        // --------------------------添加脚注引用 END-------------------------- //
+
+        // --------------------------脚注弹窗 Start-------------------------- // 
 
         if (settings.enableOrderedFootnotes) {
             if (settings.floatDialogEnable) {
@@ -987,6 +988,8 @@ export default class PluginFootnote extends Plugin {
 
             }
         }
+        // --------------------------添加脚注弹窗 END-------------------------- // 
+
     }
     private async reorderFootnotes(docID: string, reorderBlocks: boolean, protyle?: any) {
         const settings = await this.loadSettings();
