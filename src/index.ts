@@ -106,7 +106,7 @@ class FootnoteDialog {
         });
 
         // 3. 将 keydown 事件监听器直接绑定到 dialog 上，需要捕获事件，true意味着在捕获阶段触发，使得 Esc 键从下到上可以被捕获
-        this.dialog.addEventListener('keydown', this.handleKeyDown,true);
+        this.dialog.addEventListener('keydown', this.handleKeyDown, true);
 
         // 4. 全局监听器现在只负责拖动和外部点击
         document.addEventListener('dblclick', this.handleOutsideDoubleClick);
@@ -209,6 +209,67 @@ class FootnoteDialog {
 }
 
 
+class ProgressManager {
+    private dialog: Dialog;
+    private component: any;
+    private currentStep: number = 0;
+    private totalSteps: number = 0;
+    private currentMessage: string = '';
+    private currentDetails: string = '';
+
+    constructor(dialog: Dialog, component: any) {
+        this.dialog = dialog;
+        this.component = component;
+    }
+
+    setTotalSteps(total: number) {
+        this.totalSteps = total;
+        this.currentStep = 0;
+        this.updateProgress();
+    }
+
+    nextStep(message?: string, details?: string) {
+        this.currentStep++;
+        this.updateProgress(message, details);
+    }
+
+    updateProgress(message?: string, details?: string) {
+        // 更新内部状态
+        if (message !== undefined) {
+            this.currentMessage = message;
+        }
+        if (details !== undefined) {
+            this.currentDetails = details;
+        }
+
+        const progress = this.totalSteps > 0 ? Math.round((this.currentStep / this.totalSteps) * 100) : -1;
+        const progressText = this.totalSteps > 0 ? `${this.currentStep}/${this.totalSteps}` : '';
+
+        if (this.component) {
+            this.component.$set({
+                message: this.currentMessage,
+                progress: progress,
+                progressText: progressText,
+                details: this.currentDetails
+            });
+        }
+    }
+
+    setMessage(message: string, details?: string) {
+        this.currentMessage = message;
+        if (details !== undefined) {
+            this.currentDetails = details;
+        }
+
+        if (this.component) {
+            this.component.$set({
+                message: this.currentMessage,
+                details: this.currentDetails
+            });
+        }
+    }
+}
+
 export default class PluginFootnote extends Plugin {
 
     // private isMobile: boolean;
@@ -217,6 +278,7 @@ export default class PluginFootnote extends Plugin {
     private loadingDialog: Dialog;
     private footnoteDock: any;
     private footnoteDockElement: HTMLElement;
+    private progressManager: ProgressManager;
 
 
     // 添加工具栏按钮
@@ -551,7 +613,7 @@ export default class PluginFootnote extends Plugin {
                         const docID = detail.protyle.block.rootID;
                         if (docID) {
                             // Wait a bit for DOM updates
-                            await whenBlockSaved(null,1000).then(async (msg) => { console.log("saved") });
+                            await whenBlockSaved(null, 1000).then(async (msg) => { console.log("saved") });
                             this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
                             await this.reorderFootnotes(docID, true);
                             this.closeLoadingDialog();
@@ -629,17 +691,19 @@ export default class PluginFootnote extends Plugin {
 
                 if (query_res.length == 0) {
                     footnoteContainerID = (await appendBlock("markdown", `${footnoteContainerTitle}`, docID))[0].doOperations[0].id;
-                    await setBlockAttrs(footnoteContainerID, {
-                        "custom-plugin-footnote-parent": protyle.block.rootID
-                    });
+
                 } else {
                     footnoteContainerID = query_res[0].id;
                     if (settings.updateFootnoteContainerTitle) {
                         await updateBlock("markdown", `${footnoteContainerTitle}`, footnoteContainerID);
                     }
                 }
+                // updateBlock会丢失自定义属性
+                await setBlockAttrs(footnoteContainerID, {
+                    "custom-plugin-footnote-parent": protyle.block.rootID
+                });
 
-                
+
                 break;
 
             case '2': // 指定文档
@@ -951,7 +1015,7 @@ export default class PluginFootnote extends Plugin {
         protyle.toolbar.element.classList.add("fn__none")
 
         // 等待保存数据
-        await whenBlockSaved().then(async (msg) => {console.log("saved") });
+        await whenBlockSaved().then(async (msg) => { console.log("saved") });
         // --------------------------添加脚注引用 END-------------------------- //
 
         // --------------------------脚注弹窗 Start-------------------------- // 
@@ -982,7 +1046,7 @@ export default class PluginFootnote extends Plugin {
                 new FootnoteDialog(
                     cleanSelection,
                     newBlockId,
-                    async () => { }, 
+                    async () => { },
                     x,
                     y + 20
                 );
@@ -997,6 +1061,11 @@ export default class PluginFootnote extends Plugin {
     private async reorderFootnotes(docID: string, reorderBlocks: boolean, protyle?: any) {
         const settings = await this.loadSettings();
         await refreshSql();
+
+        // 初始化进度管理
+        this.progressManager?.setTotalSteps(4);
+        this.progressManager?.nextStep(this.i18n.reorderFootnotes, "正在获取文档DOM...");
+
         // 1. 获取当前文档的DOM
         let currentDom;
         if (protyle) {
@@ -1023,6 +1092,7 @@ export default class PluginFootnote extends Plugin {
                 }
                 break;
         }
+
 
         // 3. 遍历所有脚注引用，建立顺序映射，并记录锚点块
         const footnoteRefs = currentDom.querySelectorAll('[custom-footnote]');
@@ -1056,6 +1126,8 @@ export default class PluginFootnote extends Plugin {
             }
         }
 
+        this.progressManager?.nextStep(this.i18n.reorderFootnotes, "正在保存引用编号更改...");
+
         // 保存当前文档的更改（引用编号）
         if (protyle) {
             await updateBlock("dom", protyle.wysiwyg.element.innerHTML, docID);
@@ -1065,13 +1137,14 @@ export default class PluginFootnote extends Plugin {
 
         // 5. 如果需要，对脚注内容块进行物理排序
         if (reorderBlocks && footnoteOrder.size > 0) {
+            this.progressManager?.nextStep(this.i18n.reorderFootnotes, `正在重新排序 ${footnoteOrder.size} 个脚注块...`);
 
             // 【核心改进】根据 saveLocation 选择不同的排序策略
             if (settings.saveLocation == 4) {
                 // --- 策略A: (已优化) 针对 saveLocation 4 的分组LCS排序 ---
                 console.log('Reordering footnotes for saveLocation 4: Grouping by anchor block and applying LCS.');
 
-                // 5.1. 将所有脚注按其“锚点块”进行分组
+                // 5.1. 将所有脚注按其"锚点块"进行分组
                 const anchorToFootnotes = new Map<string, string[]>();
                 for (const [footnoteId, anchorId] of refAnchorMap.entries()) {
                     if (!anchorToFootnotes.has(anchorId)) {
@@ -1090,8 +1163,12 @@ export default class PluginFootnote extends Plugin {
                 const currentGlobalOrderMap = new Map(currentFootnoteBlocks.map((b, i) => [b.id, i]));
 
                 // 5.3. 遍历每个锚点块分组，独立进行LCS排序
+                let processedGroups = 0;
+                const totalGroups = anchorToFootnotes.size;
+
                 for (const [anchorId, footnoteIds] of anchorToFootnotes.entries()) {
                     console.log(`Processing anchor block: ${anchorId}`);
+                    this.progressManager?.setMessage(this.i18n.reorderFootnotes, `正在处理锚点组 ${processedGroups + 1}/${totalGroups}: ${footnoteIds.length} 个脚注`);
 
                     // a. 确定此分组的目标顺序 (根据全局出现顺序)
                     const targetOrder = footnoteIds.sort((a, b) => footnoteOrder.get(a) - footnoteOrder.get(b));
@@ -1108,7 +1185,8 @@ export default class PluginFootnote extends Plugin {
 
                     if (targetOrder.length === lcsIds.length) {
                         console.log(`Footnotes for anchor ${anchorId} are already in order.`);
-                        continue; // 此分组无需移动
+                        processedGroups++;
+                        continue;
                     }
 
                     // d. 执行移动操作
@@ -1118,6 +1196,7 @@ export default class PluginFootnote extends Plugin {
 
                         if (!parentId) {
                             console.warn(`Could not find parent for anchor block ${anchorId}. Skipping reorder for this group.`);
+                            processedGroups++;
                             continue;
                         }
 
@@ -1137,6 +1216,7 @@ export default class PluginFootnote extends Plugin {
                     } catch (error) {
                         console.error(`Failed to reorder footnotes for anchor ${anchorId}.`, error);
                     }
+                    processedGroups++;
                 }
 
             } else {
@@ -1169,6 +1249,9 @@ export default class PluginFootnote extends Plugin {
                         if (targetOrderIds.length !== lcsIds.length) {
                             let previousID = containerId;
                             let lcsIndex = 0;
+                            let movedCount = 0;
+                            const totalMoves = targetOrderIds.length - lcsIds.length;
+
                             for (const targetId of targetOrderIds) {
                                 if (lcsIndex < lcsIds.length && targetId === lcsIds[lcsIndex]) {
                                     previousID = targetId;
@@ -1177,6 +1260,8 @@ export default class PluginFootnote extends Plugin {
                                     try {
                                         await moveBlock(targetId, previousID, containerId);
                                         previousID = targetId;
+                                        movedCount++;
+                                        this.progressManager?.setMessage(this.i18n.reorderFootnotes, `正在移动脚注块 ${movedCount}/${totalMoves}`);
                                     } catch (error) {
                                         console.warn('Failed to move block:', targetId, error);
                                     }
@@ -1190,9 +1275,14 @@ export default class PluginFootnote extends Plugin {
             }
         }
 
+        this.progressManager?.nextStep(this.i18n.reorderFootnotes, "正在更新脚注编号...");
+
         // 6. 批量更新脚注内容块中的索引编号
         const blocksToUpdate = [];
-        const numberExtractionRegex = /<span[^>]*data-type="[^"]*custom-footnote-index[^"]*"[^>]*>\[(\d+)\]<\/span>/;
+        const numberExtractionRegex = /<span[^>]*data-type="[^"]*custom-footnote-index[^>]*>\[(\d+)\]<\/span>/;
+
+        let processedBlocks = 0;
+        const totalBlocks = footnoteOrder.size;
 
         for (const [footnoteId, newNumber] of footnoteOrder) {
             try {
@@ -1216,6 +1306,11 @@ export default class PluginFootnote extends Plugin {
                     dataType: "dom",
                     data: updatedDOM,
                 });
+
+                processedBlocks++;
+                if (processedBlocks % 5 === 0 || processedBlocks === totalBlocks) {
+                    this.progressManager?.setMessage(this.i18n.reorderFootnotes, `正在处理脚注编号 ${processedBlocks}/${totalBlocks}`);
+                }
             } catch (error) {
                 console.warn(`Failed to process footnote content block ${footnoteId}:`, error);
             }
@@ -1224,6 +1319,7 @@ export default class PluginFootnote extends Plugin {
         if (blocksToUpdate.length > 0) {
             try {
                 console.log(`Batch updating ${blocksToUpdate.length} footnote indices that require changes.`);
+                this.progressManager?.setMessage(this.i18n.reorderFootnotes, `正在批量更新 ${blocksToUpdate.length} 个脚注编号...`);
                 await batchUpdateBlock(blocksToUpdate);
             } catch (error) {
                 console.error('Failed to batch update footnote indices:', error);
@@ -1326,15 +1422,23 @@ export default class PluginFootnote extends Plugin {
         this.loadingDialog = new Dialog({
             title: "Processing",
             content: `<div id="loadingDialogContent"></div>`,
-            width: "300px",
-            height: "150px",
-            disableClose: true, // 禁止点击外部关闭
-            destroyCallback: null // 禁止自动关闭
+            width: "350px",
+            height: "230px",
+            disableClose: true,
+            destroyCallback: null
         });
-        new LoadingDialog({
+
+        const loadingComponent = new LoadingDialog({
             target: this.loadingDialog.element.querySelector('#loadingDialogContent'),
-            props: { message }
+            props: {
+                message: message,
+                progress: -1,
+                progressText: '',
+                details: ''
+            }
         });
+
+        this.progressManager = new ProgressManager(this.loadingDialog, loadingComponent);
     }
 
     private closeLoadingDialog() {
