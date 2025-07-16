@@ -160,7 +160,9 @@ export async function moveDocs(fromPaths: string[], toNotebook: NotebookId, toPa
     let url = '/api/filetree/moveDocs';
     return request(url, data);
 }
-
+export async function refreshSql() {
+    return fetchSyncPost('/api/sqlite/flushTransaction');
+}
 export async function moveDocsByID(fromIDs: string[], toPath: string) {
     let data = {
         fromIDs: fromIDs,

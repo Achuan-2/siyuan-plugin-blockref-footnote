@@ -2,7 +2,7 @@ import { Plugin, fetchSyncPost, Dialog, Protyle, IProtyle } from "siyuan";
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
-import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, moveBlock, createDocWithMd, getDoc, getBlockKramdown, getBlockDOM, batchUpdateBlock } from "./api";
+import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, refreshSql, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, moveBlock, createDocWithMd, getDoc, getBlockKramdown, getBlockDOM, batchUpdateBlock } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
 import SettingPanel from "@/setting-example.svelte";
 import { getDefaultSettings } from "./defaultSettings";
@@ -525,7 +525,7 @@ export default class PluginFootnote extends Plugin {
                         }
                         currentElement = prevElement;
                     }
-
+                    saveViaTransaction(currentElement);
                     // Delete footnote content block
                     if (footnote_content_id && footnote_content_id != "true") {
                         deleteBlock(footnote_content_id);
@@ -542,6 +542,8 @@ export default class PluginFootnote extends Plugin {
 
                     // Delete blockref
                     detail.element.remove();
+                    saveViaTransaction(detail.element);
+
                     // Get current document ID and reorder footnotes if enabled
                     const settings = await this.loadSettings();
                     if (settings.enableOrderedFootnotes) {
@@ -549,9 +551,9 @@ export default class PluginFootnote extends Plugin {
                         const docID = detail.protyle.block.rootID;
                         if (docID) {
                             // Wait a bit for DOM updates
-                            await new Promise(resolve => setTimeout(resolve, 500));
+                            await whenBlockSaved(null,1000).then(async (msg) => { console.log("saved") });
                             this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
-                            await this.reorderFootnotes(docID, false);
+                            await this.reorderFootnotes(docID, true);
                             this.closeLoadingDialog();
                             await pushMsg(this.i18n.reorderFootnotes + " Finished");
                         }
@@ -993,7 +995,7 @@ export default class PluginFootnote extends Plugin {
     }
     private async reorderFootnotes(docID: string, reorderBlocks: boolean, protyle?: any) {
         const settings = await this.loadSettings();
-
+        await refreshSql();
         // 1. 获取当前文档的DOM
         let currentDom;
         if (protyle) {
