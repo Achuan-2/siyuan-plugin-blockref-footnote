@@ -1032,20 +1032,30 @@ export default class PluginFootnote extends Plugin {
                         this.closeLoadingDialog();
                         await pushMsg(this.i18n.reorderFootnotes + " Finished");
                     }
+
+                    // 如果.sy__siyuan-plugin-blockref-footnotefootnote-dock.layout__tab--active, 则点击button.footnote-dock__refresh进行更新
+                    if (document.querySelector(':not(.fn__none) .sy__siyuan-plugin-blockref-footnotefootnote-dock')) {
+                        const refreshButton = document.querySelector('.footnote-dock__refresh');
+                        if (refreshButton) {
+                            refreshButton.click();
+                        }
+                    }
                 },
                 x,
                 y // Position below cursor
             );
+        } else {
+
+            // 如果.sy__siyuan-plugin-blockref-footnotefootnote-dock.layout__tab--active, 则点击button.footnote-dock__refresh进行更新
+            if (document.querySelector(':not(.fn__none) .sy__siyuan-plugin-blockref-footnotefootnote-dock')) {
+                const refreshButton = document.querySelector('.footnote-dock__refresh');
+                if (refreshButton) {
+                    refreshButton.click();
+                }
+            }
         }
         // --------------------------添加脚注弹窗 END-------------------------- //
 
-        // 如果.sy__siyuan-plugin-blockref-footnotefootnote-dock.layout__tab--active, 则点击button.footnote-dock__refresh进行更新
-        if (document.querySelector(':not(.fn__none) .sy__siyuan-plugin-blockref-footnotefootnote-dock')) {
-            const refreshButton = document.querySelector('.footnote-dock__refresh');
-            if (refreshButton) {
-                refreshButton.click();
-            }
-        }
 
     }
     private async reorderFootnotes(docID: string, reorderBlocks: boolean, protyle?: any) {
@@ -1225,22 +1235,22 @@ export default class PluginFootnote extends Plugin {
 
 
         // 5. 如果需要，对脚注内容块进行物理排序
-
+        
         if (reorderBlocks && footnoteOrder.size > 0) {
             // 1. 获取所有相关的脚注内容块，按其当前物理顺序
             const allFootnoteBlocks = await sql(`
-            SELECT * FROM blocks 
-            WHERE ial like '%custom-plugin-footnote-content="${docID}"%' 
-            ORDER BY sort ASC`); // 使用 'sort' 通常比 'created' 更能代表当前顺序
+    SELECT * FROM blocks 
+    WHERE ial like '%custom-plugin-footnote-content="${docID}"%' 
+    ORDER BY sort ASC`); // 使用 'sort' 通常比 'created' 更能代表当前顺序
 
             const relevantBlocks = allFootnoteBlocks.filter(block => footnoteOrder.has(block.id));
 
             if (relevantBlocks.length > 0) {
                 const containerQuery = await sql(`
-                SELECT * FROM blocks 
-                WHERE root_id = '${footnoteContainerDocID}' 
-                AND ial like '%custom-plugin-footnote-parent="${docID}"%' 
-                LIMIT 1`);
+        SELECT * FROM blocks 
+        WHERE root_id = '${footnoteContainerDocID}' 
+        AND ial like '%custom-plugin-footnote-parent="${docID}"%' 
+        LIMIT 1`);
 
                 if (containerQuery.length > 0) {
                     const containerId = containerQuery[0].id;
@@ -1261,7 +1271,13 @@ export default class PluginFootnote extends Plugin {
                         let previousID = containerId; // 移动操作的前一个锚点块
                         let lcsIndex = 0;
 
-                        for (const targetId of targetOrderIds) {
+                        // 计算需要移动的块数量
+                        const totalMovesNeeded = targetOrderIds.length - lcsSet.size;
+                        let currentMoveIndex = 0;
+
+                        for (let i = 0; i < targetOrderIds.length; i++) {
+                            const targetId = targetOrderIds[i];
+
                             // 检查当前目标块是否是LCS的一部分（即是否是稳定锚点）
                             if (lcsIndex < lcsIds.length && targetId === lcsIds[lcsIndex]) {
                                 // 是稳定块，不移动它，只更新锚点
@@ -1269,7 +1285,14 @@ export default class PluginFootnote extends Plugin {
                                 lcsIndex++;
                             } else {
                                 // 是需要移动的块
+                                currentMoveIndex++;
                                 try {
+                                    // 更新进度显示
+                                    this.progressManager?.setMessage(
+                                        this.i18n.reorderFootnotes,
+                                        `正在移动块 ${currentMoveIndex}/${totalMovesNeeded}...`
+                                    );
+
                                     // console.log(`Moving ${targetId} after ${previousID}`);
                                     await moveBlock(targetId, previousID, containerId);
                                     // 移动后，它成为新的锚点
@@ -1279,6 +1302,12 @@ export default class PluginFootnote extends Plugin {
                                 }
                             }
                         }
+
+                        // 移动完成后的最终状态更新
+                        this.progressManager?.setMessage(
+                            this.i18n.reorderFootnotes,
+                            `块移动完成 (${totalMovesNeeded}/${totalMovesNeeded})`
+                        );
                     } else {
                         console.log('Footnote blocks are already in the correct order. No move operation is needed.');
                     }
