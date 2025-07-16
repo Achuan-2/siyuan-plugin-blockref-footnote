@@ -6,39 +6,6 @@
 
 ## 📝更新日志
 
-最近更新
- v1.3.0 /2024.12.13
-
-- 🐛 当在设置里开启只读模式后，添加脚注后脚注弹窗不可写入 
-- ✨ `${selection:text}`变量要对特殊符号进行处理，比如把英文双引号变为`&quot;`
-
-
-v1.2.7 / 2024.12.08
-
-* ✨脚注内容模板新增 `${selection:text}`变量，代表选中文本的纯文本内容
-
-  例子
-
-  ```markdown
-  - ((${refID} "${selection:text}"))
-
-    {{{row
-    ${content}
-    }}}
-  ```
-* ✨插件命令运行过程中添加正在处理弹窗，禁止编辑
-
-  ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-12-08_16-27-40-2024-12-08.png)
-
-  ![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/PixPin_2024-12-08_16-28-12-2024-12-08.png)
-
-v1.2.5 / 2024.12.05
-
-- 💄 双击非弹窗部分，关闭弹窗
-- 💄 默认css添加导出pdf脚注引用为上标样式
-- ✨ 命令面板支持隐藏/显示选中的文本
-- ✨ 设置添加选项，脚注支持不弹窗
-- 🐛 聚焦浮窗添加脚注，已经选择在当前文档末尾添加脚注，但只会在浮窗的最后添加，而不是文档最后添加
 
 完整更新日志见：[ChangeLog](https://fastly.jsdelivr.net/gh/Achuan-2/siyuan-plugin-blockref-footnote/CHANGELOG.md)
 
