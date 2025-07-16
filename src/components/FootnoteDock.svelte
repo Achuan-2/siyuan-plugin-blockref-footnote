@@ -142,7 +142,7 @@
 
             // 使用新数组替换旧数组，确保触发响应式更新
             footnotes = newFootnotes;
-            console.log('Processed footnotes:', footnotes);
+            // console.log('Processed footnotes:', footnotes);
             collapseAll(); // 默认/刷新后折叠所有
         } catch (error) {
             console.error('Failed to load footnotes:', error);
