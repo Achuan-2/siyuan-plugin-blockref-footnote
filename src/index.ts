@@ -1,4 +1,4 @@
-import { Plugin, fetchSyncPost, Dialog, Protyle } from "siyuan";
+import { Plugin, fetchSyncPost, Dialog, Protyle, IProtyle } from "siyuan";
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
