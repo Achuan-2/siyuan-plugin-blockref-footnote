@@ -564,6 +564,7 @@ export default class PluginFootnote extends Plugin {
     }
 
     private async addMemoBlock(protyle: IProtyle) {
+        await refreshSql();
         const settings = await this.loadSettings();
         // console.log(protyle.block.rootID);
         // 获取当前光标所在块的 ID
@@ -591,21 +592,21 @@ export default class PluginFootnote extends Plugin {
         // 获取脚注容器标题
         let footnoteContainerTitle;
         switch (settings.saveLocation) {
-            case '1':
+            case '1': // 当前文档
                 footnoteContainerTitle = settings.footnoteContainerTitle.replace(/\$\{filename\}/g, currentDocTitle);
                 // 需要检测输入的title有没有#，没有会自动变为二级title
-                // if (!footnoteContainerTitle.startsWith("#")) {
-                //     footnoteContainerTitle = `## ${footnoteContainerTitle}`;
-                // }
+                if (!footnoteContainerTitle.startsWith("#")) {
+                    footnoteContainerTitle = `## ${footnoteContainerTitle}`;
+                }
                 break;
-            case '2':
+            case '2': // 指定文档
                 footnoteContainerTitle = settings.footnoteContainerTitle2.replace(/\$\{filename\}/g, currentDocTitle);
                 // 需要检测输入的title有没有#，没有会自动变为二级title
-                // if (!footnoteContainerTitle.startsWith("#")) {
-                //     footnoteContainerTitle = `## ${footnoteContainerTitle}`;
-                // }
+                if (!footnoteContainerTitle.startsWith("#")) {
+                    footnoteContainerTitle = `## ${footnoteContainerTitle}`;
+                }
                 break;
-            case '3':
+            case '3': // 子文档
                 footnoteContainerTitle = settings.footnoteContainerTitle3.replace(/\$\{filename\}/g, currentDocTitle);
                 break;
         }
@@ -643,7 +644,6 @@ export default class PluginFootnote extends Plugin {
             case '2': // 指定文档
                 docID = settings.docID;
                 if (!docID) {
-                    pushErrMsg(this.i18n.errors.noDocId);
                     return;
                 }
                 query_res = await sql(
@@ -895,6 +895,9 @@ export default class PluginFootnote extends Plugin {
         await setBlockAttrs(newBlockId, { "custom-plugin-footnote-content": protyle.block.rootID });
         await setBlockAttrs(newBlockId, { "alias": settings.footnoteAlias });
 
+
+
+        // --------------------------添加脚注引用 -------------------------- // 
         // 选中的文本添加样式
         protyle.toolbar.range = range;
         if (settings.selectFontStyle === '2') {
@@ -902,9 +905,6 @@ export default class PluginFootnote extends Plugin {
         } else {
             protyle.toolbar.setInlineMark(protyle, `custom-footnote-hidden-selected-text-${newBlockId}`, "range");
         }
-
-
-        // --------------------------添加脚注引用 -------------------------- // 
 
         // 将range的起始点和结束点都移动到选中文本的末尾
         protyle.toolbar.range = range;
