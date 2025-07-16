@@ -409,27 +409,7 @@ export default class PluginFootnote extends Plugin {
             langText: this.i18n.hideFootnoteSelection,
             hotkey: "",
             callback: async () => {
-                // Get the current doc ID from protyle
-                this.showLoadingDialog(this.i18n.hideFootnoteSelection + " ...");
-                const docId = this.getDocumentId();
-                console.log(docId)
-                if (!docId) return;
-
-                // Get the full DOM
-                const docResp = await getBlockDOM(docId);
-                if (!docResp) return;
-
-                // Parse the DOM and replace hidden classes
-                let newDom = docResp.dom;
-                newDom = newDom.replace(
-                    /(<span\b[^>]*?\bdata-type=")custom-footnote-selected-text-([^"]*)"/g,
-                    '$1custom-footnote-hidden-selected-text-$2"'
-                );
-
-                // Update the document with modified DOM
-                await updateBlock("dom", newDom, docId);
-                this.closeLoadingDialog();
-                await pushMsg(this.i18n.hideFootnoteSelection + " Finished");
+                await this._toggleFootnoteSelectionVisibility(false);
             }
         });
         this.addCommand({
@@ -437,26 +417,7 @@ export default class PluginFootnote extends Plugin {
             langText: this.i18n.showFootnoteSelection,
             hotkey: "",
             callback: async () => {
-                // Get the current doc ID from protyle
-                const docId = this.getDocumentId();
-                console.log(docId)
-                if (!docId) return;
-                this.showLoadingDialog(this.i18n.showFootnoteSelection + " ...");
-                // Get the full DOM
-                const docResp = await getBlockDOM(docId);
-                if (!docResp) return;
-
-                // Parse the DOM and replace hidden classes
-                let newDom = docResp.dom;
-                newDom = newDom.replace(
-                    /(<span\b[^>]*?\bdata-type=")custom-footnote-hidden-selected-text-([^"]*)"/g,
-                    '$1custom-footnote-selected-text-$2"'
-                );
-
-                // Update the document with modified DOM
-                await updateBlock("dom", newDom, docId);
-                this.closeLoadingDialog();
-                await pushMsg(this.i18n.showFootnoteSelection + " Finished!");
+                await this._toggleFootnoteSelectionVisibility(true);
             }
         });
 
@@ -485,6 +446,78 @@ export default class PluginFootnote extends Plugin {
 
         // 初始化脚注Dock栏
         await this.initFootnoteDock();
+    }
+
+    private async _toggleFootnoteSelectionVisibility(show: boolean) {
+        const docId = this.getDocumentId();
+        if (!docId) {
+            await pushMsg("Could not find the current document.", 3000);
+            return;
+        }
+
+        const actionText = show ? this.i18n.showFootnoteSelection : this.i18n.hideFootnoteSelection;
+        this.showLoadingDialog(actionText + " ...");
+
+        try {
+            // 1. Define selectors based on whether we are showing or hiding
+            const sourcePrefix = show ? 'custom-footnote-hidden-selected-text-' : 'custom-footnote-selected-text-';
+            const targetPrefix = show ? 'custom-footnote-selected-text-' : 'custom-footnote-hidden-selected-text-';
+            const sourceSelector = `[data-type^="${sourcePrefix}"]`;
+
+            // 2. Get the document's DOM
+            const docResp = await getBlockDOM(docId);
+            if (!docResp?.dom) {
+                throw new Error("Failed to get document DOM.");
+            }
+            const currentDom = new DOMParser().parseFromString(docResp.dom, 'text/html');
+
+            // 3. Find all affected blocks and modify the spans in the parsed DOM
+            const affectedBlocks = new Map<string, HTMLElement>();
+            const spans = currentDom.querySelectorAll(sourceSelector);
+
+            if (spans.length === 0) {
+                await pushMsg("No footnote selections found to change.", 3000);
+                return;
+            }
+
+            spans.forEach((span: HTMLElement) => {
+                // Modify the data-type attribute
+                const currentType = span.getAttribute('data-type');
+                span.setAttribute('data-type', currentType.replace(sourcePrefix, targetPrefix));
+
+                // Find the parent block and add it to our map of blocks to update
+                const blockElement = span.closest('[data-node-id]') as HTMLElement;
+                if (blockElement) {
+                    const blockId = blockElement.getAttribute('data-node-id');
+                    if (blockId && !affectedBlocks.has(blockId)) {
+                        affectedBlocks.set(blockId, blockElement);
+                    }
+                }
+            });
+
+            // 4. Prepare the payload for batch update
+            const blocksToUpdate = [];
+            for (const [blockId, blockElement] of affectedBlocks) {
+                blocksToUpdate.push({
+                    id: blockId,
+                    dataType: "dom",
+                    data: blockElement.outerHTML,
+                });
+            }
+
+            // 5. Execute the batch update if there's anything to change
+            if (blocksToUpdate.length > 0) {
+                console.log(`Batch updating ${blocksToUpdate.length} blocks to ${show ? 'show' : 'hide'} selections.`);
+                await batchUpdateBlock(blocksToUpdate);
+                await pushMsg(actionText + " Finished!");
+            }
+
+        } catch (error) {
+            console.error(`Error during ${actionText}:`, error);
+            await pushMsg(`An error occurred: ${error.message}`, 3000);
+        } finally {
+            this.closeLoadingDialog();
+        }
     }
 
     private async initFootnoteDock() {
