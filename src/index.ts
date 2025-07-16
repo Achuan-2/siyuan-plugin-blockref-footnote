@@ -627,8 +627,11 @@ export default class PluginFootnote extends Plugin {
          limit 1`
                 );
 
-                if (query_res.length === 0) {
+                if (query_res.length == 0) {
                     footnoteContainerID = (await appendBlock("markdown", `${footnoteContainerTitle}`, docID))[0].doOperations[0].id;
+                    await setBlockAttrs(footnoteContainerID, {
+                        "custom-plugin-footnote-parent": protyle.block.rootID
+                    });
                 } else {
                     footnoteContainerID = query_res[0].id;
                     if (settings.updateFootnoteContainerTitle) {
@@ -636,9 +639,7 @@ export default class PluginFootnote extends Plugin {
                     }
                 }
 
-                await setBlockAttrs(footnoteContainerID, {
-                    "custom-plugin-footnote-parent": protyle.block.rootID
-                });
+                
                 break;
 
             case '2': // 指定文档
