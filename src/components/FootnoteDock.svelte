@@ -393,10 +393,10 @@
                     class:collapsed={collapsedFootnotes.has(footnote.id)}
                 >
                     <div class="footnote-item__header">
-                        <span class="footnote-item__index">[{index + 1}]</span>
+                        <span class="footnote-item__index" on:click={() => openBlock(footnote.id)} title={t('footnoteDock.openFootnote')}>[{index + 1}]</span>
                         <div class="footnote-item__ref" title={footnote.refBlockContent}>
                             <!-- 添加鼠标点击事件 -->
-                            <span data-type="a"  on:click={() => openBlock(footnote.refBlockId)}>{@html footnote.refBlockContent}</span>
+                            <span data-type="a"  on:click={() => openBlock(footnote.refBlockId)} title={t('footnoteDock.openOriginal')}> {@html footnote.refBlockContent}</span>
                         </div>
                         <button
                             class="footnote-item__toggle b3-button b3-button--outline"
@@ -530,7 +530,10 @@
         flex-shrink: 0;
         margin-top: 2px;
     }
-
+    .footnote-item__index:hover {
+        cursor: pointer;
+        text-decoration: underline;
+    }
     .footnote-item__ref {
         color: var(--b3-theme-on-surface);
         font-size: 11px;
@@ -540,6 +543,10 @@
         word-break: break-word;
         max-height: 60px;
         overflow-y: auto;
+    }
+    .footnote-item__ref:hover {
+        cursor: pointer;
+        text-decoration: underline;
     }
 
     .footnote-item__content {

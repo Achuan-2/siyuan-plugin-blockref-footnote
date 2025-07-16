@@ -113,6 +113,8 @@
         "collapseAll": "Collapse All",
         "expandAll": "Expand All",
         "collapse": "Collapse",
-        "expand": "Expand"
+        "expand": "Expand",
+        "openFootnote": "Open Footnote",
+        "openOriginal": "Open Original Block"
     }
 }

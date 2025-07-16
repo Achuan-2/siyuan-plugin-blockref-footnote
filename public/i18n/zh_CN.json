@@ -112,6 +112,8 @@
         "collapseAll": "折叠所有",
         "expandAll": "展开所有",
         "collapse": "折叠",
-        "expand": "展开"
+        "expand": "展开",
+        "openFootnote": "打开脚注块",
+        "openOriginal": "打开原块"
     }
 }
