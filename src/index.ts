@@ -1079,10 +1079,13 @@ export default class PluginFootnote extends Plugin {
         // 3. 遍历所有脚注引用，建立顺序映射，并记录锚点块和受影响的块
         const footnoteRefs = currentDom.querySelectorAll('[custom-footnote]');
         const footnoteOrder = new Map<string, number>(); // 存储最终排序: 脚注ID -> 顺序编号 (1, 2, 3...)
-        const refAnchorMap = new Map<string, string>();   // 存储首次出现位置: 脚注ID -> 锚点块ID
+        const refAnchorMap = new Map<string, string>();   // 存储首次出现位置: 脚注ID -> 锚点块ID
         const affectedRefBlocks = new Map<string, HTMLElement>(); // 存储受影响的引用块: 块ID -> 块元素
         const processedIds = new Set<string>();
         let counter = 1;
+
+        // 新增：存储每个块内的脚注引用信息，用于编号一致性检查
+        const blockRefInfo = new Map<string, Array<{ footnoteId: string, currentNumber: number | null, targetNumber: number }>>();
 
         for (const ref of footnoteRefs) {
             const footnoteId = ref.getAttribute('custom-footnote');
@@ -1102,23 +1105,43 @@ export default class PluginFootnote extends Plugin {
                 counter++;
             }
 
-            // 更新文档中引用处的编号显示
-            const currentNumber = footnoteOrder.get(footnoteId);
-            if (currentNumber) {
-                ref.textContent = `[${currentNumber}]`;
+            // 获取当前脚注引用编号（从 textContent 提取）
+            const currentNumberMatch = ref.textContent?.match(/\[(\d+)\]/);
+            const currentNumber = currentNumberMatch ? parseInt(currentNumberMatch[1], 10) : null;
+            const targetNumber = footnoteOrder.get(footnoteId);
 
-                // 记录包含此引用的块
-                const containingBlock = ref.closest('[data-node-id][data-node-index]') as HTMLElement;
-                if (containingBlock) {
-                    const blockId = containingBlock.getAttribute('data-node-id');
-                    if (blockId && !affectedRefBlocks.has(blockId)) {
-                        affectedRefBlocks.set(blockId, containingBlock);
+            // 记录包含此引用的块
+            const containingBlock = ref.closest('[data-node-id][data-node-index]') as HTMLElement;
+            if (containingBlock) {
+                const blockId = containingBlock.getAttribute('data-node-id');
+                if (blockId) {
+                    // 初始化块的脚注引用信息
+                    if (!blockRefInfo.has(blockId)) {
+                        blockRefInfo.set(blockId, []);
+                    }
+                    // 添加当前脚注的编号信息
+                    blockRefInfo.get(blockId)!.push({ footnoteId, currentNumber, targetNumber });
+
+                    // 更新脚注引用的显示（临时更新 DOM，稍后决定是否需要持久化）
+                    if (targetNumber) {
+                        ref.textContent = `[${targetNumber}]`;
                     }
                 }
             }
         }
 
-        // 4. 【合并更新：一次性准备并批量更新所有受影响的块（包括引用块和内容块）
+        // 检查每个块的编号一致性，仅将需要更新的块加入 affectedRefBlocks
+        for (const [blockId, refs] of blockRefInfo) {
+            const needsUpdate = refs.some(ref => ref.currentNumber !== ref.targetNumber);
+            if (needsUpdate) {
+                const blockElement = currentDom.querySelector(`[data-node-id="${blockId}"]`) as HTMLElement;
+                if (blockElement) {
+                    affectedRefBlocks.set(blockId, blockElement);
+                }
+            }
+        }
+
+        // 4. 【合并更新：一次性准备并批量更新所有受影响的块（包括引用块和内容块）】
         this.progressManager?.nextStep(this.i18n.reorderFootnotes, "正在准备更新所有受影响的块...");
 
         const allBlocksToUpdate = [];
@@ -1133,6 +1156,7 @@ export default class PluginFootnote extends Plugin {
                     dataType: "dom",
                     data: blockElement.outerHTML,
                 });
+
                 processedRefBlocks++;
                 if (processedRefBlocks % 5 === 0 || processedRefBlocks === totalRefBlocks) {
                     this.progressManager?.setMessage(this.i18n.reorderFootnotes, `正在处理引用块 ${processedRefBlocks}/${totalRefBlocks}`);
@@ -1190,6 +1214,70 @@ export default class PluginFootnote extends Plugin {
             }
         }
 
+
+
+        // 5. 如果需要，对脚注内容块进行物理排序
+
+        if (reorderBlocks && footnoteOrder.size > 0) {
+            // 1. 获取所有相关的脚注内容块，按其当前物理顺序
+            const allFootnoteBlocks = await sql(`
+            SELECT * FROM blocks 
+            WHERE ial like '%custom-plugin-footnote-content="${docID}"%' 
+            ORDER BY sort ASC`); // 使用 'sort' 通常比 'created' 更能代表当前顺序
+
+            const relevantBlocks = allFootnoteBlocks.filter(block => footnoteOrder.has(block.id));
+
+            if (relevantBlocks.length > 0) {
+                const containerQuery = await sql(`
+                SELECT * FROM blocks 
+                WHERE root_id = '${footnoteContainerDocID}' 
+                AND ial like '%custom-plugin-footnote-parent="${docID}"%' 
+                LIMIT 1`);
+
+                if (containerQuery.length > 0) {
+                    const containerId = containerQuery[0].id;
+
+                    // 1. 获取当前物理顺序的ID数组
+                    const currentOrderIds = relevantBlocks.map(block => block.id);
+
+                    // 2. 获取目标顺序的ID数组
+                    const targetOrderIds = Array.from(footnoteOrder.keys());
+
+                    // 3. 【核心改进】使用LCS算法进行智能排序
+                    const lcsIds = findLCS(currentOrderIds, targetOrderIds);
+                    const lcsSet = new Set(lcsIds); // 使用Set以获得O(1)的查找性能
+
+                    console.log(`Target order has ${targetOrderIds.length} blocks. LCS has ${lcsSet.size} blocks. Moves needed: ${targetOrderIds.length - lcsSet.size}`);
+
+                    if (targetOrderIds.length !== lcsSet.size) { // 仅在需要移动时执行
+                        let previousID = containerId; // 移动操作的前一个锚点块
+                        let lcsIndex = 0;
+
+                        for (const targetId of targetOrderIds) {
+                            // 检查当前目标块是否是LCS的一部分（即是否是稳定锚点）
+                            if (lcsIndex < lcsIds.length && targetId === lcsIds[lcsIndex]) {
+                                // 是稳定块，不移动它，只更新锚点
+                                previousID = targetId;
+                                lcsIndex++;
+                            } else {
+                                // 是需要移动的块
+                                try {
+                                    // console.log(`Moving ${targetId} after ${previousID}`);
+                                    await moveBlock(targetId, previousID, containerId);
+                                    // 移动后，它成为新的锚点
+                                    previousID = targetId;
+                                } catch (error) {
+                                    console.warn('Failed to move block:', targetId, error);
+                                }
+                            }
+                        }
+                    } else {
+                        console.log('Footnote blocks are already in the correct order. No move operation is needed.');
+                    }
+                }
+            }
+        }
+
         // 4.3 执行统一的批量更新
         if (allBlocksToUpdate.length > 0) {
             try {
@@ -1202,93 +1290,6 @@ export default class PluginFootnote extends Plugin {
             }
         }
 
-        // 5. 如果需要，对脚注内容块进行物理排序
-        if (reorderBlocks && footnoteOrder.size > 0) {
-            this.progressManager?.nextStep(this.i18n.reorderFootnotes, `正在重新排序 ${footnoteOrder.size} 个脚注块...`);
-
-            // 【核心改进】根据 saveLocation 选择不同的排序策略
-            if (settings.saveLocation == 4) {
-                // --- 策略A: (已优化) 针对 saveLocation 4 的分组LCS排序 ---
-                console.log('Reordering footnotes for saveLocation 4: Grouping by anchor block and applying LCS.');
-
-                // 5.1. 将所有脚注按其"锚点块"进行分组
-                const anchorToFootnotes = new Map<string, string[]>();
-                for (const [footnoteId, anchorId] of refAnchorMap.entries()) {
-                    if (!anchorToFootnotes.has(anchorId)) {
-                        anchorToFootnotes.set(anchorId, []);
-                    }
-                    anchorToFootnotes.get(anchorId).push(footnoteId);
-                }
-
-                // 5.2. 一次性获取文档中所有相关脚注块的当前顺序
-                const allFootnoteIdsInDoc = Array.from(footnoteOrder.keys());
-                const currentFootnoteBlocks = await sql(`SELECT id, sort FROM blocks WHERE root_id = '${docID}' AND id IN (${allFootnoteIdsInDoc.map(id => `'${id}'`).join(',')}) ORDER BY sort ASC`);
-                const currentGlobalOrderMap = new Map(currentFootnoteBlocks.map((b, i) => [b.id, i]));
-
-                // 5.3. 遍历每个锚点块分组，独立进行LCS排序
-                let processedGroups = 0;
-                const totalGroups = anchorToFootnotes.size;
-
-                for (const [anchorId, footnoteIds] of anchorToFootnotes.entries()) {
-                    console.log(`Processing anchor block: ${anchorId}`);
-                    this.progressManager?.setMessage(this.i18n.reorderFootnotes, `正在处理锚点组 ${processedGroups + 1}/${totalGroups}: ${footnoteIds.length} 个脚注`);
-
-                    // a. 确定此分组的目标顺序 (根据全局出现顺序)
-                    const targetOrder = footnoteIds.sort((a, b) => footnoteOrder.get(a) - footnoteOrder.get(b));
-
-                    // b. 确定此分组的当前顺序 (基于数据库中的sort值)
-                    const currentOrder = footnoteIds
-                        .filter(id => currentGlobalOrderMap.has(id))
-                        .sort((a, b) => currentGlobalOrderMap.get(a) - currentGlobalOrderMap.get(b));
-
-                    // c. 对当前组应用LCS算法
-                    const lcsIds = findLCS(currentOrder, targetOrder);
-
-                    console.log(`Anchor ${anchorId}: Target order has ${targetOrder.length} blocks. LCS has ${lcsIds.length} blocks. Moves needed: ${targetOrder.length - lcsIds.length}`);
-
-                    if (targetOrder.length === lcsIds.length) {
-                        console.log(`Footnotes for anchor ${anchorId} are already in order.`);
-                        processedGroups++;
-                        continue;
-                    }
-
-                    // d. 执行移动操作
-                    try {
-                        const anchorBlockInfo = await sql(`SELECT parent_id FROM blocks WHERE id = '${anchorId}' LIMIT 1`);
-                        const parentId = anchorBlockInfo?.[0]?.parent_id;
-
-                        if (!parentId) {
-                            console.warn(`Could not find parent for anchor block ${anchorId}. Skipping reorder for this group.`);
-                            processedGroups++;
-                            continue;
-                        }
-
-                        let previousID = anchorId; // 初始时，插在锚点块后面
-                        let lcsIndex = 0;
-                        for (const targetId of targetOrder) {
-                            if (lcsIndex < lcsIds.length && targetId === lcsIds[lcsIndex]) {
-                                // 此块在LCS中，位置正确，跳过移动
-                                previousID = targetId;
-                                lcsIndex++;
-                            } else {
-                                // 此块需要移动
-                                await moveBlock(targetId, previousID, parentId);
-                                this.progressManager?.setMessage(this.i18n.reorderFootnotes, `正在移动脚注块 ${movedCount}/${totalMoves}`);
-                            }
-                        }
-                    } catch (error) {
-                        console.warn('Failed to move block:', targetId, error);
-                    }
-
-
-                }
-
-
-
-            }
-
-
-        }
 
         /**
  * 查找两个数组的最长公共子序列 (LCS)
