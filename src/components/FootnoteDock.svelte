@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import { Protyle } from 'siyuan';
-    import { sql, getBlockDOM, getDoc,openBlock } from '../api';
+    import { sql, getBlockDOM, getDoc, openBlock } from '../api';
     import { t } from '../utils/i18n';
 
     export let plugin;
@@ -14,7 +14,7 @@
     let isLoading = false;
     let hasError = false;
     // 跟踪单个脚注的折叠状态
-    let collapsedFootnotes = new Set(); 
+    let collapsedFootnotes = new Set();
 
     interface Footnote {
         id: string;
@@ -98,24 +98,23 @@
                     if (refBlock) {
                         refBlockId = refBlock.getAttribute('data-node-id');
                         refBlockContent = refBlock
-                        ? refBlock.querySelector(
-                                `span[data-type*="custom-footnote-selected-text-${footnoteId}"]`
-                            )?.textContent || ''
-                        : '';
-                        
+                            ? refBlock.querySelector(
+                                  `span[data-type*="custom-footnote-selected-text-${footnoteId}"]`
+                              )?.textContent || ''
+                            : '';
                     }
                     if (!refBlockContent) {
                         refBlockContent = refBlock
-                        ? refBlock.querySelector(
-                                `span[data-type*="custom-footnote-hidden-selected-text-${footnoteId}"]`
-                            )?.textContent || ''
-                        : '';
+                            ? refBlock.querySelector(
+                                  `span[data-type*="custom-footnote-hidden-selected-text-${footnoteId}"]`
+                              )?.textContent || ''
+                            : '';
                     }
                     // 如果没有找到引用块或内容为空，尝试从引用元素本身获取一些上下文
                     if (!refBlockContent) {
                         refBlockContent = ref.parentElement
                             ? ref.parentElement.textContent ||
-                                `脚注引用 [${footnoteId.substring(0, 8)}...]`
+                              `脚注引用 [${footnoteId.substring(0, 8)}...]`
                             : `脚注引用 [${footnoteId.substring(0, 8)}...]`;
                     }
 
@@ -177,6 +176,9 @@
                 blockId: footnoteId,
                 mode: 'wysiwyg',
                 action: ['cb-get-focus'],
+                click: {
+                    preventInsetEmptyBlock: true,
+                },
                 render: {
                     breadcrumb: false,
                     background: false,
@@ -388,15 +390,24 @@
             </div>
         {:else}
             {#each footnotes as footnote, index (footnote.id)}
-                <div
-                    class="footnote-item"
-                    class:collapsed={collapsedFootnotes.has(footnote.id)}
-                >
+                <div class="footnote-item" class:collapsed={collapsedFootnotes.has(footnote.id)}>
                     <div class="footnote-item__header">
-                        <span class="footnote-item__index" on:click={() => openBlock(footnote.id)} title={t('footnoteDock.openFootnote')}>[{index + 1}]</span>
+                        <span
+                            class="footnote-item__index"
+                            on:click={() => openBlock(footnote.id)}
+                            title={t('footnoteDock.openFootnote')}
+                        >
+                            [{index + 1}]
+                        </span>
                         <div class="footnote-item__ref" title={footnote.refBlockContent}>
                             <!-- 添加鼠标点击事件 -->
-                            <span data-type="a"  on:click={() => openBlock(footnote.refBlockId)} title={t('footnoteDock.openOriginal')}> {@html footnote.refBlockContent}</span>
+                            <span
+                                data-type="a"
+                                on:click={() => openBlock(footnote.refBlockId)}
+                                title={t('footnoteDock.openOriginal')}
+                            >
+                                {@html footnote.refBlockContent}
+                            </span>
                         </div>
                         <button
                             class="footnote-item__toggle b3-button b3-button--outline"

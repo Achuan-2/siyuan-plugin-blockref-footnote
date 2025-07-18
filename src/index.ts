@@ -87,12 +87,16 @@ class FootnoteDialog {
             blockId: blockId,
             mode: "wysiwyg",
             action: ['cb-get-focus'],
+            click: {
+                preventInsetEmptyBlock: true
+            },
             render: {
                 breadcrumb: false,
                 background: false,
                 title: false,
                 gutter: false,
             },
+
         });
 
         // --- 添加事件监听器 ---
