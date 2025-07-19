@@ -439,6 +439,7 @@ export default class PluginFootnote extends Plugin {
 
         this.eventBus.on("open-menu-blockref", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
         this.eventBus.on("open-menu-link", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
+        this.eventBus.on("click-blockicon", this.onBlockMenuOpen.bind(this));
 
 
         // Create style element
@@ -450,6 +451,35 @@ export default class PluginFootnote extends Plugin {
 
         // 初始化脚注Dock栏
         await this.initFootnoteDock();
+    }
+
+    private onBlockMenuOpen({ detail }: any) {
+        detail.menu.addItem({
+            icon: "iconFootnote",
+            label: this.i18n.addFootnote || "Add Footnote",
+            click: async (detail) => {
+
+                const activeDocId = this.getDocumentId();
+                if (!activeDocId) {
+                    pushErrMsg("Cannot determine active document.");
+                    return;
+                }
+
+                // Check for multi-selection first
+                const selectedBlocks = Array.from(document.querySelectorAll('.layout__wnd--active .protyle-wysiwyg .protyle-wysiwyg--select'));
+
+                if (selectedBlocks.length > 1) {
+
+                    // 合并超级块
+
+                    // Handle multi-block selection
+                    await this.createFootnoteForBlocks(selectedBlocks, activeDocId);
+                } else {
+                    // Handle single block from menu
+                    await this.createFootnoteForBlocks(selectedBlocks, activeDocId);
+                }
+            }
+        });
     }
 
     private async _toggleFootnoteSelectionVisibility(show: boolean) {
@@ -1123,6 +1153,230 @@ export default class PluginFootnote extends Plugin {
 
 
     }
+
+    private async createFootnoteForBlocks(blocks: Element[], docRootId: string) {
+        if (!blocks || blocks.length === 0) {
+            return;
+        }
+
+        // Initialize current and parent block IDs from the selection
+        const firstBlockElement = blocks[0];
+        const currentBlockId = firstBlockElement.getAttribute('data-node-id');
+        const parentElement = firstBlockElement.parentElement.closest('.protyle-wysiwyg > [data-node-id]');
+        const currentParentBlockId = parentElement ? parentElement.getAttribute('data-node-id') : null;
+
+        await refreshSql();
+        const settings = await this.loadSettings();
+
+        // 1. Get and combine content from all selected blocks into a single Kramdown string
+        let combinedKramdown = "";
+        for (const blockEl of blocks) {
+            const blockId = blockEl.getAttribute('data-node-id');
+            if (blockId) {
+                const kramdown = await getBlockKramdown(blockId);
+                combinedKramdown += kramdown.kramdown + "\n\n";
+            }
+        }
+        console.log(combinedKramdown);
+        combinedKramdown = combinedKramdown.trim();
+        combinedKramdown = `{{{row\n${combinedKramdown}\n}}}`; // Wrap in a super block
+        combinedKramdown = combinedKramdown.replace(/custom-footnote="[^"]*"\s/g, '');
+        // combinedKramdown = combinedKramdown.replace(/{: id="[^"]*"/g, '{: ');
+        console.log(combinedKramdown);
+        // 2. Determine footnote container and title based on settings
+        let currentDoc = await sql(`SELECT * FROM blocks WHERE id = '${docRootId}' LIMIT 1`);
+        let currentDocTitle = currentDoc[0].content;
+
+        let footnoteContainerTitle;
+        switch (settings.saveLocation) {
+            case '1':
+                footnoteContainerTitle = settings.footnoteContainerTitle.replace(/\$\{filename\}/g, currentDocTitle);
+                if (!footnoteContainerTitle.startsWith("#")) footnoteContainerTitle = `## ${footnoteContainerTitle}`;
+                break;
+            case '2':
+                footnoteContainerTitle = settings.footnoteContainerTitle2.replace(/\$\{filename\}/g, currentDocTitle);
+                if (!footnoteContainerTitle.startsWith("#")) footnoteContainerTitle = `## ${footnoteContainerTitle}`;
+                break;
+            case '3':
+                footnoteContainerTitle = settings.footnoteContainerTitle3.replace(/\$\{filename\}/g, currentDocTitle);
+                break;
+        }
+
+        // 3. Determine footnote container ID
+        let docID;
+        let footnoteContainerID: string;
+        switch (settings.saveLocation) {
+            default:
+            case '1': // Current document
+                docID = docRootId;
+                let query_res1 = await sql(`SELECT * FROM blocks AS b WHERE root_id = '${docID}' AND b.type !='d' AND b.ial like '%custom-plugin-footnote-parent="${docRootId}"%' ORDER BY created DESC limit 1`);
+                if (query_res1.length == 0) {
+                    footnoteContainerID = (await appendBlock("markdown", `${footnoteContainerTitle}`, docID))[0].doOperations[0].id;
+                } else {
+                    footnoteContainerID = query_res1[0].id;
+                    if (settings.updateFootnoteContainerTitle) await updateBlock("markdown", `${footnoteContainerTitle}`, footnoteContainerID);
+                }
+                await setBlockAttrs(footnoteContainerID, { "custom-plugin-footnote-parent": docRootId });
+                break;
+
+            case '2': // Specified document
+                docID = settings.docID;
+                if (!docID) return;
+                let query_res2 = await sql(`SELECT * FROM blocks AS b WHERE root_id = '${docID}' AND b.type !='d' AND b.ial like '%custom-plugin-footnote-parent="${docRootId}"%' ORDER BY created DESC limit 1`);
+                if (query_res2.length === 0) {
+                    footnoteContainerID = (await appendBlock("markdown", `${footnoteContainerTitle}`, docID))[0].doOperations[0].id;
+                } else {
+                    footnoteContainerID = query_res2[0].id;
+                    if (settings.updateFootnoteContainerTitle) await updateBlock("markdown", `${footnoteContainerTitle}`, footnoteContainerID);
+                }
+                await setBlockAttrs(footnoteContainerID, { "custom-plugin-footnote-parent": docRootId });
+                break;
+
+            case '3': // Child document
+                const existingDoc = await sql(`SELECT * FROM blocks WHERE type='d' AND ial like '%custom-plugin-footnote-parent="${docRootId}"%' LIMIT 1`);
+                if (existingDoc?.length > 0) {
+                    docID = existingDoc[0].id;
+                    if (settings.updateFootnoteContainerTitle) await renameDocByID(docID, footnoteContainerTitle);
+                } else {
+                    docID = await createDocWithMd(currentDoc[0].box, `${currentDoc[0].hpath}/${footnoteContainerTitle}`, "");
+                    if (!docID) { pushErrMsg("Failed to create child document"); return; }
+                    await setBlockAttrs(docID, { "custom-plugin-footnote-parent": docRootId });
+                }
+                footnoteContainerID = docID;
+                break;
+
+            case '4': // After parent block
+                docID = docRootId;
+                footnoteContainerID = currentParentBlockId ?? currentBlockId;
+                break;
+        }
+
+        // 4. Prepare the template, handling special list formatting
+        let templates = settings.templates;
+        let selectionReplaced = false;
+
+        const listRegex = /^([\*\-]\s+)\$\{selection\}/m;
+        const listMatch = templates.match(listRegex);
+
+        if (listMatch) {
+            // Handle special list block format for Siyuan
+            const marker = listMatch[1];
+            const indentedKramdown = combinedKramdown.split('\n').map(line => '  ' + line).join('\n');
+            const listBlockContent = `${marker}\n  {: id="20250719092338-0gmazer"}\n\n${indentedKramdown}\n`;
+
+            templates = templates.replace(listRegex, listBlockContent);
+            selectionReplaced = true;
+        } else {
+            // Handle generic prefixes (like blockquotes)
+            const selectionRegex = /^(.*)\$\{selection\}/m;
+            const match = templates.match(selectionRegex);
+            const prefix = match ? match[1] : '';
+
+            if (prefix.trim()) {
+                const processedKramdown = combinedKramdown.split('\n').map(line => prefix + line).join('\n');
+                templates = templates.replace(prefix + '${selection}', '${selection}');
+                templates = templates.replace(/\$\{selection\}/g, processedKramdown);
+                selectionReplaced = true;
+            }
+        }
+        console.log(templates);
+        // Final replacement pass
+        if (selectionReplaced) {
+            templates = templates.replace(/\$\{selection\}/g, ''); // Clear to avoid duplication
+            templates = templates.replace(/\$\{selection:text\}/g, '');
+        } else {
+            templates = templates.replace(/\$\{selection\}/g, combinedKramdown);
+            templates = templates.replace(/\$\{selection:text\}/g, combinedKramdown);
+        }
+
+        templates = templates.replace(/\$\{content\}/g, zeroWhite);
+        const firstBlockId = blocks[0].getAttribute('data-node-id');
+        templates = templates.replace(/\$\{refID\}/g, firstBlockId);
+        templates = templates.replace(/\$\{index\}/g, `<span data-type="custom-footnote-index a" data-href="siyuan://blocks/${firstBlockId}">${this.i18n.indexAnchor}</span>`);
+        templates = templates.replace(/\$\{index:text\}/g, `<span data-type="custom-footnote-index>${this.i18n.indexAnchor}</span>`);
+        console.log(templates);
+        // 5. Insert the new footnote content block
+        let back;
+        // (The logic for inserting the block remains the same as the previous version)
+        if (settings.saveLocation == '4') {
+            switch (settings.order) {
+                case '2': // Reverse order
+                    back = await insertBlock("markdown", templates, undefined, footnoteContainerID, undefined);
+                    break;
+                case '1': default: // Default order
+                    const findLastFootnoteId = (id) => {
+                        const targetBlock = document.querySelector(`.protyle-wysiwyg [data-node-id="${id}"]`);
+                        if (!targetBlock) return null;
+                        let lastFootnoteId = null;
+                        let nextSibling = targetBlock.nextElementSibling;
+                        while (nextSibling) {
+                            if (nextSibling.hasAttribute('custom-plugin-footnote-content')) {
+                                lastFootnoteId = nextSibling.getAttribute('data-node-id');
+                            } else {
+                                break;
+                            }
+                            nextSibling = nextSibling.nextElementSibling;
+                        }
+                        return lastFootnoteId;
+                    };
+                    let lastFootnoteID = findLastFootnoteId(footnoteContainerID);
+                    back = await insertBlock("markdown", templates, undefined, lastFootnoteID ?? footnoteContainerID, undefined);
+                    break;
+            }
+        } else {
+            switch (settings.order) {
+                case '2': // Reverse order
+                    back = (settings.saveLocation != '3') ? await appendBlock("markdown", templates, footnoteContainerID) : await prependBlock("markdown", templates, footnoteContainerID);
+                    break;
+                case '1': default: // Default order
+                    if (settings.saveLocation != '3') {
+                        const docDom = (await getBlockDOM(docID)).dom;
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(docDom, 'text/html');
+                        const footnotes = doc.querySelectorAll(`div[custom-plugin-footnote-content="${docRootId}"]`);
+                        if (footnotes.length > 0) {
+                            const lastFootnoteID = footnotes[footnotes.length - 1].getAttribute('data-node-id');
+                            back = await insertBlock("markdown", templates, undefined, lastFootnoteID, undefined);
+                        } else {
+                            back = await appendBlock("markdown", templates, footnoteContainerID);
+                        }
+                    } else {
+                        back = await appendBlock("markdown", templates, footnoteContainerID);
+                    }
+                    break;
+            }
+        }
+
+        let newBlockId = back[0].doOperations[0].id;
+        await setBlockAttrs(newBlockId, { "custom-plugin-footnote-content": docRootId, "alias": settings.footnoteAlias });
+
+        // 6. Add a reference attribute to the first selected block
+        await setBlockAttrs(firstBlockId, { "custom-footnote": newBlockId });
+
+        // 7. Finalize (show dialog, reorder, etc.)
+        if (settings.floatDialogEnable) {
+            const rect = blocks[blocks.length - 1].getBoundingClientRect();
+            new FootnoteDialog(
+                "",
+                newBlockId,
+                async () => {
+                    if (settings.enableOrderedFootnotes) {
+                        this.showLoadingDialog(this.i18n.reorderFootnotes + " ...");
+                        await this.reorderFootnotes(docRootId, true);
+                        this.closeLoadingDialog();
+                        await pushMsg(this.i18n.reorderFootnotes + " Finished");
+                    }
+                },
+                rect.x,
+                rect.y + rect.height
+            );
+        } else if (settings.enableOrderedFootnotes) {
+            this.showLoadingDialog(this.i18n.reorderFootnotes + " ...");
+            await this.reorderFootnotes(docRootId, true);
+            this.closeLoadingDialog();
+            await pushMsg(this.i18n.reorderFootnotes + " Finished");
+        }
+    }
     private async reorderFootnotes(docID: string, reorderBlocks: boolean, protyle?: any) {
         const settings = await this.loadSettings();
         await refreshSql();
@@ -1300,7 +1554,7 @@ export default class PluginFootnote extends Plugin {
 
 
         // 5. 如果需要，对脚注内容块进行物理排序
-        
+
         if (reorderBlocks && footnoteOrder.size > 0) {
             // 1. 获取所有相关的脚注内容块，按其当前物理顺序
             const allFootnoteBlocks = await sql(`

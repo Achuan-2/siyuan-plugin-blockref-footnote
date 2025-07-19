@@ -116,5 +116,6 @@
         "expand": "Expand",
         "openFootnote": "Open Footnote",
         "openOriginal": "Open Original Block"
-    }
+    },
+    "addFootnote":"Add Footnote"
 }

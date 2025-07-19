@@ -328,7 +328,7 @@ export async function unfoldBlock(id: BlockId) {
 }
 
 
-export async function getBlockKramdown(id: BlockId, mode: string = 'md'): Promise<IResGetBlockKramdown> {
+export async function getBlockKramdown(id: BlockId, mode: string = 'textmark'): Promise<IResGetBlockKramdown> {
     let data = {
         id: id,
         mode: mode // md, textmark

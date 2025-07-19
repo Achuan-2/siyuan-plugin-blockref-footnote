@@ -112,10 +112,7 @@
                     }
                     // 如果没有找到引用块或内容为空，尝试从引用元素本身获取一些上下文
                     if (!refBlockContent) {
-                        refBlockContent = ref.parentElement
-                            ? ref.parentElement.textContent ||
-                              `脚注引用 [${footnoteId.substring(0, 8)}...]`
-                            : `脚注引用 [${footnoteId.substring(0, 8)}...]`;
+                        refBlockContent = refBlock.textContent;
                     }
 
                     // 获取脚注内容块
