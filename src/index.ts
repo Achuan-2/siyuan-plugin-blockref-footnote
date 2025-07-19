@@ -454,32 +454,71 @@ export default class PluginFootnote extends Plugin {
     }
 
     private onBlockMenuOpen({ detail }: any) {
+        if (detail.blockElements.length > 1) return;
         detail.menu.addItem({
             icon: "iconFootnote",
             label: this.i18n.addFootnote || "Add Footnote",
-            click: async (detail) => {
-
-                const activeDocId = this.getDocumentId();
-                if (!activeDocId) {
-                    pushErrMsg("Cannot determine active document.");
-                    return;
-                }
-
-                // Check for multi-selection first
-                const selectedBlocks = Array.from(document.querySelectorAll('.layout__wnd--active .protyle-wysiwyg .protyle-wysiwyg--select'));
-
-                if (selectedBlocks.length > 1) {
-
-                    // 合并超级块
-
-                    // Handle multi-block selection
-                    await this.createFootnoteForBlocks(selectedBlocks, activeDocId);
-                } else {
-                    // Handle single block from menu
-                    await this.createFootnoteForBlocks(selectedBlocks, activeDocId);
-                }
+            click: async () => {
+                await this.createFootnoteForBlocks(detail.blockElements, detail.protyle.block.rootID);
             }
         });
+
+        // 【新增】判断是否显示删除脚注按钮
+        const footnoteId = detail.blockElements[0]?.getAttribute('custom-footnote');
+        const blockId = detail.blockElements[0]?.getAttribute('data-node-id');
+        if (blockId && footnoteId) {
+
+            this.checkForExistingFootnotes(blockId,footnoteId, detail.menu);
+        }
+    }
+
+    // 【新增】检查是否存在脚注内容块并添加删除按钮
+    private async checkForExistingFootnotes(blockId,footnoteId: string, menu: any) {
+        // 查询所有与当前块相关的脚注内容块
+        
+            menu.addItem({
+                icon: "iconTrashcan",
+                label: this.i18n.deleteFootnote || "Delete Footnote",
+                click: async () => {
+                    const footnotes = await sql(`SELECT * FROM blocks WHERE id="${footnoteId}"`);
+                    // 假设 `footnotes` 数组是按创建时间排序的，或者我们总是删除最新的一个
+                    // 这里的“最新”可以根据你的需求定义，例如按id（如果id是递增的）或者根据创建时间戳（如果ial中包含了）
+                    // 暂时我们假设数组的最后一个元素是最新创建的
+                    if (footnotes.length > 0 ) {
+                        const latestFootnote = footnotes[footnotes.length - 1];
+                        const footnoteContentIdToDelete = latestFootnote.id;
+
+
+                        // 删除脚注内容块本身
+                        if (footnoteContentIdToDelete) {
+                            await deleteBlock(footnoteContentIdToDelete);
+                            // await pushMsg(`Deleted footnote content block: ${footnoteContentIdToDelete}`);
+                        }
+                    }
+
+
+                    // 检查是否所有脚注内容块都已删除，如果是，则从原始块中移除 `custom-footnote` 属性
+                    await setBlockAttrs(blockId, { "custom-footnote": "" }); // 移除属性
+                    // await pushMsg(`Removed custom-footnote attribute from block: ${blockId}`);
+
+                    // 重新排序脚注（如果启用）
+                    const settings = await this.loadSettings();
+                    if (settings.enableOrderedFootnotes) {
+                        this.showLoadingDialog(this.i18n.reorderFootnotes + " ...");
+                        await this.reorderFootnotes(this.getDocumentId(), true);
+                        this.closeLoadingDialog();
+                        await pushMsg(this.i18n.reorderFootnotes + " Finished");
+                    }
+
+                    // 更新脚注Dock
+                    if (document.querySelector(':not(.fn__none) .sy__siyuan-plugin-blockref-footnotefootnote-dock')) {
+                        const refreshButton = document.querySelector('.footnote-dock__refresh');
+                        if (refreshButton) {
+                            refreshButton.click();
+                        }
+                    }
+                }
+            });
     }
 
     private async _toggleFootnoteSelectionVisibility(show: boolean) {
@@ -1100,8 +1139,13 @@ export default class PluginFootnote extends Plugin {
 
         // // 给脚注块引添加属性，方便后续查找，添加其他功能
         if (memoELement) {
-            memoELement.setAttribute("custom-footnote", newBlockId);
-            // 保存脚注块引添加的自定义属性值
+            // 【修改】获取并更新custom-footnote属性，支持多脚注
+            const existingFootnotes = await getBlockAttrs(currentBlockId);
+            let currentFootnoteIds = existingFootnotes['custom-footnote'] ? existingFootnotes['custom-footnote'].split(',') : [];
+            currentFootnoteIds.push(newBlockId);
+            await setBlockAttrs(currentBlockId, { "custom-footnote": currentFootnoteIds.join(',') });
+
+            memoELement.setAttribute("custom-footnote", newBlockId); // 这个仍然是单个块引用的属性
             saveViaTransaction(memoELement)
         }
 
@@ -1347,7 +1391,12 @@ export default class PluginFootnote extends Plugin {
         await setBlockAttrs(newBlockId, { "custom-plugin-footnote-content": docRootId, "alias": settings.footnoteAlias });
 
         // 6. Add a reference attribute to the first selected block
-        await setBlockAttrs(firstBlockId, { "custom-footnote": newBlockId });
+        // 【修改】获取并更新custom-footnote属性，支持多脚注
+        const existingFootnotes = await getBlockAttrs(firstBlockId);
+        let currentFootnoteIds = existingFootnotes['custom-footnote'] ? existingFootnotes['custom-footnote'].split(',') : [];
+        currentFootnoteIds.push(newBlockId);
+        await setBlockAttrs(firstBlockId, { "custom-footnote": currentFootnoteIds.join(',') });
+
 
         // 7. Finalize (show dialog, reorder, etc.)
         if (settings.floatDialogEnable) {
