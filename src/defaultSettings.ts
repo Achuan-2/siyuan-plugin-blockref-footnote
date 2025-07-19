@@ -47,6 +47,13 @@ export const getDefaultSettings = () => ({
 .protyle-wysiwyg [data-node-id] span[data-type*="custom-footnote-selected-text"] {
     border-bottom: 2px dashed var(--b3-font-color5);
 }
+/* 自定义块级脚注样式 */
+.protyle-wysiwyg [data-node-id][custom-footnote]{
+ border: 2px dashed var(--b3-font-color5);
+}
+.protyle-wysiwyg [custom-plugin-footnote-content] [data-node-id][custom-footnote]{
+ border: inherit;
+}
 /* 导出pdf脚注引用为上标样式 */
 .b3-typography a[custom-footnote],
 #preview .protyle-wysiwyg a[custom-footnote] {

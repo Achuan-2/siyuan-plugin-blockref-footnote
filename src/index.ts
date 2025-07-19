@@ -2,7 +2,7 @@ import { Plugin, fetchSyncPost, Dialog, Protyle, IProtyle } from "siyuan";
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
-import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, refreshSql, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, moveBlock, createDocWithMd, getDoc, getBlockKramdown, getBlockDOM, batchUpdateBlock } from "./api";
+import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, refreshSql, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, moveBlock, createDocWithMd, getDoc, getBlockKramdown, getBlockDOM, batchUpdateBlock, openBlock } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
 import SettingPanel from "@/setting-example.svelte";
 import { getDefaultSettings } from "./defaultSettings";
@@ -455,13 +455,7 @@ export default class PluginFootnote extends Plugin {
 
     private onBlockMenuOpen({ detail }: any) {
         if (detail.blockElements.length > 1) return;
-        detail.menu.addItem({
-            icon: "iconFootnote",
-            label: this.i18n.addFootnote || "Add Footnote",
-            click: async () => {
-                await this.createFootnoteForBlocks(detail.blockElements, detail.protyle.block.rootID);
-            }
-        });
+
 
         // 【新增】判断是否显示删除脚注按钮
         const footnoteId = detail.blockElements[0]?.getAttribute('custom-footnote');
@@ -469,13 +463,27 @@ export default class PluginFootnote extends Plugin {
         if (blockId && footnoteId) {
 
             this.checkForExistingFootnotes(blockId,footnoteId, detail.menu);
+        } else {
+            detail.menu.addItem({
+                icon: "iconFootnote",
+                label: this.i18n.addFootnote || "Add Footnote",
+                click: async () => {
+                    await this.createFootnoteForBlocks(detail.blockElements, detail.protyle.block.rootID);
+                }
+            });
         }
     }
 
     // 【新增】检查是否存在脚注内容块并添加删除按钮
     private async checkForExistingFootnotes(blockId,footnoteId: string, menu: any) {
         // 查询所有与当前块相关的脚注内容块
-        
+            menu.addItem({
+                icon: "iconFootnote",
+                label: this.i18n.jumpToFootnote || "Jump to Footnote",
+                click: async () => {
+                    await openBlock(footnoteId);
+                }
+            });
             menu.addItem({
                 icon: "iconTrashcan",
                 label: this.i18n.deleteFootnote || "Delete Footnote",

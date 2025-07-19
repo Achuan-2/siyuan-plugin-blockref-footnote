@@ -116,5 +116,6 @@
         "openFootnote": "打开脚注块",
         "openOriginal": "打开原块"
     },
-    "addFootnote":"添加脚注"
+    "addFootnote":"添加脚注",
+    "jumpToFootnote": "跳转到脚注"
 }

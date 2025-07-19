@@ -117,5 +117,6 @@
         "openFootnote": "Open Footnote",
         "openOriginal": "Open Original Block"
     },
-    "addFootnote":"Add Footnote"
+    "addFootnote":"Add Footnote",
+    "jumpToFootnote": "Jump to Footnote"
 }
