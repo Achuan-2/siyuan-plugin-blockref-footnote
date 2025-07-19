@@ -1177,12 +1177,10 @@ export default class PluginFootnote extends Plugin {
                 combinedKramdown += kramdown.kramdown + "\n\n";
             }
         }
-        console.log(combinedKramdown);
         combinedKramdown = combinedKramdown.trim();
         combinedKramdown = `{{{row\n${combinedKramdown}\n}}}`; // Wrap in a super block
         combinedKramdown = combinedKramdown.replace(/custom-footnote="[^"]*"\s/g, '');
         // combinedKramdown = combinedKramdown.replace(/{: id="[^"]*"/g, '{: ');
-        console.log(combinedKramdown);
         // 2. Determine footnote container and title based on settings
         let currentDoc = await sql(`SELECT * FROM blocks WHERE id = '${docRootId}' LIMIT 1`);
         let currentDocTitle = currentDoc[0].content;
@@ -1279,7 +1277,6 @@ export default class PluginFootnote extends Plugin {
                 selectionReplaced = true;
             }
         }
-        console.log(templates);
         // Final replacement pass
         if (selectionReplaced) {
             templates = templates.replace(/\$\{selection\}/g, ''); // Clear to avoid duplication
@@ -1294,7 +1291,6 @@ export default class PluginFootnote extends Plugin {
         templates = templates.replace(/\$\{refID\}/g, firstBlockId);
         templates = templates.replace(/\$\{index\}/g, `<span data-type="custom-footnote-index a" data-href="siyuan://blocks/${firstBlockId}">${this.i18n.indexAnchor}</span>`);
         templates = templates.replace(/\$\{index:text\}/g, `<span data-type="custom-footnote-index>${this.i18n.indexAnchor}</span>`);
-        console.log(templates);
         // 5. Insert the new footnote content block
         let back;
         // (The logic for inserting the block remains the same as the previous version)

@@ -1,3 +1,8 @@
+## v1.4.8 / 2025.07.17
+- ✨ 支持块级脚注 [#44](https://github.com/Achuan-2/siyuan-plugin-footnote/issues/44)
+- 🔧 chore(plugin.json): 将minAppVersion从3.2.0更新为3.2.1
+- ✨  Protyle组件click.preventInsetEmptyBlock设置为true,这样无需添加
+
 ## v1.4.7 / 2025.07.17
 - 🚀 perf：优化脚注文字显示/隐藏的性能
 - 🚀 perf：优化取消脚注重新编号性能
