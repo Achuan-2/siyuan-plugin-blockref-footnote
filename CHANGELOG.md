@@ -1,5 +1,7 @@
 ## v1.4.8 / 2025.07.17
 - ✨ 支持块级脚注 [#44](https://github.com/Achuan-2/siyuan-plugin-footnote/issues/44)
+  - 限制块级脚注只能一个块，要备注多个块自行使用超级块
+  - 如果一个块存在脚注，块菜单显示「跳转到脚注」和「删除脚注」，隐藏「添加脚注按钮」
 - 🔧 chore(plugin.json): 将minAppVersion从3.2.0更新为3.2.1
 - ✨  Protyle组件click.preventInsetEmptyBlock设置为true,这样无需添加
 
