@@ -1396,11 +1396,7 @@ export default class PluginFootnote extends Plugin {
         await setBlockAttrs(newBlockId, { "custom-plugin-footnote-content": docRootId, "alias": settings.footnoteAlias });
 
         // 6. Add a reference attribute to the first selected block
-        // 【修改】获取并更新custom-footnote属性，支持多脚注
-        const existingFootnotes = await getBlockAttrs(firstBlockId);
-        let currentFootnoteIds = existingFootnotes['custom-footnote'] ? existingFootnotes['custom-footnote'].split(',') : [];
-        currentFootnoteIds.push(newBlockId);
-        await setBlockAttrs(firstBlockId, { "custom-footnote": currentFootnoteIds.join(',') });
+        await setBlockAttrs(firstBlockId, { "custom-footnote": newBlockId });
 
 
         // 7. Finalize (show dialog, reorder, etc.)
