@@ -1147,13 +1147,10 @@ export default class PluginFootnote extends Plugin {
 
         // // 给脚注块引添加属性，方便后续查找，添加其他功能
         if (memoELement) {
-            // 【修改】获取并更新custom-footnote属性，支持多脚注
-            const existingFootnotes = await getBlockAttrs(currentBlockId);
-            let currentFootnoteIds = existingFootnotes['custom-footnote'] ? existingFootnotes['custom-footnote'].split(',') : [];
-            currentFootnoteIds.push(newBlockId);
-            await setBlockAttrs(currentBlockId, { "custom-footnote": currentFootnoteIds.join(',') });
 
-            memoELement.setAttribute("custom-footnote", newBlockId); // 这个仍然是单个块引用的属性
+            memoELement.setAttribute("custom-footnote", newBlockId);
+            // 保存脚注块引添加的自定义属性值
+
             saveViaTransaction(memoELement)
         }
 
