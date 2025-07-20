@@ -1189,7 +1189,12 @@ export default class PluginFootnote extends Plugin {
                 y // Position below cursor
             );
         } else {
-
+            if (settings.enableOrderedFootnotes) {
+                this.showLoadingDialog(this.i18n.reorderFootnotes + " ...");
+                await this.reorderFootnotes(protyle.block.rootID, true);
+                this.closeLoadingDialog();
+                await pushMsg(this.i18n.reorderFootnotes + " Finished");
+            }
             // 如果.sy__siyuan-plugin-blockref-footnotefootnote-dock.layout__tab--active, 则点击button.footnote-dock__refresh进行更新
             if (document.querySelector(':not(.fn__none) .sy__siyuan-plugin-blockref-footnotefootnote-dock')) {
                 const refreshButton = document.querySelector('.footnote-dock__refresh');
@@ -1198,6 +1203,7 @@ export default class PluginFootnote extends Plugin {
                 }
             }
         }
+
         // --------------------------添加脚注弹窗 END-------------------------- //
 
 
@@ -1416,11 +1422,13 @@ export default class PluginFootnote extends Plugin {
                 rect.x,
                 rect.y + rect.height
             );
-        } else if (settings.enableOrderedFootnotes) {
-            this.showLoadingDialog(this.i18n.reorderFootnotes + " ...");
-            await this.reorderFootnotes(docRootId, true);
-            this.closeLoadingDialog();
-            await pushMsg(this.i18n.reorderFootnotes + " Finished");
+        } else {
+            if (settings.enableOrderedFootnotes) {
+                this.showLoadingDialog(this.i18n.reorderFootnotes + " ...");
+                await this.reorderFootnotes(docRootId, true);
+                this.closeLoadingDialog();
+                await pushMsg(this.i18n.reorderFootnotes + " Finished");
+            }
         }
     }
 
