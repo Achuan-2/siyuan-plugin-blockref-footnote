@@ -812,16 +812,16 @@ export default class PluginFootnote extends Plugin {
             case '1': // 当前文档
                 footnoteContainerTitle = settings.footnoteContainerTitle.replace(/\$\{filename\}/g, currentDocTitle);
                 // 需要检测输入的title有没有#，没有会自动变为二级title
-                if (!footnoteContainerTitle.startsWith("#")) {
-                    footnoteContainerTitle = `## ${footnoteContainerTitle}`;
-                }
+                // if (!footnoteContainerTitle.startsWith("#")) {
+                //     footnoteContainerTitle = `## ${footnoteContainerTitle}`;
+                // }
                 break;
             case '2': // 指定文档
                 footnoteContainerTitle = settings.footnoteContainerTitle2.replace(/\$\{filename\}/g, currentDocTitle);
                 // 需要检测输入的title有没有#，没有会自动变为二级title
-                if (!footnoteContainerTitle.startsWith("#")) {
-                    footnoteContainerTitle = `## ${footnoteContainerTitle}`;
-                }
+                // if (!footnoteContainerTitle.startsWith("#")) {
+                //     footnoteContainerTitle = `## ${footnoteContainerTitle}`;
+                // }
                 break;
             case '3': // 子文档
                 footnoteContainerTitle = settings.footnoteContainerTitle3.replace(/\$\{filename\}/g, currentDocTitle);
@@ -1258,11 +1258,11 @@ export default class PluginFootnote extends Plugin {
         switch (settings.saveLocation) {
             case '1':
                 footnoteContainerTitle = settings.footnoteContainerTitle.replace(/\$\{filename\}/g, currentDocTitle);
-                if (!footnoteContainerTitle.startsWith("#")) footnoteContainerTitle = `## ${footnoteContainerTitle}`;
+                // if (!footnoteContainerTitle.startsWith("#")) footnoteContainerTitle = `## ${footnoteContainerTitle}`;
                 break;
             case '2':
                 footnoteContainerTitle = settings.footnoteContainerTitle2.replace(/\$\{filename\}/g, currentDocTitle);
-                if (!footnoteContainerTitle.startsWith("#")) footnoteContainerTitle = `## ${footnoteContainerTitle}`;
+                // if (!footnoteContainerTitle.startsWith("#")) footnoteContainerTitle = `## ${footnoteContainerTitle}`;
                 break;
             case '3':
                 footnoteContainerTitle = settings.footnoteContainerTitle3.replace(/\$\{filename\}/g, currentDocTitle);
