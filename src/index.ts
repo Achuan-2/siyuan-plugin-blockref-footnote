@@ -46,6 +46,11 @@ class FootnoteDialog {
         this.onSubmit = onSubmit;
         let i18n: typeof this.I18N.zh_CN = window.siyuan.config.lang in this.I18N ? this.I18N[window.siyuan.config.lang] : this.I18N.en_US;
 
+        // 添加全屏遮罩样式
+        document.body.style.pointerEvents = 'none';
+        document.body.style.userSelect = 'none';
+        
+        // 创建dialog
         this.dialog = document.createElement('dialog');
         this.dialog.innerHTML = `
             <div class="dialog-title" style="cursor: move;user-select: none;height: 22px;background-color: var(--b3-theme-background);margin: 0px; border: 1px solid var(--b3-border-color);display: flex;justify-content: space-between;align-items: center;padding: 0 4px;">
@@ -119,6 +124,10 @@ class FootnoteDialog {
         document.addEventListener('mousemove', this.drag);
         document.addEventListener('mouseup', this.stopDragging);
 
+        // 确保dialog可以交互
+        this.dialog.style.pointerEvents = 'auto';
+        this.dialog.style.userSelect = 'auto';
+        
         this.dialog.show();
 
         // 确保 protyle 获得焦点，这样键盘事件才能被 dialog 捕获
@@ -129,6 +138,10 @@ class FootnoteDialog {
      * 统一的销毁方法，负责所有清理工作
      */
     private destroy = () => {
+        // 恢复页面交互
+        document.body.style.pointerEvents = '';
+        document.body.style.userSelect = '';
+
         // 【关键改动】移除在 document 和 dialog 上添加的事件监听器
         // 不再需要在 document 上移除 keydown
         this.dialog.removeEventListener('keydown', this.handleKeyDown);
@@ -1166,6 +1179,7 @@ export default class PluginFootnote extends Plugin {
 
         if (settings.floatDialogEnable) {
             // Show footnote dialog with original selection text
+            await refreshSql();
             new FootnoteDialog(
                 cleanSelection,
                 newBlockId,
@@ -1408,6 +1422,7 @@ export default class PluginFootnote extends Plugin {
         // 7. Finalize (show dialog, reorder, etc.)
         if (settings.floatDialogEnable) {
             const rect = blocks[blocks.length - 1].getBoundingClientRect();
+            await refreshSql();
             new FootnoteDialog(
                 "",
                 newBlockId,
@@ -1704,7 +1719,6 @@ export default class PluginFootnote extends Plugin {
                 // 注意：合并更新后，回退逻辑变得复杂，因为可能涉及多个文档。
             }
         }
-
 
 
 
