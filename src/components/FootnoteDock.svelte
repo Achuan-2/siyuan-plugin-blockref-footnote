@@ -172,7 +172,7 @@
             const protyle = new Protyle(window.siyuan.ws.app, container, {
                 blockId: footnoteId,
                 mode: 'wysiwyg',
-                action: ["cb-get-all", "cb-get-focus"],
+                action: ['cb-get-all', 'cb-get-focus'],
                 click: {
                     preventInsetEmptyBlock: true,
                 },
