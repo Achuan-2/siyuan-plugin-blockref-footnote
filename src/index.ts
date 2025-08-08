@@ -46,9 +46,7 @@ class FootnoteDialog {
         this.onSubmit = onSubmit;
         let i18n: typeof this.I18N.zh_CN = window.siyuan.config.lang in this.I18N ? this.I18N[window.siyuan.config.lang] : this.I18N.en_US;
 
-        // 添加全屏遮罩样式
-        document.body.style.pointerEvents = 'none';
-        document.body.style.userSelect = 'none';
+        // 允许弹窗外继续交互（不禁用全局交互）
         
         // 创建dialog
         this.dialog = document.createElement('dialog');
@@ -91,7 +89,7 @@ class FootnoteDialog {
         this.protyle = new Protyle(window.siyuan.ws.app, protyleContainer as HTMLElement, {
             blockId: blockId,
             mode: "wysiwyg",
-            action: ['cb-get-focus'],
+            action: ["cb-get-all", "cb-get-focus"],
             click: {
                 preventInsetEmptyBlock: true
             },
@@ -101,6 +99,11 @@ class FootnoteDialog {
                 title: false,
                 gutter: false,
             },
+            handleEmptyContent: () => {
+                // 如果块被删除，需要关闭弹窗
+                this.dialog.close();
+                
+            }
 
         });
 
@@ -138,9 +141,7 @@ class FootnoteDialog {
      * 统一的销毁方法，负责所有清理工作
      */
     private destroy = () => {
-        // 恢复页面交互
-        document.body.style.pointerEvents = '';
-        document.body.style.userSelect = '';
+        // 不需要恢复全局交互（未修改过 body 样式）
 
         // 【关键改动】移除在 document 和 dialog 上添加的事件监听器
         // 不再需要在 document 上移除 keydown

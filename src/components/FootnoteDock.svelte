@@ -172,7 +172,7 @@
             const protyle = new Protyle(window.siyuan.ws.app, container, {
                 blockId: footnoteId,
                 mode: 'wysiwyg',
-                action: ['cb-get-focus'],
+                action: ["cb-get-all", "cb-get-focus"],
                 click: {
                     preventInsetEmptyBlock: true,
                 },
@@ -181,6 +181,19 @@
                     background: false,
                     title: false,
                     gutter: false,
+                },
+                handleEmptyContent: () => {
+                    // 如果块被删除，销毁并删除这个 protyle 实例，并在容器显示提示
+                    try {
+                        const inst = protyleInstances.get(footnoteId);
+                        inst?.destroy?.();
+                    } catch (e) {
+                        console.warn('Error destroying protyle after deletion:', e);
+                    }
+                    protyleInstances.delete(footnoteId);
+                    if (container) {
+                        container.innerHTML = `<div class="footnote-item__deleted">该脚注块已被删除</div>`;
+                    }
                 },
             });
 
@@ -558,7 +571,6 @@
     }
 
     .footnote-item__content {
-        min-height: 80px;
         padding: 0;
         font-size: 13px;
     }
@@ -612,5 +624,11 @@
     .footnote-item__toggle svg {
         height: 14px;
         width: 14px;
+    }
+
+    .footnote-item__deleted {
+        /* padding: 8px 10px; */
+        color: var(--b3-theme-on-surface-light);
+        font-style: italic;
     }
 </style>
