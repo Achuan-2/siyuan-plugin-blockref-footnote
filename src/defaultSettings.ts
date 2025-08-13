@@ -25,10 +25,11 @@ export const getDefaultSettings = () => ({
     templates: `{{{col
 \${index}
 {: style="width: 2.5em; flex: 0 0 auto;"}
+{{{row
+> \${selection}
 
->> \${selection}
->> 
-> \${content}
+\${content}
+}}}
 }}}
 `,
 
