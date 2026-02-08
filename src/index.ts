@@ -47,7 +47,7 @@ class FootnoteDialog {
         let i18n: typeof this.I18N.zh_CN = window.siyuan.config.lang in this.I18N ? this.I18N[window.siyuan.config.lang] : this.I18N.en_US;
 
         // 允许弹窗外继续交互（不禁用全局交互）
-        
+
         // 创建dialog
         this.dialog = document.createElement('dialog');
         this.dialog.innerHTML = `
@@ -102,7 +102,7 @@ class FootnoteDialog {
             handleEmptyContent: () => {
                 // 如果块被删除，需要关闭弹窗
                 this.dialog.close();
-                
+
             }
 
         });
@@ -130,7 +130,7 @@ class FootnoteDialog {
         // 确保dialog可以交互
         this.dialog.style.pointerEvents = 'auto';
         this.dialog.style.userSelect = 'auto';
-        
+
         this.dialog.show();
 
         // 确保 protyle 获得焦点，这样键盘事件才能被 dialog 捕获
@@ -782,271 +782,250 @@ export default class PluginFootnote extends Plugin {
     }
 
     private async addMemoBlock(protyle: IProtyle) {
-        await refreshSql();
-        const settings = await this.loadSettings();
-        // console.log(protyle.block.rootID);
-        // 获取当前光标所在块的 ID
-        const currentBlockId = protyle.toolbar.range.startContainer.parentElement.closest('[data-node-id]')?.getAttribute('data-node-id');
-        const currentParentBlockId = protyle.toolbar.range.startContainer.parentElement.closest('.protyle-wysiwyg > [data-node-id]')?.getAttribute('data-node-id');
-        const { x, y } = protyle.toolbar.range.getClientRects()[0]
-        let range = protyle.toolbar.range;
-        // 先复制选中内容
-        const getSelectedHtml = (range: Range): string => {
-            // 创建临时容器
-            const container = document.createElement('div');
-            // 克隆选区内容到容器
-            container.appendChild(range.cloneContents());
-            // 返回HTML字符串
-            return container.innerHTML;
-        }
-        // 获取选中文本
-        const selectionText = protyle.toolbar.range.toString();
-        const selection = getSelectedHtml(protyle.toolbar.range);
+        // 在函数开始时就显示进度条，覆盖整个添加脚注的过程
+        this.showLoadingDialog(this.i18n.addFootnote || '添加脚注...');
 
-        // 获取当前文档标题
-        let currentDoc = await sql(`SELECT * FROM blocks WHERE id = '${protyle.block.rootID}' LIMIT 1`);
-        let currentDocTitle = currentDoc[0].content;
+        try {
+            await refreshSql();
+            const settings = await this.loadSettings();
+            // console.log(protyle.block.rootID);
+            // 获取当前光标所在块的 ID
+            const currentBlockId = protyle.toolbar.range.startContainer.parentElement.closest('[data-node-id]')?.getAttribute('data-node-id');
+            const currentParentBlockId = protyle.toolbar.range.startContainer.parentElement.closest('.protyle-wysiwyg > [data-node-id]')?.getAttribute('data-node-id');
+            const { x, y } = protyle.toolbar.range.getClientRects()[0]
+            let range = protyle.toolbar.range;
+            // 先复制选中内容
+            const getSelectedHtml = (range: Range): string => {
+                // 创建临时容器
+                const container = document.createElement('div');
+                // 克隆选区内容到容器
+                container.appendChild(range.cloneContents());
+                // 返回HTML字符串
+                return container.innerHTML;
+            }
+            // 获取选中文本
+            const selectionText = protyle.toolbar.range.toString();
+            const selection = getSelectedHtml(protyle.toolbar.range);
 
-        // 获取脚注容器标题
-        let footnoteContainerTitle;
-        switch (settings.saveLocation) {
-            case '1': // 当前文档
-                footnoteContainerTitle = settings.footnoteContainerTitle.replace(/\$\{filename\}/g, currentDocTitle);
-                // 需要检测输入的title有没有#，没有会自动变为二级title
-                // if (!footnoteContainerTitle.startsWith("#")) {
-                //     footnoteContainerTitle = `## ${footnoteContainerTitle}`;
-                // }
-                break;
-            case '2': // 指定文档
-                footnoteContainerTitle = settings.footnoteContainerTitle2.replace(/\$\{filename\}/g, currentDocTitle);
-                // 需要检测输入的title有没有#，没有会自动变为二级title
-                // if (!footnoteContainerTitle.startsWith("#")) {
-                //     footnoteContainerTitle = `## ${footnoteContainerTitle}`;
-                // }
-                break;
-            case '3': // 子文档
-                footnoteContainerTitle = settings.footnoteContainerTitle3.replace(/\$\{filename\}/g, currentDocTitle);
-                break;
-        }
-        // 处理文档 ID 和脚注容器 ID
-        let docID;
-        let footnoteContainerID: string;
-        let query_res;
-        switch (settings.saveLocation) {
-            default:
-            case '1': // 当前文档
-                docID = protyle.block.rootID;
-                query_res = await sql(
-                    `SELECT * FROM blocks AS b 
+            // 获取当前文档标题
+            let currentDoc = await sql(`SELECT * FROM blocks WHERE id = '${protyle.block.rootID}' LIMIT 1`);
+            let currentDocTitle = currentDoc[0].content;
+
+            // 获取脚注容器标题
+            let footnoteContainerTitle;
+            switch (settings.saveLocation) {
+                case '1': // 当前文档
+                    footnoteContainerTitle = settings.footnoteContainerTitle.replace(/\$\{filename\}/g, currentDocTitle);
+                    // 需要检测输入的title有没有#，没有会自动变为二级title
+                    // if (!footnoteContainerTitle.startsWith("#")) {
+                    //     footnoteContainerTitle = `## ${footnoteContainerTitle}`;
+                    // }
+                    break;
+                case '2': // 指定文档
+                    footnoteContainerTitle = settings.footnoteContainerTitle2.replace(/\$\{filename\}/g, currentDocTitle);
+                    // 需要检测输入的title有没有#，没有会自动变为二级title
+                    // if (!footnoteContainerTitle.startsWith("#")) {
+                    //     footnoteContainerTitle = `## ${footnoteContainerTitle}`;
+                    // }
+                    break;
+                case '3': // 子文档
+                    footnoteContainerTitle = settings.footnoteContainerTitle3.replace(/\$\{filename\}/g, currentDocTitle);
+                    break;
+                case '5': // 指定路径存放
+                    // 文档本身就是容器，不需要标题
+                    footnoteContainerTitle = "";
+                    break;
+            }
+            // 处理文档 ID 和脚注容器 ID
+            let docID;
+            let footnoteContainerID: string;
+            let query_res;
+            switch (settings.saveLocation) {
+                default:
+                case '1': // 当前文档
+                    docID = protyle.block.rootID;
+                    query_res = await sql(
+                        `SELECT * FROM blocks AS b 
          WHERE root_id = '${docID}' 
          AND b.type !='d' 
          AND b.ial like '%custom-plugin-footnote-parent="${protyle.block.rootID}"%' 
          ORDER BY created DESC 
          limit 1`
-                );
+                    );
 
-                if (query_res.length == 0) {
-                    footnoteContainerID = (await appendBlock("markdown", `${footnoteContainerTitle}`, docID))[0].doOperations[0].id;
+                    if (query_res.length == 0) {
+                        footnoteContainerID = (await appendBlock("markdown", `${footnoteContainerTitle}`, docID))[0].doOperations[0].id;
 
-                } else {
-                    footnoteContainerID = query_res[0].id;
-                    if (settings.updateFootnoteContainerTitle) {
-                        await updateBlock("markdown", `${footnoteContainerTitle}`, footnoteContainerID);
+                    } else {
+                        footnoteContainerID = query_res[0].id;
+                        if (settings.updateFootnoteContainerTitle) {
+                            await updateBlock("markdown", `${footnoteContainerTitle}`, footnoteContainerID);
+                        }
                     }
-                }
-                // updateBlock会丢失自定义属性
-                await setBlockAttrs(footnoteContainerID, {
-                    "custom-plugin-footnote-parent": protyle.block.rootID
-                });
-
-
-                break;
-
-            case '2': // 指定文档
-                docID = settings.docID;
-                if (!docID) {
-                    return;
-                }
-                query_res = await sql(
-                    `SELECT * FROM blocks AS b 
-         WHERE root_id = '${docID}' 
-         AND b.type !='d' 
-         AND b.ial like '%custom-plugin-footnote-parent="${protyle.block.rootID}"%' 
-         ORDER BY created DESC 
-         limit 1`
-                );
-
-                if (query_res.length === 0) {
-                    footnoteContainerID = (await appendBlock("markdown", `${footnoteContainerTitle}`, docID))[0].doOperations[0].id;
-                } else {
-                    footnoteContainerID = query_res[0].id;
-                    if (settings.updateFootnoteContainerTitle) {
-                        await updateBlock("markdown", `${footnoteContainerTitle}`, footnoteContainerID);
-                    }
-                }
-
-                await setBlockAttrs(footnoteContainerID, {
-                    "custom-plugin-footnote-parent": protyle.block.rootID
-                });
-                break;
-
-            case '3': // 子文档
-                const existingDoc = await sql(
-                    `SELECT * FROM blocks WHERE type='d' AND ial like '%custom-plugin-footnote-parent="${protyle.block.rootID}"%' LIMIT 1`
-                );
-
-                if (existingDoc?.length > 0) {
-                    docID = existingDoc[0].id;
-                    if (settings.updateFootnoteContainerTitle) {
-                        await renameDocByID(docID, footnoteContainerTitle);
-                    }
-
-                } else {
-                    const notebook = currentDoc[0].box;
-                    const parentPath = currentDoc[0].hpath;
-                    docID = await createDocWithMd(notebook, `${parentPath}/${footnoteContainerTitle}`, "");
-
-                    if (!docID) {
-                        pushErrMsg("Failed to create child document");
-                        return;
-                    }
-
-                    await setBlockAttrs(docID, {
+                    // updateBlock会丢失自定义属性
+                    await setBlockAttrs(footnoteContainerID, {
                         "custom-plugin-footnote-parent": protyle.block.rootID
                     });
 
-                    // 删除默认生成的块
-                    // const defaultBlock = await sql(`SELECT * FROM blocks WHERE root_id = '${docID}' AND type != 'd'`);
-                    // console.log(defaultBlock);
-                    // if (defaultBlock.length > 0) {
-                    //     await deleteBlock(defaultBlock[0].id);
-                    // }
-                }
-                footnoteContainerID = docID;
-                break;
 
-            case '4': // 父块后
-                docID = protyle.block.rootID;
-                if (currentParentBlockId == null) {
-                    footnoteContainerID = currentBlockId;
-                }
-                else {
-                    footnoteContainerID = currentParentBlockId;
-                }
-                break;
-        }
-
-        // 过滤掉脚注文本 <sup>((id "text"))</sup>
-        // 正则表达式匹配包含 custom-footnote="true" 的 <span> 标签
-        let customFootnotePattern = /<span[^>]*?custom-footnote=[^>]*?>.*?<\/span>/g;
-
-        // 正则表达式匹配 <span class="katex">...</span> 及其内容
-        let katexPattern = /<span class="katex">[\s\S]*?<\/span>(<\/span>)*<\/span>/g;
-
-        // 正则表达式匹配并替换 data-type 中的 custom-footnote-selected-text（包含可能的空格）
-        let selectedTextPattern = /\s*custom-footnote-selected-text(?:|-[^"\s>]*)(?="|>|\s)/g;
-        let selectedTextPattern2 = /\s*custom-footnote-hidden-selected-text(?:|-[^"\s>]*)(?="|>|\s)/g;
-        // 正则表达式匹配不含data-type的普通span标签，提取其中的文本
-        let plainSpanPattern = /<span(?![^>]*data-type)[^>]*>(.*?)<\/span>/g;
-        // 正则表达式中匹配data-type=为空的span标签，提取其中的文本
-        let plainSpanPattern2 = /<span[^>]*data-type=""[^>]*>(.*?)<\/span>/g;
-
-
-        // 使用 replace() 方法替换匹配的部分为空字符
-        let cleanSelection = selection
-            .replace(katexPattern, '')
-            .replace(customFootnotePattern, '')
-            .replace(selectedTextPattern, '')
-            .replace(selectedTextPattern2, '')
-            .replace(plainSpanPattern, '$1') // 保留span标签中的文本内容
-            .replace(plainSpanPattern2, '$1') // 保留span标签中的文本内容
-        let templates = settings.templates;
-        templates = templates.replace(/\$\{selection\}/g, cleanSelection);
-        // selectionText要对特殊符号进行处理，比如把英文双引号变为&quot;
-        const escapeHtml = (text: string) => {
-            const map: { [key: string]: string } = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;',
-            };
-            return text.replace(/[&<>"']/g, (m) => map[m]);
-        };
-        const escapedSelectionText = escapeHtml(selectionText);
-        templates = templates.replace(/\$\{selection:text\}/g, escapedSelectionText);
-        templates = templates.replace(/\$\{selection:text\}/g, selectionText);
-        templates = templates.replace(/\$\{content\}/g, zeroWhite);
-        templates = templates.replace(/\$\{refID\}/g, currentBlockId);
-        templates = templates.replace(/\$\{index\}/g, `<span data-type="custom-footnote-index a" data-href="siyuan://blocks/${currentBlockId}">${this.i18n.indexAnchor}</span>`); // 支持添加脚注编号
-        templates = templates.replace(/\$\{index:text\}/g, `<span data-type="custom-footnote-index>${this.i18n.indexAnchor}</span>`); // 支持添加脚注编号
-        templates = await renderTemplates(templates);
-
-        async function renderTemplates(templates: string): Promise<string> {
-            // First pattern to match ${{...}}
-            const dollarPattern = /\$(\{\{[^}]*\}\})/g;
-            let renderedTemplate = templates;
-            let match;
-
-            // Process each ${{...}} block one at a time
-            while ((match = dollarPattern.exec(templates)) !== null) {
-                const sprigExpression = match[1]; // 获取{{...}}部分
-                // Render the sprig expression using renderSprig
-                const renderedAction = await renderSprig(sprigExpression);
-                // Replace the entire ${{...}} block with the rendered result
-                renderedTemplate = renderedTemplate.replace(match[0], renderedAction);
-            }
-
-            // Finally render the complete template
-            return await renderedTemplate;
-        }
-
-
-        // 插入脚注内容
-        let back;
-        // 如果settings.saveLocation不等于4，则按照设置来插入，否则直接在父块后插入
-        if (settings.saveLocation == '4') {
-            switch (settings.order) {
-                case '2':
-                    // 逆序
-                    back = await insertBlock(
-                        "markdown",
-                        templates,
-                        undefined, // nextID 
-                        footnoteContainerID, // previousID
-                        undefined // parentID
-                    );
                     break;
-                case '1':
-                default:
 
-                    function findLastFootnoteId(id) {
-                        // 首先找到目标块
-                        const targetBlock = document.querySelector(`.protyle-wysiwyg [data-node-id="${id}"]`);
-                        if (!targetBlock) {
-                            return null;
+                case '2': // 指定文档
+                    docID = settings.docID;
+                    if (!docID) {
+                        return;
+                    }
+                    query_res = await sql(
+                        `SELECT * FROM blocks AS b 
+         WHERE root_id = '${docID}' 
+         AND b.type !='d' 
+         AND b.ial like '%custom-plugin-footnote-parent="${protyle.block.rootID}"%' 
+         ORDER BY created DESC 
+         limit 1`
+                    );
+
+                    if (query_res.length === 0) {
+                        footnoteContainerID = (await appendBlock("markdown", `${footnoteContainerTitle}`, docID))[0].doOperations[0].id;
+                    } else {
+                        footnoteContainerID = query_res[0].id;
+                        if (settings.updateFootnoteContainerTitle) {
+                            await updateBlock("markdown", `${footnoteContainerTitle}`, footnoteContainerID);
                         }
-
-                        let lastFootnoteId = null;
-                        let nextSibling = targetBlock.nextElementSibling;
-
-                        // 遍历所有后续兄弟元素
-                        while (nextSibling) {
-                            // 检查是否是脚注元素
-                            if (nextSibling.hasAttribute('custom-plugin-footnote-content')) {
-                                lastFootnoteId = nextSibling.getAttribute('data-node-id');
-                            } else {
-                                // 如果遇到非脚注元素，跳出循环
-                                break;
-                            }
-                            nextSibling = nextSibling.nextElementSibling;
-                        }
-
-                        return lastFootnoteId; // 返回最后一个脚注的id，如果没有脚注则返回null
                     }
 
-                    let lastFootnoteID = findLastFootnoteId(footnoteContainerID);
-                    if (lastFootnoteID == null) {
+                    await setBlockAttrs(footnoteContainerID, {
+                        "custom-plugin-footnote-parent": protyle.block.rootID
+                    });
+                    break;
+
+                case '3': // 子文档
+                    const existingDoc = await sql(
+                        `SELECT * FROM blocks WHERE type='d' AND ial like '%custom-plugin-footnote-parent="${protyle.block.rootID}"%' LIMIT 1`
+                    );
+
+                    if (existingDoc?.length > 0) {
+                        docID = existingDoc[0].id;
+                        if (settings.updateFootnoteContainerTitle) {
+                            await renameDocByID(docID, footnoteContainerTitle);
+                        }
+
+                    } else {
+                        const notebook = currentDoc[0].box;
+                        const parentPath = currentDoc[0].hpath;
+                        docID = await createDocWithMd(notebook, `${parentPath}/${footnoteContainerTitle}`, "");
+
+                        if (!docID) {
+                            pushErrMsg("Failed to create child document");
+                            return;
+                        }
+
+                        await setBlockAttrs(docID, {
+                            "custom-plugin-footnote-parent": protyle.block.rootID
+                        });
+
+                        // 删除默认生成的块
+                        // const defaultBlock = await sql(`SELECT * FROM blocks WHERE root_id = '${docID}' AND type != 'd'`);
+                        // console.log(defaultBlock);
+                        // if (defaultBlock.length > 0) {
+                        //     await deleteBlock(defaultBlock[0].id);
+                        // }
+                    }
+                    footnoteContainerID = docID;
+                    break;
+
+                case '4': // 父块后
+                    docID = protyle.block.rootID;
+                    if (currentParentBlockId == null) {
+                        footnoteContainerID = currentBlockId;
+                    }
+                    else {
+                        footnoteContainerID = currentParentBlockId;
+                    }
+                    break;
+
+                case '5': // 指定路径存放
+                    docID = await this.getOrCreateFootnoteDoc(protyle.block.rootID, currentDocTitle, settings);
+                    if (!docID) {
+                        this.closeLoadingDialog();
+                        return;
+                    }
+                    footnoteContainerID = docID;
+                    break;
+            }
+
+            // 过滤掉脚注文本 <sup>((id "text"))</sup>
+            // 正则表达式匹配包含 custom-footnote="true" 的 <span> 标签
+            let customFootnotePattern = /<span[^>]*?custom-footnote=[^>]*?>.*?<\/span>/g;
+
+            // 正则表达式匹配 <span class="katex">...</span> 及其内容
+            let katexPattern = /<span class="katex">[\s\S]*?<\/span>(<\/span>)*<\/span>/g;
+
+            // 正则表达式匹配并替换 data-type 中的 custom-footnote-selected-text（包含可能的空格）
+            let selectedTextPattern = /\s*custom-footnote-selected-text(?:|-[^"\s>]*)(?="|>|\s)/g;
+            let selectedTextPattern2 = /\s*custom-footnote-hidden-selected-text(?:|-[^"\s>]*)(?="|>|\s)/g;
+            // 正则表达式匹配不含data-type的普通span标签，提取其中的文本
+            let plainSpanPattern = /<span(?![^>]*data-type)[^>]*>(.*?)<\/span>/g;
+            // 正则表达式中匹配data-type=为空的span标签，提取其中的文本
+            let plainSpanPattern2 = /<span[^>]*data-type=""[^>]*>(.*?)<\/span>/g;
+
+
+            // 使用 replace() 方法替换匹配的部分为空字符
+            let cleanSelection = selection
+                .replace(katexPattern, '')
+                .replace(customFootnotePattern, '')
+                .replace(selectedTextPattern, '')
+                .replace(selectedTextPattern2, '')
+                .replace(plainSpanPattern, '$1') // 保留span标签中的文本内容
+                .replace(plainSpanPattern2, '$1') // 保留span标签中的文本内容
+            let templates = settings.templates;
+            templates = templates.replace(/\$\{selection\}/g, cleanSelection);
+            // selectionText要对特殊符号进行处理，比如把英文双引号变为&quot;
+            const escapeHtml = (text: string) => {
+                const map: { [key: string]: string } = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;',
+                };
+                return text.replace(/[&<>"']/g, (m) => map[m]);
+            };
+            const escapedSelectionText = escapeHtml(selectionText);
+            templates = templates.replace(/\$\{selection:text\}/g, escapedSelectionText);
+            templates = templates.replace(/\$\{selection:text\}/g, selectionText);
+            templates = templates.replace(/\$\{content\}/g, zeroWhite);
+            templates = templates.replace(/\$\{refID\}/g, currentBlockId);
+            templates = templates.replace(/\$\{index\}/g, `<span data-type="custom-footnote-index a" data-href="siyuan://blocks/${currentBlockId}">${this.i18n.indexAnchor}</span>`); // 支持添加脚注编号
+            templates = templates.replace(/\$\{index:text\}/g, `<span data-type="custom-footnote-index>${this.i18n.indexAnchor}</span>`); // 支持添加脚注编号
+            templates = await renderTemplates(templates);
+
+            async function renderTemplates(templates: string): Promise<string> {
+                // First pattern to match ${{...}}
+                const dollarPattern = /\$(\{\{[^}]*\}\})/g;
+                let renderedTemplate = templates;
+                let match;
+
+                // Process each ${{...}} block one at a time
+                while ((match = dollarPattern.exec(templates)) !== null) {
+                    const sprigExpression = match[1]; // 获取{{...}}部分
+                    // Render the sprig expression using renderSprig
+                    const renderedAction = await renderSprig(sprigExpression);
+                    // Replace the entire ${{...}} block with the rendered result
+                    renderedTemplate = renderedTemplate.replace(match[0], renderedAction);
+                }
+
+                // Finally render the complete template
+                return await renderedTemplate;
+            }
+
+
+            // 插入脚注内容
+            let back;
+            // 如果settings.saveLocation不等于4，则按照设置来插入，否则直接在父块后插入
+            if (settings.saveLocation == '4') {
+                switch (settings.order) {
+                    case '2':
+                        // 逆序
                         back = await insertBlock(
                             "markdown",
                             templates,
@@ -1054,174 +1033,361 @@ export default class PluginFootnote extends Plugin {
                             footnoteContainerID, // previousID
                             undefined // parentID
                         );
-                    }
-                    else {
-                        back = await insertBlock(
-                            "markdown",
-                            templates,
-                            undefined, // nextID 
-                            lastFootnoteID, // previousID
-                            undefined // parentID
-                        );
-                    }
-                    break;
-            }
-        }
-        else {
-            switch (settings.order) {
-                case '2':
-                    // 倒序
-                    if (settings.saveLocation != 3) {
-                        back = await appendBlock("markdown", templates, footnoteContainerID);
-                    } else {
-                        back = await prependBlock("markdown", templates, footnoteContainerID);
-                    }
-                    break;
-                case '1':
-                default:
-                    if (settings.saveLocation != 3) {
+                        break;
+                    case '1':
+                    default:
 
-                        let footnoteContainerDom = (await getBlockDOM(docID)).dom;
-                        // 默认顺序插入
-                        const parser = new DOMParser();
-                        // 将DOM字符串解析为DOM文档
-                        const doc = parser.parseFromString(footnoteContainerDom, 'text/html');
+                        function findLastFootnoteId(id) {
+                            // 首先找到目标块
+                            const targetBlock = document.querySelector(`.protyle-wysiwyg [data-node-id="${id}"]`);
+                            if (!targetBlock) {
+                                return null;
+                            }
 
-                        // 查找所有符合条件的div元素
-                        const footnotes = doc.querySelectorAll(`div[custom-plugin-footnote-content="${protyle.block.rootID}"]`);
-                        if (footnotes.length > 0) {
-                            const lastFootnote = footnotes[footnotes.length - 1];
-                            let lastFootnoteID = lastFootnote.getAttribute('data-node-id');
+                            let lastFootnoteId = null;
+                            let nextSibling = targetBlock.nextElementSibling;
+
+                            // 遍历所有后续兄弟元素
+                            while (nextSibling) {
+                                // 检查是否是脚注元素
+                                if (nextSibling.hasAttribute('custom-plugin-footnote-content')) {
+                                    lastFootnoteId = nextSibling.getAttribute('data-node-id');
+                                } else {
+                                    // 如果遇到非脚注元素，跳出循环
+                                    break;
+                                }
+                                nextSibling = nextSibling.nextElementSibling;
+                            }
+
+                            return lastFootnoteId; // 返回最后一个脚注的id，如果没有脚注则返回null
+                        }
+
+                        let lastFootnoteID = findLastFootnoteId(footnoteContainerID);
+                        if (lastFootnoteID == null) {
                             back = await insertBlock(
                                 "markdown",
                                 templates,
                                 undefined, // nextID 
-                                lastFootnoteID, // previousID - 放在最后一个子块后面
+                                footnoteContainerID, // previousID
                                 undefined // parentID
                             );
-                        } else {
-                            // 如果没有找到子块,直接在标题下添加
-                            back = await appendBlock("markdown", templates, footnoteContainerID);
                         }
-                    }
-                    else {
-                        back = await appendBlock("markdown", templates, footnoteContainerID);
-                    }
-                    break;
-            }
-        }
-
-        let newBlockId = back[0].doOperations[0].id
-        // 添加脚注内容属性
-        await setBlockAttrs(newBlockId, { "custom-plugin-footnote-content": protyle.block.rootID });
-        await setBlockAttrs(newBlockId, { "alias": settings.footnoteAlias });
-
-
-
-        // --------------------------添加脚注引用 -------------------------- // 
-        // 选中的文本添加样式
-        protyle.toolbar.range = range;
-        if (settings.selectFontStyle === '2') {
-            protyle.toolbar.setInlineMark(protyle, `custom-footnote-selected-text-${newBlockId}`, "range");
-        } else {
-            protyle.toolbar.setInlineMark(protyle, `custom-footnote-hidden-selected-text-${newBlockId}`, "range");
-        }
-
-        // 将range的起始点和结束点都移动到选中文本的末尾
-        protyle.toolbar.range = range;
-        range.collapse(false); // false 表示将光标移动到选中文本的末尾
-
-        // 需要先清除样式，避免带上选中文本的样式
-        try {
-            protyle.toolbar.setInlineMark(protyle, "clear", "toolbar");
-        } catch (e) {
-        }
-
-
-        // 添加块引，同时添加上标样式
-        let memoELement;
-        switch (settings.footnoteRefStyle) {
-            case '2':
-                // 插入块链接
-                protyle.toolbar.setInlineMark(protyle, "a sup", "range", {
-                    type: "a",
-                    color: `${"siyuan://blocks/" + newBlockId + zeroWhite + settings.footnoteBlockref}`
-                });
-                memoELement = protyle.element.querySelector(`span[data-href="siyuan://blocks/${newBlockId}"]`);
-                break;
-            default:
-                // 插入块引
-                protyle.toolbar.setInlineMark(protyle, "block-ref sup", "range", {
-                    type: "id",
-                    color: `${newBlockId + zeroWhite + "s" + zeroWhite + settings.footnoteBlockref}`
-                });
-                memoELement = protyle.element.querySelector(`span[data-id="${newBlockId}"]`);
-                break;
-        }
-
-        // // 给脚注块引添加属性，方便后续查找，添加其他功能
-        if (memoELement) {
-
-            memoELement.setAttribute("custom-footnote", newBlockId);
-            // 保存脚注块引添加的自定义属性值
-
-            saveViaTransaction(memoELement)
-        }
-
-
-        // 关闭工具栏
-        protyle.toolbar.element.classList.add("fn__none")
-
-        // 等待保存数据
-        await whenBlockSaved().then(async (msg) => { console.log("saved") });
-        // --------------------------添加脚注引用 END-------------------------- //
-
-        // --------------------------脚注弹窗 Start-------------------------- // 
-
-        if (settings.floatDialogEnable) {
-            // Show footnote dialog with original selection text
-            await refreshSql();
-            new FootnoteDialog(
-                cleanSelection,
-                newBlockId,
-                async () => {
-                    if (settings.enableOrderedFootnotes) {
-                        this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
-                        await this.reorderFootnotes(protyle.block.rootID, true);
-                        this.closeLoadingDialog();
-                        await pushMsg(this.i18n.reorderFootnotes + " Finished");
-                    }
-
-                    // 如果.sy__siyuan-plugin-blockref-footnotefootnote-dock.layout__tab--active, 则点击button.footnote-dock__refresh进行更新
-                    if (document.querySelector(':not(.fn__none) .sy__siyuan-plugin-blockref-footnotefootnote-dock')) {
-                        const refreshButton = document.querySelector('.footnote-dock__refresh');
-                        if (refreshButton) {
-                            refreshButton.click();
+                        else {
+                            back = await insertBlock(
+                                "markdown",
+                                templates,
+                                undefined, // nextID 
+                                lastFootnoteID, // previousID
+                                undefined // parentID
+                            );
                         }
-                    }
-                },
-                x,
-                y // Position below cursor
-            );
-        } else {
-            if (settings.enableOrderedFootnotes) {
-                this.showLoadingDialog(this.i18n.reorderFootnotes + " ...");
-                await this.reorderFootnotes(protyle.block.rootID, true);
-                this.closeLoadingDialog();
-                await pushMsg(this.i18n.reorderFootnotes + " Finished");
-            }
-            // 如果.sy__siyuan-plugin-blockref-footnotefootnote-dock.layout__tab--active, 则点击button.footnote-dock__refresh进行更新
-            if (document.querySelector(':not(.fn__none) .sy__siyuan-plugin-blockref-footnotefootnote-dock')) {
-                const refreshButton = document.querySelector('.footnote-dock__refresh');
-                if (refreshButton) {
-                    refreshButton.click();
+                        break;
                 }
             }
+            else {
+                switch (settings.order) {
+                    case '2':
+                        // 倒序
+                        if (settings.saveLocation != 3) {
+                            back = await appendBlock("markdown", templates, footnoteContainerID);
+                        } else {
+                            back = await prependBlock("markdown", templates, footnoteContainerID);
+                        }
+                        break;
+                    case '1':
+                    default:
+                        if (settings.saveLocation != 3) {
+
+                            let footnoteContainerDom = (await getBlockDOM(docID)).dom;
+                            // 默认顺序插入
+                            const parser = new DOMParser();
+                            // 将DOM字符串解析为DOM文档
+                            const doc = parser.parseFromString(footnoteContainerDom, 'text/html');
+
+                            // 查找所有符合条件的div元素
+                            const footnotes = doc.querySelectorAll(`div[custom-plugin-footnote-content="${protyle.block.rootID}"]`);
+                            if (footnotes.length > 0) {
+                                const lastFootnote = footnotes[footnotes.length - 1];
+                                let lastFootnoteID = lastFootnote.getAttribute('data-node-id');
+                                back = await insertBlock(
+                                    "markdown",
+                                    templates,
+                                    undefined, // nextID 
+                                    lastFootnoteID, // previousID - 放在最后一个子块后面
+                                    undefined // parentID
+                                );
+                            } else {
+                                // 如果没有找到子块,直接在标题下添加
+                                back = await appendBlock("markdown", templates, footnoteContainerID);
+                            }
+                        }
+                        else {
+                            back = await appendBlock("markdown", templates, footnoteContainerID);
+                        }
+                        break;
+                }
+            }
+
+            let newBlockId = back[0].doOperations[0].id
+            // 添加脚注内容属性
+            await setBlockAttrs(newBlockId, { "custom-plugin-footnote-content": protyle.block.rootID });
+            await setBlockAttrs(newBlockId, { "alias": settings.footnoteAlias });
+
+
+
+            // --------------------------添加脚注引用 -------------------------- // 
+            // 选中的文本添加样式
+            protyle.toolbar.range = range;
+            if (settings.selectFontStyle === '2') {
+                protyle.toolbar.setInlineMark(protyle, `custom-footnote-selected-text-${newBlockId}`, "range");
+            } else {
+                protyle.toolbar.setInlineMark(protyle, `custom-footnote-hidden-selected-text-${newBlockId}`, "range");
+            }
+
+            // 将range的起始点和结束点都移动到选中文本的末尾
+            protyle.toolbar.range = range;
+            range.collapse(false); // false 表示将光标移动到选中文本的末尾
+
+            // 需要先清除样式，避免带上选中文本的样式
+            try {
+                protyle.toolbar.setInlineMark(protyle, "clear", "toolbar");
+            } catch (e) {
+            }
+
+
+            // 添加块引，同时添加上标样式
+            let memoELement;
+            switch (settings.footnoteRefStyle) {
+                case '2':
+                    // 插入块链接
+                    protyle.toolbar.setInlineMark(protyle, "a sup", "range", {
+                        type: "a",
+                        color: `${"siyuan://blocks/" + newBlockId + zeroWhite + settings.footnoteBlockref}`
+                    });
+                    memoELement = protyle.element.querySelector(`span[data-href="siyuan://blocks/${newBlockId}"]`);
+                    break;
+                default:
+                    // 插入块引
+                    protyle.toolbar.setInlineMark(protyle, "block-ref sup", "range", {
+                        type: "id",
+                        color: `${newBlockId + zeroWhite + "s" + zeroWhite + settings.footnoteBlockref}`
+                    });
+                    memoELement = protyle.element.querySelector(`span[data-id="${newBlockId}"]`);
+                    break;
+            }
+
+            // // 给脚注块引添加属性，方便后续查找，添加其他功能
+            if (memoELement) {
+
+                memoELement.setAttribute("custom-footnote", newBlockId);
+                // 保存脚注块引添加的自定义属性值
+
+                saveViaTransaction(memoELement)
+            }
+
+
+            // 关闭工具栏
+            protyle.toolbar.element.classList.add("fn__none")
+
+            // 等待保存数据
+            await whenBlockSaved().then(async (msg) => { console.log("saved") });
+            // --------------------------添加脚注引用 END-------------------------- //
+
+            // --------------------------脚注弹窗 Start-------------------------- // 
+
+            if (settings.floatDialogEnable) {
+                // 在显示脚注弹窗之前关闭进度条
+                this.closeLoadingDialog();
+
+                // Show footnote dialog with original selection text
+                await refreshSql();
+                new FootnoteDialog(
+                    cleanSelection,
+                    newBlockId,
+                    async () => {
+                        if (settings.enableOrderedFootnotes) {
+                            this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
+                            await this.reorderFootnotes(protyle.block.rootID, true);
+                            this.closeLoadingDialog();
+                            await pushMsg(this.i18n.reorderFootnotes + " Finished");
+                        }
+
+                        // 如果.sy__siyuan-plugin-blockref-footnotefootnote-dock.layout__tab--active, 则点击button.footnote-dock__refresh进行更新
+                        if (document.querySelector(':not(.fn__none) .sy__siyuan-plugin-blockref-footnotefootnote-dock')) {
+                            const refreshButton = document.querySelector('.footnote-dock__refresh');
+                            if (refreshButton) {
+                                refreshButton.click();
+                            }
+                        }
+                    },
+                    x,
+                    y // Position below cursor
+                );
+            } else {
+                // 如果不显示脚注弹窗，在这里关闭进度条
+                if (settings.enableOrderedFootnotes) {
+                    // 保持进度条显示，更新消息
+                    this.progressManager?.setMessage(this.i18n.reorderFootnotes + " ...");
+                    await this.reorderFootnotes(protyle.block.rootID, true);
+                    this.closeLoadingDialog();
+                    await pushMsg(this.i18n.reorderFootnotes + " Finished");
+                } else {
+                    this.closeLoadingDialog();
+                }
+                // 如果.sy__siyuan-plugin-blockref-footnotefootnote-dock.layout__tab--active, 则点击button.footnote-dock__refresh进行更新
+                if (document.querySelector(':not(.fn__none) .sy__siyuan-plugin-blockref-footnotefootnote-dock')) {
+                    const refreshButton = document.querySelector('.footnote-dock__refresh');
+                    if (refreshButton) {
+                        refreshButton.click();
+                    }
+                }
+            }
+
+            // --------------------------添加脚注弹窗 END-------------------------- //
+
+            // 如果是指定路径存放，异步检查和更新脚注文档标题（不阻塞）
+            if (settings.saveLocation === '5') {
+                this.checkAndUpdateFootnoteDocTitle(protyle.block.rootID, currentDocTitle, settings);
+            }
+        } catch (error) {
+            // 发生错误时关闭进度条
+            this.closeLoadingDialog();
+            console.error('Error in addMemoBlock:', error);
+            await pushErrMsg('添加脚注失败: ' + error.message);
+        }
+    }
+
+    /**
+     * 获取或创建脚注文档（用于指定路径存放）
+     * @param currentDocId 当前文档ID
+     * @param currentDocTitle 当前文档标题
+     * @param settings 设置
+     * @returns 脚注文档ID
+     */
+    private async getOrCreateFootnoteDoc(currentDocId: string, currentDocTitle: string, settings: any): Promise<string | null> {
+        // 1. 检查当前文档是否已有绑定的脚注文档ID
+        const currentDocAttrs = await getBlockAttrs(currentDocId);
+        const boundFootnoteDocId = currentDocAttrs['custom-plugin-footnote-doc-id'];
+
+        if (boundFootnoteDocId) {
+            // 检查绑定的文档是否存在
+            const existingDoc = await sql(`SELECT * FROM blocks WHERE id = '${boundFootnoteDocId}' AND type = 'd' LIMIT 1`);
+            if (existingDoc?.length > 0) {
+                return boundFootnoteDocId;
+            }
         }
 
-        // --------------------------添加脚注弹窗 END-------------------------- //
+        // 2. 没有绑定或绑定的文档不存在，需要创建或查找
+        const notebook = settings.footnoteNotebook;
+        if (!notebook) {
+            await pushErrMsg(this.i18n.errors?.noNotebook || '请选择存放脚注的笔记本');
+            return null;
+        }
 
+        // 解析路径（渲染 sprig 语法和 ${filename}）
+        const renderedPath = await this.renderFootnoteDocPath(settings.footnoteDocPath, currentDocTitle);
 
+        // 3. 尝试通过路径查找文档
+        const existingDocs = await sql(`
+            SELECT * FROM blocks 
+            WHERE box = '${notebook}' 
+            AND hpath = '${renderedPath}' 
+            AND type = 'd' 
+            LIMIT 1
+        `);
+
+        let docId: string;
+        if (existingDocs?.length > 0) {
+            // 文档已存在，直接使用
+            docId = existingDocs[0].id;
+        } else {
+            // 4. 文档不存在，创建新文档
+            // 更新进度条消息（如果外层已经显示了进度条）
+            if (this.progressManager) {
+                this.progressManager.setMessage(this.i18n.creatingFootnoteDoc || '正在创建脚注文档...');
+            }
+
+            try {
+                docId = await createDocWithMd(notebook, renderedPath, "");
+                if (!docId) {
+                    await pushErrMsg(this.i18n.errors?.createDocFailed || '创建脚注文档失败');
+                    return null;
+                }
+            } catch (error) {
+                await pushErrMsg(this.i18n.errors?.createDocFailed || '创建脚注文档失败');
+                return null;
+            }
+        }
+
+        // 5. 绑定脚注文档ID到当前文档
+        await setBlockAttrs(currentDocId, {
+            "custom-plugin-footnote-doc-id": docId
+        });
+
+        return docId;
+    }
+
+    /**
+     * 在添加脚注完成后，异步检查和更新脚注文档标题
+     * @param currentDocId 当前文档ID
+     * @param currentDocTitle 当前文档标题
+     * @param settings 设置
+     */
+    private async checkAndUpdateFootnoteDocTitle(currentDocId: string, currentDocTitle: string, settings: any): Promise<void> {
+        // 只在开启自动更新且路径包含 ${filename} 时执行
+        if (!settings.updateFootnoteContainerTitle || !settings.footnoteDocPath.includes('${filename}')) {
+            return;
+        }
+
+        try {
+            // 获取绑定的脚注文档ID
+            const currentDocAttrs = await getBlockAttrs(currentDocId);
+            const footnoteDocId = currentDocAttrs['custom-plugin-footnote-doc-id'];
+            if (!footnoteDocId) return;
+
+            // 获取脚注文档当前标题
+            const footnoteDoc = await sql(`SELECT * FROM blocks WHERE id = '${footnoteDocId}' AND type = 'd' LIMIT 1`);
+            if (!footnoteDoc?.length) return;
+
+            const currentTitle = footnoteDoc[0].content;
+
+            // 计算期望的标题
+            const renderedPath = await this.renderFootnoteDocPath(settings.footnoteDocPath, currentDocTitle);
+            const expectedTitle = renderedPath.split('/').pop() || renderedPath;
+
+            // 如果标题不一致，则更新
+            if (expectedTitle && currentTitle !== expectedTitle) {
+                await renameDocByID(footnoteDocId, expectedTitle);
+            }
+        } catch (error) {
+            console.warn('Failed to update footnote doc title:', error);
+        }
+    }
+
+    /**
+     * 渲染脚注文档路径（处理 sprig 语法和 ${filename} 变量）
+     * @param pathTemplate 路径模板
+     * @param filename 文件名
+     * @returns 渲染后的路径
+     */
+    private async renderFootnoteDocPath(pathTemplate: string, filename: string): Promise<string> {
+        // 首先处理 ${filename} 变量（因为 renderSprig 不处理这个）
+        let renderedPath = pathTemplate.replace(/\$\{filename\}/g, filename);
+
+        // 直接使用 renderSprig 渲染整个路径（处理 {{...}} Sprig 语法）
+        try {
+            renderedPath = await renderSprig(renderedPath);
+        } catch (error) {
+            console.warn('Failed to render sprig template:', error);
+            // 渲染失败，保留原样
+        }
+
+        // 确保路径以 / 开头
+        if (!renderedPath.startsWith('/')) {
+            renderedPath = '/' + renderedPath;
+        }
+
+        return renderedPath;
     }
 
     private async createFootnoteForBlocks(blocks: Element[], docRootId: string) {
@@ -1267,6 +1433,10 @@ export default class PluginFootnote extends Plugin {
                 break;
             case '3':
                 footnoteContainerTitle = settings.footnoteContainerTitle3.replace(/\$\{filename\}/g, currentDocTitle);
+                break;
+            case '5':
+                // 对于指定路径存放，标题由路径决定，这里不需要处理
+                footnoteContainerTitle = "";
                 break;
         }
 
@@ -1316,6 +1486,12 @@ export default class PluginFootnote extends Plugin {
             case '4': // After parent block
                 docID = docRootId;
                 footnoteContainerID = currentParentBlockId ?? currentBlockId;
+                break;
+
+            case '5': // Custom path
+                docID = await this.getOrCreateFootnoteDoc(docRootId, currentDocTitle, settings);
+                if (!docID) return;
+                footnoteContainerID = docID;
                 break;
         }
 
@@ -1420,6 +1596,11 @@ export default class PluginFootnote extends Plugin {
         await setBlockAttrs(firstBlockId, { "custom-footnote": newBlockId });
 
 
+        // 如果是指定路径存放且显示了加载对话框，现在关闭它
+        if (settings.saveLocation === '5') {
+            this.closeLoadingDialog();
+        }
+
         // 7. Finalize (show dialog, reorder, etc.)
         if (settings.floatDialogEnable) {
             const rect = blocks[blocks.length - 1].getBoundingClientRect();
@@ -1445,6 +1626,11 @@ export default class PluginFootnote extends Plugin {
                 this.closeLoadingDialog();
                 await pushMsg(this.i18n.reorderFootnotes + " Finished");
             }
+        }
+
+        // 如果是指定路径存放，异步检查和更新脚注文档标题（不阻塞）
+        if (settings.saveLocation === '5') {
+            this.checkAndUpdateFootnoteDocTitle(docRootId, currentDocTitle, settings);
         }
     }
 
@@ -1479,6 +1665,18 @@ export default class PluginFootnote extends Plugin {
                 );
                 if (childDoc?.length > 0) {
                     footnoteContainerDocID = childDoc[0].id;
+                }
+                break;
+            case 5: // Custom path
+                // 从当前文档属性中获取绑定的脚注文档ID
+                const docAttrs = await getBlockAttrs(docID);
+                const boundDocId = docAttrs['custom-plugin-footnote-doc-id'];
+                if (boundDocId) {
+                    // 验证文档是否存在
+                    const footnoteDoc = await sql(`SELECT * FROM blocks WHERE id = '${boundDocId}' AND type = 'd' LIMIT 1`);
+                    if (footnoteDoc?.length > 0) {
+                        footnoteContainerDocID = boundDocId;
+                    }
                 }
                 break;
         }
@@ -1520,19 +1718,19 @@ export default class PluginFootnote extends Plugin {
                 const currentNumber = currentNumberMatch ? parseInt(currentNumberMatch[1], 10) : null;
                 const targetNumber = footnoteOrder.get(footnoteId);
 
-            // 记录包含此引用的块
+                // 记录包含此引用的块
                 const containingBlock = ref.closest('[data-node-id][data-node-index]') as HTMLElement;
                 if (containingBlock) {
                     const blockId = containingBlock.getAttribute('data-node-id');
                     if (blockId) {
-                    // 初始化块的脚注引用信息
+                        // 初始化块的脚注引用信息
                         if (!blockRefInfo.has(blockId)) {
                             blockRefInfo.set(blockId, []);
                         }
-                    // 添加当前脚注的编号信息
+                        // 添加当前脚注的编号信息
                         blockRefInfo.get(blockId)!.push({ footnoteId, currentNumber, targetNumber });
 
-                    // 更新脚注引用的显示（临时更新 DOM，稍后决定是否需要持久化）
+                        // 更新脚注引用的显示（临时更新 DOM，稍后决定是否需要持久化）
                         if (targetNumber) {
                             ref.textContent = `[${targetNumber}]`;
                         }
@@ -1905,7 +2103,7 @@ export default class PluginFootnote extends Plugin {
             title: "Processing",
             content: `<div id="loadingDialogContent"></div>`,
             width: "350px",
-            height: "230px",
+            height: "auto",
             disableClose: true,
             destroyCallback: null
         });

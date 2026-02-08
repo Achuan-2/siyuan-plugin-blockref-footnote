@@ -4,10 +4,11 @@
     import { getDefaultSettings } from './defaultSettings';
     import { t } from './utils/i18n';
     import { confirm } from 'siyuan';
-    import { pushMsg } from './api';
+    import { pushMsg, lsNotebooks } from './api';
     export let plugin;
 
     let settings = { ...getDefaultSettings() };
+    let notebookOptions: { [key: string]: string } = {};
 
     interface ISettingGroup {
         name: string;
@@ -51,6 +52,21 @@
                 t('settings.footnoteContainerTitle3.description') ||
                 'Third container title option',
         },
+        footnoteNotebook: {
+            key: 'footnoteNotebook',
+            value: settings.footnoteNotebook,
+            type: 'select',
+            title: t('settings.footnoteNotebook.title') || 'Target Notebook',
+            description: t('settings.footnoteNotebook.description') || 'Select notebook for footnotes',
+            options: notebookOptions,
+        },
+        footnoteDocPath: {
+            key: 'footnoteDocPath',
+            value: settings.footnoteDocPath,
+            type: 'textinput',
+            title: t('settings.footnoteDocPath.title') || 'Document Path',
+            description: t('settings.footnoteDocPath.description') || 'Path for footnote documents',
+        },
     };
 
     // 根据 saveLocation 获取对应的存放设置项
@@ -79,6 +95,18 @@
                 }];
             case '4': // 父块之后
                 return [];
+            case '5': // 指定路径存放
+                return [
+                    {
+                        ...containerSettingItems.footnoteNotebook,
+                        value: settings.footnoteNotebook,
+                        options: notebookOptions,
+                    },
+                    {
+                        ...containerSettingItems.footnoteDocPath,
+                        value: settings.footnoteDocPath,
+                    }
+                ];
             default:
                 return [];
         }
@@ -100,6 +128,7 @@
                         '2': t('settings.saveLocation.specified') || 'Specified Document',
                         '3': t('settings.saveLocation.childDoc') || 'Child Document',
                         '4': t('settings.saveLocation.afterParent') || 'After Parent Block',
+                        '5': t('settings.saveLocation.customPath') || 'Custom Path',
                     },
                 },
                 // 动态添加对应存放位置的设置项
@@ -293,8 +322,27 @@
     }
 
     onMount(async () => {
+        await loadNotebooks();
         await runload();
     });
+
+    // 加载笔记本列表
+    async function loadNotebooks() {
+        try {
+            const notebooks = await lsNotebooks();
+            if (notebooks && notebooks.notebooks) {
+                const options: { [key: string]: string } = {};
+                notebooks.notebooks.forEach((nb: any) => {
+                    if (!nb.closed) {
+                        options[nb.id] = nb.name;
+                    }
+                });
+                notebookOptions = options;
+            }
+        } catch (error) {
+            console.error('Failed to load notebooks:', error);
+        }
+    }
 
     async function runload() {
         const loadedSettings = await plugin.loadSettings();
@@ -332,6 +380,7 @@
                                 '2': t('settings.saveLocation.specified') || 'Specified Document',
                                 '3': t('settings.saveLocation.childDoc') || 'Child Document',
                                 '4': t('settings.saveLocation.afterParent') || 'After Parent Block',
+                                '5': t('settings.saveLocation.customPath') || 'Custom Path',
                             },
                         },
                         // 动态添加对应存放位置的设置项

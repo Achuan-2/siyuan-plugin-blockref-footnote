@@ -17,26 +17,35 @@
             "current": "当前文档末尾",
             "specified": "指定文档",
             "childDoc": "子文档",
-            "afterParent": "父块后"
+            "afterParent": "父块后",
+            "customPath": "指定路径存放"
         },
         "docId": {
             "title": "指定文档的文档ID",
-            "description": "当脚注存放位置为“指定文档”时，通过文档ID指定文档，设置这个文档存放所有的脚注"
+            "description": "当脚注存放位置为\"指定文档\"时，通过文档ID指定文档，设置这个文档存放所有的脚注"
         },
         "footnoteContainerTitle": {
             "title": "当前文档的脚注容器标题",
-            "description": "当脚注存放位置为“当前文档”时，设置存放脚注的标题名（用#指定标题级别）<br/>模板变量：<code>${filename}</code>当前文档标题",
+            "description": "当脚注存放位置为\"当前文档\"时，设置存放脚注的标题名（用#指定标题级别）<br/>模板变量：<code>${filename}</code>当前文档标题",
             "value": "# 脚注"
         },
         "footnoteContainerTitle2": {
             "title": "指定文档的脚注容器标题",
-            "description": "当脚注存放位置为“指定文档”时，设置存放脚注的标题名（用#指定标题级别）<br/>模板变量：<code>${filename}</code>当前文档标题",
+            "description": "当脚注存放位置为\"指定文档\"时，设置存放脚注的标题名（用#指定标题级别）<br/>模板变量：<code>${filename}</code>当前文档标题",
             "value": "## ${filename} 脚注"
         },
         "footnoteContainerTitle3": {
             "title": "子文档的脚注容器标题",
-            "description": "当脚注存放位置为“子文档”时，设置存放脚注的文档标题名<br/>模板变量：<code>${filename}</code>当前文档标题",
+            "description": "当脚注存放位置为\"子文档\"时，设置存放脚注的文档标题名<br/>模板变量：<code>${filename}</code>当前文档标题",
             "value": "脚注丨${filename} "
+        },
+        "footnoteNotebook": {
+            "title": "指定笔记本",
+            "description": "选择存放脚注文档的笔记本"
+        },
+        "footnoteDocPath": {
+            "title": "指定文档路径",
+            "description": "设置脚注文档的存放路径，支持 Sprig 模板语法（如 <code>/${{now | date \"2006/200601\"}}/</code>）和 <code>${filename}</code> 变量<br/>如果路径不存在，会自动创建文档"
         },
         "updateFootnoteContainerTitle": {
             "title": "是否自动更新脚注容器标题",
@@ -44,7 +53,7 @@
         },
         "footnoteRefStyle": {
             "title": "脚注引用样式",
-            "description": "脚注引用的样式：“块引”或“块链接”",
+            "description": "脚注引用的样式：\"块引\"或\"块链接\"",
             "ref": "块引",
             "link": "块链接"
         },
@@ -98,8 +107,11 @@
     "reorderFootnotes": "脚注编号",
     "cancelReorderFootnotes": "取消脚注编号",
     "errors": {
-        "noDocId": "【块引脚注插件】请填写指定文档ID"
+        "noDocId": "【块引脚注插件】请填写指定文档ID",
+        "noNotebook": "【块引脚注插件】请选择存放脚注的笔记本",
+        "createDocFailed": "【块引脚注插件】创建脚注文档失败"
     },
+    "creatingFootnoteDoc": "正在创建脚注文档...",
     "indexAnchor": "[注]",
     "showFootnoteSelection": "显示选中文本",
     "hideFootnoteSelection": "隐藏选中文本",
@@ -116,6 +128,6 @@
         "openFootnote": "打开脚注块",
         "openOriginal": "打开原块"
     },
-    "addFootnote":"添加脚注",
+    "addFootnote": "添加脚注",
     "jumpToFootnote": "跳转到脚注"
 }

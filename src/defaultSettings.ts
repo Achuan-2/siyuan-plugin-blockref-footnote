@@ -7,6 +7,9 @@ export const getDefaultSettings = () => ({
     docID: "",
     footnoteContainerTitle2: t('settings.footnoteContainerTitle2.value'),
     footnoteContainerTitle3: t('settings.footnoteContainerTitle3.value'),
+    // 新增：指定路径存放配置
+    footnoteNotebook: "",
+    footnoteDocPath: "/脚注/脚注丨${filename}",
     updateFootnoteContainerTitle: true,
     order: '1',
 

@@ -17,7 +17,8 @@
             "current": "Current Document",
             "specified": "Specified Document",
             "childDoc": "Child Document",
-            "afterParent": "After Parent Block"
+            "afterParent": "After Parent Block",
+            "customPath": "Custom Path"
         },
         "docId": {
             "title": "Specified Document ID",
@@ -37,6 +38,14 @@
             "title": "Footnote Container Title",
             "description": "Set the document title to store footnotes when the footnote location is set to Child Document.<br/>Template variable: Current document title <code>${filename}</code>",
             "value": "${filename} Footnotes"
+        },
+        "footnoteNotebook": {
+            "title": "Target Notebook",
+            "description": "Select the notebook where footnote documents will be stored"
+        },
+        "footnoteDocPath": {
+            "title": "Document Path",
+            "description": "Set the path for footnote documents, supports Sprig template syntax (e.g. <code>/${{now | date \"2006/200601\"}}/</code>) and <code>${filename}</code> variable<br/>The document will be created automatically if the path doesn't exist"
         },
         "updateFootnoteContainerTitle": {
             "title": "Auto-update footnote container title?",
@@ -99,8 +108,11 @@
     "reorderFootnotes": "Reorder Footnotes",
     "cancelReorderFootnotes": "Cancel Reorder Footnotes",
     "errors": {
-        "noDocId": "[Block Ref Footnote Plugin] Please fill in the specified document ID"
+        "noDocId": "[Block Ref Footnote Plugin] Please fill in the specified document ID",
+        "noNotebook": "[Block Ref Footnote Plugin] Please select a notebook for footnotes",
+        "createDocFailed": "[Block Ref Footnote Plugin] Failed to create footnote document"
     },
+    "creatingFootnoteDoc": "Creating footnote document...",
     "indexAnchor": "[*]",
     "showFootnoteSelection": "Show selected text",
     "hideFootnoteSelection": "Hide selected text",
@@ -117,6 +129,6 @@
         "openFootnote": "Open Footnote",
         "openOriginal": "Open Original Block"
     },
-    "addFootnote":"Add Footnote",
+    "addFootnote": "Add Footnote",
     "jumpToFootnote": "Jump to Footnote"
 }
