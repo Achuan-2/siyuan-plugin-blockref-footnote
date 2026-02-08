@@ -14,6 +14,76 @@
         items: ISettingItem[];
     }
 
+    // 定义所有可能的容器设置项
+    const containerSettingItems: { [key: string]: ISettingItem } = {
+        footnoteContainerTitle: {
+            key: 'footnoteContainerTitle',
+            value: settings.footnoteContainerTitle,
+            type: 'textinput',
+            title: t('settings.footnoteContainerTitle.title') || 'Footnote Container Title',
+            description:
+                t('settings.footnoteContainerTitle.description') ||
+                'Title for footnote container',
+        },
+        docID: {
+            key: 'docID',
+            value: settings.docID,
+            type: 'textinput',
+            title: t('settings.docId.title') || 'Document ID',
+            description:
+                t('settings.docId.description') || 'Specify document ID for footnotes',
+        },
+        footnoteContainerTitle2: {
+            key: 'footnoteContainerTitle2',
+            value: settings.footnoteContainerTitle2,
+            type: 'textinput',
+            title: t('settings.footnoteContainerTitle2.title') || 'Container Title 2',
+            description:
+                t('settings.footnoteContainerTitle2.description') ||
+                'Alternative container title',
+        },
+        footnoteContainerTitle3: {
+            key: 'footnoteContainerTitle3',
+            value: settings.footnoteContainerTitle3,
+            type: 'textinput',
+            title: t('settings.footnoteContainerTitle3.title') || 'Container Title 3',
+            description:
+                t('settings.footnoteContainerTitle3.description') ||
+                'Third container title option',
+        },
+    };
+
+    // 根据 saveLocation 获取对应的存放设置项
+    function getLocationSpecificItems(saveLocation: string): ISettingItem[] {
+        switch (saveLocation) {
+            case '1': // 当前文档
+                return [{
+                    ...containerSettingItems.footnoteContainerTitle,
+                    value: settings.footnoteContainerTitle,
+                }];
+            case '2': // 指定文档
+                return [
+                    {
+                        ...containerSettingItems.docID,
+                        value: settings.docID,
+                    },
+                    {
+                        ...containerSettingItems.footnoteContainerTitle2,
+                        value: settings.footnoteContainerTitle2,
+                    }
+                ];
+            case '3': // 子文档
+                return [{
+                    ...containerSettingItems.footnoteContainerTitle3,
+                    value: settings.footnoteContainerTitle3,
+                }];
+            case '4': // 父块之后
+                return [];
+            default:
+                return [];
+        }
+    }
+
     let groups: ISettingGroup[] = [
         {
             name: t('settings.groups.container') || 'Container Settings',
@@ -32,41 +102,8 @@
                         '4': t('settings.saveLocation.afterParent') || 'After Parent Block',
                     },
                 },
-                {
-                    key: 'footnoteContainerTitle',
-                    value: settings.footnoteContainerTitle,
-                    type: 'textinput',
-                    title: t('settings.footnoteContainerTitle.title') || 'Footnote Container Title',
-                    description:
-                        t('settings.footnoteContainerTitle.description') ||
-                        'Title for footnote container',
-                },
-                {
-                    key: 'docID',
-                    value: settings.docID,
-                    type: 'textinput',
-                    title: t('settings.docId.title') || 'Document ID',
-                    description:
-                        t('settings.docId.description') || 'Specify document ID for footnotes',
-                },
-                {
-                    key: 'footnoteContainerTitle2',
-                    value: settings.footnoteContainerTitle2,
-                    type: 'textinput',
-                    title: t('settings.footnoteContainerTitle2.title') || 'Container Title 2',
-                    description:
-                        t('settings.footnoteContainerTitle2.description') ||
-                        'Alternative container title',
-                },
-                {
-                    key: 'footnoteContainerTitle3',
-                    value: settings.footnoteContainerTitle3,
-                    type: 'textinput',
-                    title: t('settings.footnoteContainerTitle3.title') || 'Container Title 3',
-                    description:
-                        t('settings.footnoteContainerTitle3.description') ||
-                        'Third container title option',
-                },
+                // 动态添加对应存放位置的设置项
+                ...getLocationSpecificItems(settings.saveLocation),
                 {
                     key: 'updateFootnoteContainerTitle',
                     value: settings.updateFootnoteContainerTitle,
@@ -204,7 +241,7 @@
                                 async () => {
                                     // 确认回调
                                     settings = { ...getDefaultSettings() };
-                                    updateGroupItems();
+                                    updateGroups();
                                     await saveSettings();
                                     await pushMsg(t('settings.reset.message'));
                                 },
@@ -243,6 +280,11 @@
             if (detail.key === 'enableFootnoteDock' && plugin.handleFootnoteDockToggle) {
                 plugin.handleFootnoteDockToggle(detail.value);
             }
+
+            // 当存放位置改变时，重新构建 groups 以显示对应的设置项
+            if (detail.key === 'saveLocation') {
+                updateGroups();
+            }
         }
     };
 
@@ -257,7 +299,7 @@
     async function runload() {
         const loadedSettings = await plugin.loadSettings();
         settings = { ...loadedSettings };
-        updateGroupItems();
+        updateGroups();
         console.debug('加载配置文件完成');
     }
 
@@ -269,6 +311,58 @@
                 value: settings[item.key] ?? item.value,
             })),
         }));
+    }
+
+    // 当 saveLocation 改变时，重新构建 Container Settings 组的 items
+    function updateGroups() {
+        groups = groups.map(group => {
+            if (group.name === (t('settings.groups.container') || 'Container Settings')) {
+                return {
+                    ...group,
+                    items: [
+                        {
+                            key: 'saveLocation',
+                            value: settings.saveLocation,
+                            type: 'select',
+                            title: t('settings.saveLocation.title') || 'Save Location',
+                            description:
+                                t('settings.saveLocation.description') || 'Choose where to save footnotes',
+                            options: {
+                                '1': t('settings.saveLocation.current') || 'Current Document',
+                                '2': t('settings.saveLocation.specified') || 'Specified Document',
+                                '3': t('settings.saveLocation.childDoc') || 'Child Document',
+                                '4': t('settings.saveLocation.afterParent') || 'After Parent Block',
+                            },
+                        },
+                        // 动态添加对应存放位置的设置项
+                        ...getLocationSpecificItems(settings.saveLocation),
+                        {
+                            key: 'updateFootnoteContainerTitle',
+                            value: settings.updateFootnoteContainerTitle,
+                            type: 'checkbox',
+                            title:
+                                t('settings.updateFootnoteContainerTitle.title') ||
+                                'Update Container Title',
+                            description:
+                                t('settings.updateFootnoteContainerTitle.description') ||
+                                'Automatically update container title',
+                        },
+                        {
+                            key: 'order',
+                            value: settings.order,
+                            type: 'select',
+                            title: t('settings.order.title') || 'Order',
+                            description: t('settings.order.description') || 'Footnote ordering',
+                            options: {
+                                '1': t('settings.order.asc') || 'Ascending',
+                                '2': t('settings.order.desc') || 'Descending',
+                            },
+                        },
+                    ],
+                };
+            }
+            return group;
+        });
     }
 
     $: currentGroup = groups.find(group => group.name === focusGroup);
