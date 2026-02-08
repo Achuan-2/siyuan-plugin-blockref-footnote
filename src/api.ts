@@ -571,3 +571,8 @@ export async function version(): Promise<string> {
 export async function currentTime(): Promise<number> {
     return request('/api/system/currentTime', {});
 }
+
+
+export async function reloadUI() {
+    return request('/api/ui/reloadUI', {});
+}

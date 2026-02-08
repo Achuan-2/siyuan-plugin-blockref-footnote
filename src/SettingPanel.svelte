@@ -4,7 +4,7 @@
     import { getDefaultSettings } from './defaultSettings';
     import { t } from './utils/i18n';
     import { confirm } from 'siyuan';
-    import { pushMsg, lsNotebooks } from './api';
+    import { pushMsg, lsNotebooks,reloadUI } from './api';
     export let plugin;
 
     let settings = { ...getDefaultSettings() };
@@ -307,7 +307,7 @@
 
             // 即时处理脚注Dock栏的显示和隐藏
             if (detail.key === 'enableFootnoteDock' && plugin.handleFootnoteDockToggle) {
-                plugin.handleFootnoteDockToggle(detail.value);
+                reloadUI();
             }
 
             // 当存放位置改变时，重新构建 groups 以显示对应的设置项
@@ -348,6 +348,7 @@
         const loadedSettings = await plugin.loadSettings();
         settings = { ...loadedSettings };
         updateGroups();
+        updateGroupItems();
         console.debug('加载配置文件完成');
     }
 
