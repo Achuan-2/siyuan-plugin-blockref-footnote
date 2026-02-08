@@ -4,7 +4,7 @@ import { IMenuItem } from "siyuan/types";
 
 import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, refreshSql, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, moveBlock, createDocWithMd, getDoc, getBlockKramdown, getBlockDOM, batchUpdateBlock, openBlock } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
-import SettingPanel from "@/setting-example.svelte";
+import SettingPanel from "@/SettingPanel.svelte";
 import { getDefaultSettings } from "./defaultSettings";
 import LoadingDialog from "./components/LoadingDialog.svelte";
 import { setPluginInstance, t } from "./utils/i18n";
@@ -94,7 +94,7 @@ class FootnoteDialog {
                 preventInsetEmptyBlock: true
             },
             render: {
-                breadcrumb: false,
+                breadcrumb: true,
                 background: false,
                 title: false,
                 gutter: false,
