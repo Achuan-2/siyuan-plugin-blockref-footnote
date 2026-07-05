@@ -28,13 +28,13 @@ class FootnoteDialog {
     private initialY: number;
 
     private I18N = {
-        zh_CN: {
+        "zh-CN": {
             addFootnote: "添加脚注",
             footnoteContent: '脚注内容',
             cancel: '取消',
             ok: "确定"
         },
-        en_US: {
+        "en": {
             addFootnote: "Add Footnote",
             footnoteContent: 'Footnote Content',
             cancel: 'Cancel',
