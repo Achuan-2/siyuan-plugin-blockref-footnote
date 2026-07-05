@@ -2,7 +2,7 @@ import { Plugin, fetchSyncPost, Dialog, Protyle, IProtyle } from "siyuan";
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
-import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, refreshSql, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, moveBlock, createDocWithMd, getDoc, getBlockKramdown, getBlockDOM, batchUpdateBlock, openBlock } from "./api";
+import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, refreshSql, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, moveBlock, createDocWithMd, getDoc, getBlockKramdown, getBlockDOM, batchUpdateBlock, openBlock, getBlockByID } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
 import SettingPanel from "@/SettingPanel.svelte";
 import { getDefaultSettings } from "./defaultSettings";
@@ -1089,9 +1089,9 @@ export default class PluginFootnote extends Plugin {
                     case '2':
                         // 倒序
                         if (settings.saveLocation != 3) {
-                            back = await appendBlock("markdown", templates, footnoteContainerID);
+                            back = await this.safeAppendToContainer("markdown", templates, footnoteContainerID);
                         } else {
-                            back = await prependBlock("markdown", templates, footnoteContainerID);
+                            back = await this.safePrependToContainer("markdown", templates, footnoteContainerID);
                         }
                         break;
                     case '1':
@@ -1118,11 +1118,11 @@ export default class PluginFootnote extends Plugin {
                                 );
                             } else {
                                 // 如果没有找到子块,直接在标题下添加
-                                back = await appendBlock("markdown", templates, footnoteContainerID);
+                                back = await this.safeAppendToContainer("markdown", templates, footnoteContainerID);
                             }
                         }
                         else {
-                            back = await appendBlock("markdown", templates, footnoteContainerID);
+                            back = await this.safeAppendToContainer("markdown", templates, footnoteContainerID);
                         }
                         break;
                 }
@@ -1255,6 +1255,37 @@ export default class PluginFootnote extends Plugin {
             console.error('Error in addMemoBlock:', error);
             await pushErrMsg('添加脚注失败: ' + error.message);
         }
+    }
+
+    /**
+     * 判断块类型是否可以拥有子块
+     */
+    private isContainerBlockType(blockType: string): boolean {
+        return ['d', 'l', 'i', 'b', 's'].includes(blockType);
+    }
+
+    /**
+     * 安全地在容器末尾添加内容：若容器为叶子块（如标题、段落），
+     * 则使用 previousID 将新块插入到容器之后，避免 "leaf block and cannot have children" 报错
+     */
+    private async safeAppendToContainer(dataType: "markdown" | "dom", data: string, containerID: string) {
+        const container = await getBlockByID(containerID);
+        if (container && this.isContainerBlockType(container.type)) {
+            return await appendBlock(dataType, data, containerID);
+        }
+        return await insertBlock(dataType, data, undefined, containerID, undefined);
+    }
+
+    /**
+     * 安全地在容器开头添加内容：若容器为叶子块（如标题、段落），
+     * 则使用 nextID 将新块插入到容器之前
+     */
+    private async safePrependToContainer(dataType: "markdown" | "dom", data: string, containerID: string) {
+        const container = await getBlockByID(containerID);
+        if (container && this.isContainerBlockType(container.type)) {
+            return await prependBlock(dataType, data, containerID);
+        }
+        return await insertBlock(dataType, data, containerID, undefined, undefined);
     }
 
     /**
@@ -1568,7 +1599,7 @@ export default class PluginFootnote extends Plugin {
         } else {
             switch (settings.order) {
                 case '2': // Reverse order
-                    back = (settings.saveLocation != '3') ? await appendBlock("markdown", templates, footnoteContainerID) : await prependBlock("markdown", templates, footnoteContainerID);
+                    back = (settings.saveLocation != '3') ? await this.safeAppendToContainer("markdown", templates, footnoteContainerID) : await this.safePrependToContainer("markdown", templates, footnoteContainerID);
                     break;
                 case '1': default: // Default order
                     if (settings.saveLocation != '3') {
@@ -1580,10 +1611,10 @@ export default class PluginFootnote extends Plugin {
                             const lastFootnoteID = footnotes[footnotes.length - 1].getAttribute('data-node-id');
                             back = await insertBlock("markdown", templates, undefined, lastFootnoteID, undefined);
                         } else {
-                            back = await appendBlock("markdown", templates, footnoteContainerID);
+                            back = await this.safeAppendToContainer("markdown", templates, footnoteContainerID);
                         }
                     } else {
-                        back = await appendBlock("markdown", templates, footnoteContainerID);
+                        back = await this.safeAppendToContainer("markdown", templates, footnoteContainerID);
                     }
                     break;
             }
