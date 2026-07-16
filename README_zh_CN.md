@@ -221,11 +221,3 @@
 * [https://github.com/zxhd863943427/siyuan-plugin-memo](https://github.com/zxhd863943427/siyuan-plugin-memo)：最初基于该插件进行改进，添加了更多功能和配置项
 * [https://github.com/siyuan-note/plugin-sample-vite-svelte](https://github.com/siyuan-note/plugin-sample-vite-svelte)：使用的插件模板，大幅提高开发效率
 * [Wetoria (Vip)](https://github.com/Wetoria) 的插件开发指导
-
-## ❤️ 用爱发电
-
-如果喜欢我的插件，欢迎给GitHub仓库点star和微信赞赏，这会激励我继续完善此插件和开发新插件。
-
-维护插件费时费力，个人时间和精力有限，优先考虑赞赏用户提的功能建议和bug反馈
-
-![img](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/20241118182532-2024-11-18.png)

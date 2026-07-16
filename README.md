@@ -68,9 +68,4 @@ Supports multiple annotations for the same text.
 - [https://github.com/zxhd863943427/siyuan-plugin-memo](https://github.com/zxhd863943427/siyuan-plugin-memo): Improved based on this plugin, adding more features and configuration options
 - [https://github.com/siyuan-note/plugin-sample-vite-svelte](https://github.com/siyuan-note/plugin-sample-vite-svelte): Using this plugin template greatly improved development efficiency
 
-## ❤️Donation
-
-A poor graduate student in the process of studying. If you like my plugin, feel free to star the GitHub repository and donate. This will motivate me to continue improving this plugin and developing new ones.
-
-![](https://fastly.jsdelivr.net/gh/Achuan-2/PicBed/assets/20241118182532-2024-11-18.png)
 
