@@ -26,6 +26,7 @@ class FootnoteDialog {
     private currentY: number;
     private initialX: number;
     private initialY: number;
+    private readonly viewportMargin = 12;
 
     private I18N = {
         "zh-CN": {
@@ -58,7 +59,7 @@ class FootnoteDialog {
                     <svg><use xlink:href="#iconClose"></use></svg>
                 </div>
             </div>
-            <div style="min-width: 300px;padding: 0 8px;">
+            <div style="min-width: 0;max-width: 100%;padding: 0 8px;box-sizing: border-box;">
                 <div class="protyle-wysiwyg" style="padding: 0px; margin-bottom: 8px">
                     <div style="border-left: 0.5em solid var(--b3-border-color); padding: 8px; margin: 8px 0; background: var(--b3-theme-background);color: var(--b3-theme-on-background);">${title}</div>
                 </div>
@@ -69,19 +70,21 @@ class FootnoteDialog {
 
         // --- 弹窗样式 ---
         this.dialog.style.position = 'fixed';
-        this.dialog.style.top = `30%`;
-        this.dialog.style.left = `40%`;
+        this.dialog.style.top = '0';
+        this.dialog.style.left = '0';
         this.dialog.style.margin = '0';
         this.dialog.style.padding = '0px 0px 20px 0px';
+        this.dialog.style.boxSizing = 'border-box';
         this.dialog.style.border = '0px solid var(--b3-border-color)';
         this.dialog.style.borderRadius = '4px';
         this.dialog.style.background = 'var(--b3-theme-background)';
         this.dialog.style.boxShadow = 'var(--b3-dialog-shadow)';
         this.dialog.style.resize = 'auto';
         this.dialog.style.overflow = 'auto';
-        this.dialog.style.zIndex = '4';
-        this.dialog.style.width = "500px"
-        this.dialog.style.maxHeight = "500px"
+        this.dialog.style.zIndex = '5';
+        this.dialog.style.width = '500px';
+        this.dialog.style.maxWidth = `calc(100vw - ${this.viewportMargin * 2}px)`;
+        this.dialog.style.maxHeight = `min(500px, calc(100dvh - ${this.viewportMargin * 2}px))`;
         document.body.appendChild(this.dialog);
 
         // --- 初始化 Protyle 编辑器 ---
@@ -127,12 +130,17 @@ class FootnoteDialog {
         titleBar.addEventListener('mousedown', this.startDragging);
         document.addEventListener('mousemove', this.drag);
         document.addEventListener('mouseup', this.stopDragging);
+        window.addEventListener('resize', this.handleViewportChange);
+        window.visualViewport?.addEventListener('resize', this.handleViewportChange);
+        window.visualViewport?.addEventListener('scroll', this.handleViewportChange);
 
         // 确保dialog可以交互
         this.dialog.style.pointerEvents = 'auto';
         this.dialog.style.userSelect = 'auto';
 
         this.dialog.show();
+        // dialog 需要先完成一次布局，才能根据实际尺寸放入手机端可视区域。
+        requestAnimationFrame(this.positionWithinViewport);
 
         // 确保 protyle 获得焦点，这样键盘事件才能被 dialog 捕获
         // this.protyle.focus();
@@ -150,6 +158,9 @@ class FootnoteDialog {
         document.removeEventListener('dblclick', this.handleOutsideDoubleClick);
         document.removeEventListener('mousemove', this.drag);
         document.removeEventListener('mouseup', this.stopDragging);
+        window.removeEventListener('resize', this.handleViewportChange);
+        window.visualViewport?.removeEventListener('resize', this.handleViewportChange);
+        window.visualViewport?.removeEventListener('scroll', this.handleViewportChange);
 
         // 销毁 Protyle 实例，释放资源 (这是一个好习惯)
         if (this.protyle) {
@@ -183,6 +194,47 @@ class FootnoteDialog {
             // 这里不需要 stopPropagation 和 preventDefault，因为我们只想关闭对话框
             this.dialog.close();
         }
+    }
+
+    /**
+     * 将弹窗限制在 Visual Viewport 内。手机软键盘弹出后，Visual Viewport
+     * 会小于 window.innerHeight，使用它才能避免弹窗下半部分被键盘遮住。
+     */
+    private positionWithinViewport = () => {
+        if (!this.dialog?.isConnected) return;
+
+        const viewport = window.visualViewport;
+        const viewportWidth = viewport?.width ?? window.innerWidth;
+        const viewportHeight = viewport?.height ?? window.innerHeight;
+        const viewportLeft = viewport?.offsetLeft ?? 0;
+        const viewportTop = viewport?.offsetTop ?? 0;
+        const availableWidth = Math.max(0, viewportWidth - this.viewportMargin * 2);
+        const availableHeight = Math.max(0, viewportHeight - this.viewportMargin * 2);
+
+        this.dialog.style.width = `${Math.min(500, availableWidth)}px`;
+        this.dialog.style.maxWidth = `${availableWidth}px`;
+        this.dialog.style.maxHeight = `${Math.min(500, availableHeight)}px`;
+
+        const rect = this.dialog.getBoundingClientRect();
+        const isMobileViewport = viewportWidth <= 768 || window.matchMedia('(pointer: coarse)').matches;
+        const preferredTop = isMobileViewport
+            ? viewportTop + this.viewportMargin
+            : viewportTop + (viewportHeight - rect.height) * 0.3;
+        const maxLeft = viewportLeft + viewportWidth - rect.width - this.viewportMargin;
+        const maxTop = viewportTop + viewportHeight - rect.height - this.viewportMargin;
+
+        this.dialog.style.left = `${Math.max(
+            viewportLeft + this.viewportMargin,
+            Math.min(viewportLeft + (viewportWidth - rect.width) / 2, maxLeft)
+        )}px`;
+        this.dialog.style.top = `${Math.max(
+            viewportTop + this.viewportMargin,
+            Math.min(preferredTop, maxTop)
+        )}px`;
+    }
+
+    private handleViewportChange = () => {
+        requestAnimationFrame(this.positionWithinViewport);
     }
 
     /**
