@@ -9,6 +9,8 @@
         "groups": {
             "container": "Footnote Storage Settings",
             "style": "Footnote Style Settings",
+            "dock": "Footnote Dock",
+            "presets": "Presets",
             "reset": "Reset Settings"
         },
         "saveLocation": {
@@ -50,6 +52,46 @@
         "updateFootnoteContainerTitle": {
             "title": "Auto-update footnote container title?",
             "description": "Auto-update footnote container title to match template every time a footnote is created?"
+        },
+        "referenceInsertMode": {
+            "title": "Footnote Insert Mode",
+            "description": "Footnote Anchor appends the configured anchor after the selection; Selected Text Reference turns the selection itself into a reference without adding an extra anchor",
+            "footnote": "Add Footnote Anchor",
+            "blockRef": "Use Selected Text as Reference"
+        },
+        "presets": {
+            "choose": "Choose a preset",
+            "empty": "No saved presets",
+            "create": {
+                "title": "Save Current Settings",
+                "description": "Save all current settings as a new preset",
+                "label": "Create Preset",
+                "dialogTitle": "Create Preset",
+                "placeholder": "Enter a preset name"
+            },
+            "saved": {
+                "title": "Saved Presets",
+                "description": "Select a custom preset to apply or delete"
+            },
+            "apply": {
+                "title": "Apply Preset",
+                "description": "Switch all settings to the selected preset",
+                "label": "Apply"
+            },
+            "delete": {
+                "title": "Delete Preset",
+                "description": "Delete the selected custom preset",
+                "label": "Delete",
+                "confirm": "Delete preset “${name}”?"
+            },
+            "messages": {
+                "nameRequired": "Enter a preset name first",
+                "nameExists": "A preset with this name already exists",
+                "selectRequired": "Select a preset first",
+                "created": "Preset created",
+                "applied": "Preset applied",
+                "deleted": "Preset deleted"
+            }
         },
         "footnoteRefStyle": {
             "title": "Footnote Reference Style",
@@ -110,7 +152,8 @@
     "errors": {
         "noDocId": "[Block Ref Footnote Plugin] Please fill in the specified document ID",
         "noNotebook": "[Block Ref Footnote Plugin] Please select a notebook for footnotes",
-        "createDocFailed": "[Block Ref Footnote Plugin] Failed to create footnote document"
+        "createDocFailed": "[Block Ref Footnote Plugin] Failed to create footnote document",
+        "selectTextForBlockRef": "Select the text to use as a reference first"
     },
     "creatingFootnoteDoc": "Creating footnote document...",
     "indexAnchor": "[*]",

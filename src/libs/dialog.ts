@@ -12,12 +12,15 @@ import { type SvelteComponent } from "svelte";
 export const inputDialog = (args: {
     title: string, placeholder?: string, defaultText?: string,
     confirm?: (text: string) => void, cancel?: () => void,
-    width?: string, height?: string
+    width?: string, height?: string, singleLine?: boolean
 }) => {
+    const inputHTML = args.singleLine
+        ? '<input class="b3-text-field fn__block" type="text">'
+        : '<textarea class="b3-text-field fn__block" style="height: 100%;"></textarea>';
     const dialog = new Dialog({
         title: args.title,
         content: `<div class="b3-dialog__content">
-    <div class="ft__breakword"><textarea class="b3-text-field fn__block" style="height: 100%;" placeholder=${args?.placeholder ?? ''}>${args?.defaultText ?? ''}</textarea></div>
+    <div class="ft__breakword">${inputHTML}</div>
 </div>
 <div class="b3-dialog__action">
     <button class="b3-button b3-button--cancel">${window.siyuan.languages.cancel}</button><div class="fn__space"></div>
@@ -26,7 +29,9 @@ export const inputDialog = (args: {
         width: args.width ?? "520px",
         height: args.height
     });
-    const target: HTMLTextAreaElement = dialog.element.querySelector(".b3-dialog__content>div.ft__breakword>textarea");
+    const target: HTMLInputElement | HTMLTextAreaElement = dialog.element.querySelector(".b3-dialog__content .b3-text-field");
+    target.placeholder = args.placeholder ?? '';
+    target.value = args.defaultText ?? '';
     const btnsElement = dialog.element.querySelectorAll(".b3-button");
     btnsElement[0].addEventListener("click", () => {
         if (args?.cancel) {
@@ -40,11 +45,23 @@ export const inputDialog = (args: {
         }
         dialog.destroy();
     });
+    if (args.singleLine) {
+        target.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                (btnsElement[1] as HTMLButtonElement).click();
+            }
+        });
+    }
+    requestAnimationFrame(() => {
+        target.focus();
+        target.select();
+    });
 };
 
 export const inputDialogSync = async (args: {
     title: string, placeholder?: string, defaultText?: string,
-    width?: string, height?: string
+    width?: string, height?: string, singleLine?: boolean
 }) => {
     return new Promise<string>((resolve) => {
         let newargs = {

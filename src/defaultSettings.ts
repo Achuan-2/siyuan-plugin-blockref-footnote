@@ -14,12 +14,21 @@ export const getDefaultSettings = () => ({
     order: '1',
 
     // Style Settings
+    referenceInsertMode: '1',
     footnoteRefStyle: '1',
     footnoteBlockref: t('settings.footnoteBlockref.value'),
     selectFontStyle: '2',
     enableOrderedFootnotes: false,
     footnoteAlias: t('settings.footnoteAlias.value'),
     floatDialogEnable: true,
+
+    // Preset Settings
+    customPresets: [] as Array<{
+        id: string;
+        name: string;
+        settings: Record<string, any>;
+    }>,
+    selectedCustomPresetId: '',
 
     // Dock Settings
     enableFootnoteDock: true,
@@ -41,11 +50,8 @@ export const getDefaultSettings = () => ({
 .protyle-wysiwyg [data-node-id] span[custom-footnote],
 .protyle-wysiwyg [data-node-id] span[data-type*="block-ref"][custom-footnote],
 .protyle-wysiwyg [data-node-id] span[data-ref*="siyuan://blocks"][custom-footnote] {
-    background-color: var(--b3-font-background5) !important;
     color: var(--b3-theme-on-background) !important;
-    border: none !important;
-    margin: 0 1px;
-    border-radius: 3px;
+    margin: 0 1px !important;
 }
 /* 自定义选中文本样式 */
 .protyle-wysiwyg [data-node-id] span[data-type*="custom-footnote-selected-text"] {

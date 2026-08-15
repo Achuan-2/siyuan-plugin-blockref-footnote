@@ -811,9 +811,15 @@ export default class PluginFootnote extends Plugin {
                         deleteBlock(id);
                     }
 
-                    // Delete blockref
-                    detail.element.remove();
-                    saveViaTransaction(detail.element);
+                    // 删除普通脚注锚文本；“选中文本引用”模式则只移除引用标记，保留原文字。
+                    const referenceElement = detail.element as HTMLElement;
+                    const referenceParent = referenceElement.parentElement;
+                    if (referenceElement.hasAttribute('custom-footnote-selection-ref')) {
+                        referenceElement.replaceWith(document.createTextNode(referenceElement.textContent || ''));
+                    } else {
+                        referenceElement.remove();
+                    }
+                    saveViaTransaction(referenceParent);
 
                     // Get current document ID and reorder footnotes if enabled
                     const settings = await this.loadSettings();
@@ -859,6 +865,12 @@ export default class PluginFootnote extends Plugin {
             // 获取选中文本
             const selectionText = protyle.toolbar.range.toString();
             const selection = getSelectedHtml(protyle.toolbar.range);
+            const useSelectedTextAsBlockRef = settings.referenceInsertMode === '2';
+            if (useSelectedTextAsBlockRef && !selectionText.trim()) {
+                this.closeLoadingDialog();
+                await pushErrMsg(this.i18n.errors?.selectTextForBlockRef || '请先选择要设为引用的文本');
+                return;
+            }
 
             // 获取当前文档标题
             let currentDoc = await sql(`SELECT * FROM blocks WHERE id = '${protyle.block.rootID}' LIMIT 1`);
@@ -1193,44 +1205,48 @@ export default class PluginFootnote extends Plugin {
 
 
             // --------------------------添加脚注引用 -------------------------- // 
-            // 选中的文本添加样式
-            protyle.toolbar.range = range;
-            if (settings.selectFontStyle === '2') {
-                protyle.toolbar.setInlineMark(protyle, `custom-footnote-selected-text-${newBlockId}`, "range");
-            } else {
-                protyle.toolbar.setInlineMark(protyle, `custom-footnote-hidden-selected-text-${newBlockId}`, "range");
-            }
-
-            // 将range的起始点和结束点都移动到选中文本的末尾
-            protyle.toolbar.range = range;
-            range.collapse(false); // false 表示将光标移动到选中文本的末尾
-
-            // 需要先清除样式，避免带上选中文本的样式
-            try {
-                protyle.toolbar.setInlineMark(protyle, "clear", "toolbar");
-            } catch (e) {
-            }
-
-
-            // 添加块引，同时添加上标样式
             let memoELement;
-            switch (settings.footnoteRefStyle) {
-                case '2':
-                    // 插入块链接
-                    protyle.toolbar.setInlineMark(protyle, "a sup", "range", {
-                        type: "a",
-                        color: `${"siyuan://blocks/" + newBlockId + zeroWhite + settings.footnoteBlockref}`
-                    });
-                    memoELement = protyle.element.querySelector(`span[data-href="siyuan://blocks/${newBlockId}"]`);
-                    break;
-                default:
-                    // 插入块引
-                    protyle.toolbar.setInlineMark(protyle, "block-ref sup", "range", {
-                        type: "id",
-                        color: `${newBlockId + zeroWhite + "s" + zeroWhite + settings.footnoteBlockref}`
-                    });
-                    memoELement = protyle.element.querySelector(`span[data-id="${newBlockId}"]`);
-                    break;
+            if (useSelectedTextAsBlockRef) {
+                // 直接把选中文字转换为引用，不额外插入“[注]”锚文本，也不添加上标。
+                protyle.toolbar.range = range;
+                protyle.toolbar.setInlineMark(protyle, "block-ref", "range", {
+                    type: "id",
+                    color: `${newBlockId + zeroWhite + "s" + zeroWhite + selectionText}`
+                });
+                memoELement = protyle.element.querySelector(`span[data-id="${newBlockId}"]`);
+                memoELement?.setAttribute("custom-footnote-selection-ref", "true");
+            } else {
+                // 默认模式：保留选中文字，并在其后插入独立脚注锚文本。
+                protyle.toolbar.range = range;
+                if (settings.selectFontStyle === '2') {
+                    protyle.toolbar.setInlineMark(protyle, `custom-footnote-selected-text-${newBlockId}`, "range");
+                } else {
+                    protyle.toolbar.setInlineMark(protyle, `custom-footnote-hidden-selected-text-${newBlockId}`, "range");
+                }
+
+                protyle.toolbar.range = range;
+                range.collapse(false);
+                try {
+                    protyle.toolbar.setInlineMark(protyle, "clear", "toolbar");
+                } catch (e) {
+                }
+
+                switch (settings.footnoteRefStyle) {
+                    case '2':
+                        protyle.toolbar.setInlineMark(protyle, "a sup", "range", {
+                            type: "a",
+                            color: `${"siyuan://blocks/" + newBlockId + zeroWhite + settings.footnoteBlockref}`
+                        });
+                        memoELement = protyle.element.querySelector(`span[data-href="siyuan://blocks/${newBlockId}"]`);
+                        break;
+                    default:
+                        protyle.toolbar.setInlineMark(protyle, "block-ref sup", "range", {
+                            type: "id",
+                            color: `${newBlockId + zeroWhite + "s" + zeroWhite + settings.footnoteBlockref}`
+                        });
+                        memoELement = protyle.element.querySelector(`span[data-id="${newBlockId}"]`);
+                        break;
+                }
             }
 
             // // 给脚注块引添加属性，方便后续查找，添加其他功能
@@ -1248,6 +1264,8 @@ export default class PluginFootnote extends Plugin {
 
             // 等待保存数据
             await whenBlockSaved().then(async (msg) => { console.log("saved") });
+            // 新增脚注后，将当前文档内已有的行内脚注引用统一为当前设置的格式。
+            await this.syncFootnoteReferenceMode(protyle.block.rootID, settings);
             // --------------------------添加脚注引用 END-------------------------- //
 
             // --------------------------脚注弹窗 Start-------------------------- // 
@@ -1343,6 +1361,104 @@ export default class PluginFootnote extends Plugin {
             return await prependBlock(dataType, data, containerID);
         }
         return await insertBlock(dataType, data, containerID, undefined, undefined);
+    }
+
+    /**
+     * 将当前文档内已有的行内脚注引用同步为当前设置的插入格式。
+     * 块级脚注（DIV）不参与转换。
+     */
+    private async syncFootnoteReferenceMode(docID: string, settings: any) {
+        try {
+            const docData = await getBlockDOM(docID);
+            if (!docData?.dom) return;
+
+            const parsedDoc = new DOMParser().parseFromString(docData.dom, 'text/html');
+            const refs = Array.from(parsedDoc.querySelectorAll<HTMLElement>('[custom-footnote]'));
+            const affectedBlocks = new Map<string, HTMLElement>();
+            const useSelectedTextAsReference = settings.referenceInsertMode === '2';
+
+            const markContainingBlock = (element: HTMLElement) => {
+                const block = element.closest<HTMLElement>('[data-node-id]');
+                const blockID = block?.getAttribute('data-node-id');
+                if (block && blockID) affectedBlocks.set(blockID, block);
+            };
+
+            for (const ref of refs) {
+                if (ref.tagName === 'DIV') continue;
+
+                const footnoteID = ref.getAttribute('custom-footnote');
+                if (!footnoteID) continue;
+                const isSelectedTextReference = ref.hasAttribute('custom-footnote-selection-ref');
+
+                if (useSelectedTextAsReference && !isSelectedTextReference) {
+                    const selectionElements: HTMLElement[] = [];
+                    let previous = ref.previousElementSibling as HTMLElement | null;
+                    const visibleMark = `custom-footnote-selected-text-${footnoteID}`;
+                    const hiddenMark = `custom-footnote-hidden-selected-text-${footnoteID}`;
+
+                    while (previous) {
+                        const dataTypes = previous.getAttribute('data-type')?.split(/\s+/) || [];
+                        if (!dataTypes.includes(visibleMark) && !dataTypes.includes(hiddenMark)) break;
+                        selectionElements.unshift(previous);
+                        previous = previous.previousElementSibling as HTMLElement | null;
+                    }
+
+                    // 老数据若找不到对应的选中文字，保留原锚文本，避免丢失正文。
+                    if (selectionElements.length === 0) continue;
+                    const selectedText = selectionElements.map(element => element.textContent || '').join('');
+                    if (!selectedText) continue;
+
+                    ref.textContent = selectedText;
+                    ref.setAttribute('data-type', 'block-ref');
+                    ref.setAttribute('data-id', footnoteID);
+                    ref.setAttribute('data-subtype', 's');
+                    ref.setAttribute('custom-footnote-selection-ref', 'true');
+                    ref.removeAttribute('data-href');
+                    selectionElements.forEach(element => element.remove());
+                    markContainingBlock(ref);
+                    continue;
+                }
+
+                if (!useSelectedTextAsReference) {
+                    if (isSelectedTextReference) {
+                        const selectionElement = parsedDoc.createElement('span');
+                        selectionElement.textContent = ref.textContent || '';
+                        const selectionMark = settings.selectFontStyle === '2'
+                            ? `custom-footnote-selected-text-${footnoteID}`
+                            : `custom-footnote-hidden-selected-text-${footnoteID}`;
+                        selectionElement.setAttribute('data-type', selectionMark);
+                        ref.before(selectionElement);
+                    }
+
+                    if (!settings.enableOrderedFootnotes) {
+                        ref.textContent = settings.footnoteBlockref;
+                    }
+                    ref.removeAttribute('custom-footnote-selection-ref');
+                    if (settings.footnoteRefStyle === '2') {
+                        ref.setAttribute('data-type', 'a sup');
+                        ref.setAttribute('data-href', `siyuan://blocks/${footnoteID}`);
+                        ref.removeAttribute('data-id');
+                        ref.removeAttribute('data-subtype');
+                    } else {
+                        ref.setAttribute('data-type', 'block-ref sup');
+                        ref.setAttribute('data-id', footnoteID);
+                        ref.setAttribute('data-subtype', 's');
+                        ref.removeAttribute('data-href');
+                    }
+                    markContainingBlock(ref);
+                }
+            }
+
+            if (affectedBlocks.size > 0) {
+                await batchUpdateBlock(Array.from(affectedBlocks, ([id, block]) => ({
+                    id,
+                    dataType: 'dom',
+                    data: block.outerHTML,
+                })));
+            }
+        } catch (error) {
+            console.warn('Failed to synchronize footnote reference mode:', error);
+        }
     }
 
     /**
@@ -1684,6 +1800,8 @@ export default class PluginFootnote extends Plugin {
 
         // 6. Add a reference attribute to the first selected block
         await setBlockAttrs(firstBlockId, { "custom-footnote": newBlockId });
+        // 块级新增脚注后，也同步当前文档中已有的行内脚注引用格式。
+        await this.syncFootnoteReferenceMode(docRootId, settings);
 
 
         // 如果是指定路径存放且显示了加载对话框，现在关闭它
@@ -1803,7 +1921,7 @@ export default class PluginFootnote extends Plugin {
 
             // ================== MODIFICATION START ==================
             // Only process for numbering updates if it's NOT a block-level footnote (DIV)
-            if (ref.tagName !== 'DIV') {
+            if (ref.tagName !== 'DIV' && !ref.hasAttribute('custom-footnote-selection-ref')) {
                 const currentNumberMatch = ref.textContent?.match(/\[(\d+)\]/);
                 const currentNumber = currentNumberMatch ? parseInt(currentNumberMatch[1], 10) : null;
                 const targetNumber = footnoteOrder.get(footnoteId);
@@ -2088,7 +2206,7 @@ export default class PluginFootnote extends Plugin {
             const footnoteId = ref.getAttribute('custom-footnote');
 
             // Only modify the DOM for INLINE footnotes (SPANs)
-            if (ref.tagName !== 'DIV') {
+            if (ref.tagName !== 'DIV' && !ref.hasAttribute('custom-footnote-selection-ref')) {
                 ref.textContent = settings.footnoteBlockref;
 
                 if (footnoteId) {

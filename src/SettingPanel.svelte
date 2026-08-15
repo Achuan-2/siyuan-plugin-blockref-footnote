@@ -5,6 +5,7 @@
     import { t } from './utils/i18n';
     import { confirm } from 'siyuan';
     import { pushMsg, lsNotebooks,reloadUI } from './api';
+    import { inputDialogSync } from './libs/dialog';
     export let plugin;
 
     let settings = { ...getDefaultSettings() };
@@ -112,6 +113,179 @@
         }
     }
 
+    function getCustomPresetOptions(): Record<string, string> {
+        const options: Record<string, string> = {
+            '': settings.customPresets.length > 0
+                ? (t('settings.presets.choose') || 'Choose a preset')
+                : (t('settings.presets.empty') || 'No saved presets'),
+        };
+        settings.customPresets.forEach(preset => {
+            options[preset.id] = preset.name;
+        });
+        return options;
+    }
+
+    function getPresetItems(): ISettingItem[] {
+        return [
+            {
+                key: 'createCustomPreset',
+                value: '',
+                type: 'button',
+                title: t('settings.presets.create.title') || 'Save Current Settings',
+                description:
+                    t('settings.presets.create.description') ||
+                    'Save all current settings as a new preset',
+                button: {
+                    label: t('settings.presets.create.label') || 'Create Preset',
+                    callback: createCustomPreset,
+                },
+            },
+            {
+                key: 'selectedCustomPresetId',
+                value: settings.selectedCustomPresetId,
+                type: 'select',
+                title: t('settings.presets.saved.title') || 'Saved Presets',
+                description: t('settings.presets.saved.description') || 'Select a saved preset',
+                options: getCustomPresetOptions(),
+            },
+            {
+                key: 'applyCustomPreset',
+                value: '',
+                type: 'button',
+                title: t('settings.presets.apply.title') || 'Apply Preset',
+                description: t('settings.presets.apply.description') || 'Switch to the selected preset',
+                button: {
+                    label: t('settings.presets.apply.label') || 'Apply',
+                    callback: applySelectedCustomPreset,
+                },
+            },
+            {
+                key: 'deleteCustomPreset',
+                value: '',
+                type: 'button',
+                title: t('settings.presets.delete.title') || 'Delete Preset',
+                description: t('settings.presets.delete.description') || 'Delete the selected preset',
+                button: {
+                    label: t('settings.presets.delete.label') || 'Delete',
+                    callback: deleteSelectedCustomPreset,
+                },
+            },
+        ];
+    }
+
+    function getCurrentSettingsSnapshot(): Record<string, any> {
+        const presetMetadataKeys = new Set([
+            'customPresets',
+            'customPresetName',
+            'selectedCustomPresetId',
+        ]);
+        const snapshot: Record<string, any> = {};
+        Object.keys(getDefaultSettings()).forEach(key => {
+            if (!presetMetadataKeys.has(key)) {
+                snapshot[key] = settings[key];
+            }
+        });
+        return JSON.parse(JSON.stringify(snapshot));
+    }
+
+    async function createCustomPreset() {
+        const inputName = await inputDialogSync({
+            title: t('settings.presets.create.dialogTitle') || 'Create Preset',
+            placeholder: t('settings.presets.create.placeholder') || 'Enter a preset name',
+            width: '420px',
+            singleLine: true,
+        });
+        if (inputName === null) return;
+
+        const name = inputName.trim();
+        if (!name) {
+            await pushMsg(t('settings.presets.messages.nameRequired') || 'Enter a preset name');
+            return;
+        }
+        if (settings.customPresets.some(preset => preset.name === name)) {
+            await pushMsg(t('settings.presets.messages.nameExists') || 'A preset with this name already exists');
+            return;
+        }
+
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        settings.customPresets = [
+            ...settings.customPresets,
+            { id, name, settings: getCurrentSettingsSnapshot() },
+        ];
+        settings.selectedCustomPresetId = id;
+        updateGroups();
+        await saveSettings();
+        await pushMsg(t('settings.presets.messages.created') || 'Preset created');
+    }
+
+    async function applySelectedCustomPreset() {
+        const preset = settings.customPresets.find(item => item.id === settings.selectedCustomPresetId);
+        if (!preset) {
+            await pushMsg(t('settings.presets.messages.selectRequired') || 'Select a preset first');
+            return;
+        }
+
+        const previousDockState = settings.enableFootnoteDock;
+        settings = { ...settings, ...JSON.parse(JSON.stringify(preset.settings)) };
+        if (settings.referenceInsertMode === '2') {
+            settings.enableOrderedFootnotes = false;
+        }
+        updateGroups();
+        updateGroupItems();
+        await saveSettings();
+        plugin.updateCSS?.(settings.css);
+        await pushMsg(t('settings.presets.messages.applied') || 'Preset applied');
+        if (previousDockState !== settings.enableFootnoteDock) {
+            reloadUI();
+        }
+    }
+
+    async function deleteSelectedCustomPreset() {
+        const preset = settings.customPresets.find(item => item.id === settings.selectedCustomPresetId);
+        if (!preset) {
+            await pushMsg(t('settings.presets.messages.selectRequired') || 'Select a preset first');
+            return;
+        }
+
+        const message = (t('settings.presets.delete.confirm') || 'Delete preset “${name}”?')
+            .replace('${name}', preset.name);
+        confirm(
+            t('settings.presets.delete.title') || 'Delete Preset',
+            message,
+            async () => {
+                settings.customPresets = settings.customPresets.filter(item => item.id !== preset.id);
+                settings.selectedCustomPresetId = settings.customPresets[0]?.id || '';
+                updateGroups();
+                await saveSettings();
+                await pushMsg(t('settings.presets.messages.deleted') || 'Preset deleted');
+            }
+        );
+    }
+
+    function getOrderedFootnotesSettingItem(): ISettingItem {
+        return {
+            key: 'enableOrderedFootnotes',
+            value: settings.enableOrderedFootnotes,
+            type: 'checkbox',
+            title: t('settings.enableOrderedFootnotes.title') || 'Enable Ordered Footnotes',
+            description:
+                t('settings.enableOrderedFootnotes.description') ||
+                'Automatically number footnotes',
+        };
+    }
+
+    function getFootnoteBlockrefSettingItem(): ISettingItem {
+        return {
+            key: 'footnoteBlockref',
+            value: settings.footnoteBlockref,
+            type: 'textinput',
+            title: t('settings.footnoteBlockref.title') || 'Footnote Reference Text',
+            description:
+                t('settings.footnoteBlockref.description') ||
+                'Text for footnote references',
+        };
+    }
+
     let groups: ISettingGroup[] = [
         {
             name: t('settings.groups.container') || 'Container Settings',
@@ -161,6 +335,19 @@
             name: t('settings.groups.style') || 'Style Settings',
             items: [
                 {
+                    key: 'referenceInsertMode',
+                    value: settings.referenceInsertMode,
+                    type: 'select',
+                    title: t('settings.referenceInsertMode.title') || 'Footnote Insert Mode',
+                    description:
+                        t('settings.referenceInsertMode.description') ||
+                        'Choose whether to append an anchor or turn the selected text into a block reference',
+                    options: {
+                        '1': t('settings.referenceInsertMode.footnote') || 'Footnote Anchor',
+                        '2': t('settings.referenceInsertMode.blockRef') || 'Use Selected Text as Reference',
+                    },
+                },
+                {
                     key: 'footnoteRefStyle',
                     value: settings.footnoteRefStyle,
                     type: 'select',
@@ -173,15 +360,7 @@
                         '2': t('settings.footnoteRefStyle.link') || 'Link',
                     },
                 },
-                {
-                    key: 'footnoteBlockref',
-                    value: settings.footnoteBlockref,
-                    type: 'textinput',
-                    title: t('settings.footnoteBlockref.title') || 'Footnote Reference Text',
-                    description:
-                        t('settings.footnoteBlockref.description') ||
-                        'Text for footnote references',
-                },
+                ...(settings.referenceInsertMode !== '2' ? [getFootnoteBlockrefSettingItem()] : []),
                 {
                     key: 'selectFontStyle',
                     value: settings.selectFontStyle,
@@ -194,15 +373,7 @@
                         '2': t('settings.selectFontStyle.custom') || 'Custom',
                     },
                 },
-                {
-                    key: 'enableOrderedFootnotes',
-                    value: settings.enableOrderedFootnotes,
-                    type: 'checkbox',
-                    title: t('settings.enableOrderedFootnotes.title') || 'Enable Ordered Footnotes',
-                    description:
-                        t('settings.enableOrderedFootnotes.description') ||
-                        'Automatically number footnotes',
-                },
+                ...(settings.referenceInsertMode !== '2' ? [getOrderedFootnotesSettingItem()] : []),
                 {
                     key: 'footnoteAlias',
                     value: settings.footnoteAlias,
@@ -219,15 +390,6 @@
                     description:
                         t('settings.floatDialog.description') ||
                         'Show floating dialog for footnote editing',
-                },
-                {
-                    key: 'enableFootnoteDock',
-                    value: settings.enableFootnoteDock,
-                    type: 'checkbox',
-                    title: t('settings.footnoteDock.title') || 'Enable Footnote Dock',
-                    description:
-                        t('settings.footnoteDock.description') ||
-                        'Show footnote dock panel for viewing and editing footnotes',
                 },
                 {
                     key: 'templates',
@@ -249,6 +411,24 @@
                     rows: 20,
                 },
             ],
+        },
+        {
+            name: t('settings.groups.dock') || 'Footnote Dock',
+            items: [
+                {
+                    key: 'enableFootnoteDock',
+                    value: settings.enableFootnoteDock,
+                    type: 'checkbox',
+                    title: t('settings.footnoteDock.title') || 'Enable Footnote Dock',
+                    description:
+                        t('settings.footnoteDock.description') ||
+                        'Show footnote dock panel for viewing and editing footnotes',
+                },
+            ],
+        },
+        {
+            name: t('settings.groups.presets') || 'Presets',
+            items: getPresetItems(),
         },
         {
             name: t('settings.groups.reset') || 'Reset Settings',
@@ -298,6 +478,9 @@
         console.log(detail.key, detail.value);
         if (settings.hasOwnProperty(detail.key)) {
             settings[detail.key] = detail.value;
+            if (detail.key === 'referenceInsertMode' && detail.value === '2') {
+                settings.enableOrderedFootnotes = false;
+            }
             saveSettings();
 
             // Handle special cases
@@ -311,7 +494,7 @@
             }
 
             // 当存放位置改变时，重新构建 groups 以显示对应的设置项
-            if (detail.key === 'saveLocation') {
+            if (detail.key === 'saveLocation' || detail.key === 'referenceInsertMode') {
                 updateGroups();
             }
         }
@@ -347,8 +530,16 @@
     async function runload() {
         const loadedSettings = await plugin.loadSettings();
         settings = { ...loadedSettings };
+        let settingsNormalized = false;
+        if (settings.referenceInsertMode === '2') {
+            settingsNormalized = settings.enableOrderedFootnotes;
+            settings.enableOrderedFootnotes = false;
+        }
         updateGroups();
         updateGroupItems();
+        if (settingsNormalized) {
+            await saveSettings();
+        }
         console.debug('加载配置文件完成');
     }
 
@@ -409,6 +600,27 @@
                             },
                         },
                     ],
+                };
+            }
+            if (group.name === (t('settings.groups.presets') || 'Presets')) {
+                return {
+                    ...group,
+                    items: getPresetItems(),
+                };
+            }
+            if (group.name === (t('settings.groups.style') || 'Style Settings')) {
+                const items = group.items.filter(item =>
+                    item.key !== 'enableOrderedFootnotes' && item.key !== 'footnoteBlockref'
+                );
+                if (settings.referenceInsertMode !== '2') {
+                    const blockrefIndex = items.findIndex(item => item.key === 'footnoteRefStyle') + 1;
+                    items.splice(blockrefIndex, 0, getFootnoteBlockrefSettingItem());
+                    const orderedIndex = items.findIndex(item => item.key === 'selectFontStyle') + 1;
+                    items.splice(orderedIndex, 0, getOrderedFootnotesSettingItem());
+                }
+                return {
+                    ...group,
+                    items,
                 };
             }
             return group;
