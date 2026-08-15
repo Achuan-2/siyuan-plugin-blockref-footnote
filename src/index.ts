@@ -1092,7 +1092,10 @@ export default class PluginFootnote extends Plugin {
                         if (settings.saveLocation != 3) {
                             back = await this.safeAppendToContainer("markdown", templates, footnoteContainerID);
                         } else {
-                            back = await this.safePrependToContainer("markdown", templates, footnoteContainerID);
+                            // 子文档的 ID 一定是可容纳子块的文档块。新建文档尚未进入 SQL
+                            // 索引时，safePrependToContainer 会误判为叶子块，并把文档 ID
+                            // 当作 nextID 传给 insertBlock，可能触发内核 transaction panic。
+                            back = await prependBlock("markdown", templates, footnoteContainerID);
                         }
                         break;
                     case '1':
@@ -1123,7 +1126,8 @@ export default class PluginFootnote extends Plugin {
                             }
                         }
                         else {
-                            back = await this.safeAppendToContainer("markdown", templates, footnoteContainerID);
+                            // 同上，直接使用文档容器 API，避免依赖新建文档的 SQL 索引状态。
+                            back = await appendBlock("markdown", templates, footnoteContainerID);
                         }
                         break;
                 }
@@ -1600,7 +1604,9 @@ export default class PluginFootnote extends Plugin {
         } else {
             switch (settings.order) {
                 case '2': // Reverse order
-                    back = (settings.saveLocation != '3') ? await this.safeAppendToContainer("markdown", templates, footnoteContainerID) : await this.safePrependToContainer("markdown", templates, footnoteContainerID);
+                    back = (settings.saveLocation != '3')
+                        ? await this.safeAppendToContainer("markdown", templates, footnoteContainerID)
+                        : await prependBlock("markdown", templates, footnoteContainerID);
                     break;
                 case '1': default: // Default order
                     if (settings.saveLocation != '3') {
@@ -1615,7 +1621,7 @@ export default class PluginFootnote extends Plugin {
                             back = await this.safeAppendToContainer("markdown", templates, footnoteContainerID);
                         }
                     } else {
-                        back = await this.safeAppendToContainer("markdown", templates, footnoteContainerID);
+                        back = await appendBlock("markdown", templates, footnoteContainerID);
                     }
                     break;
             }
