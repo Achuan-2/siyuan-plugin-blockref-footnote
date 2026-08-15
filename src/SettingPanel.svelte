@@ -160,6 +160,19 @@
                 },
             },
             {
+                key: 'updateCustomPreset',
+                value: '',
+                type: 'button',
+                title: t('settings.presets.update.title') || 'Update Preset',
+                description:
+                    t('settings.presets.update.description') ||
+                    'Overwrite the selected preset with all current settings',
+                button: {
+                    label: t('settings.presets.update.label') || 'Update',
+                    callback: updateSelectedCustomPreset,
+                },
+            },
+            {
                 key: 'deleteCustomPreset',
                 value: '',
                 type: 'button',
@@ -238,6 +251,30 @@
         if (previousDockState !== settings.enableFootnoteDock) {
             reloadUI();
         }
+    }
+
+    async function updateSelectedCustomPreset() {
+        const preset = settings.customPresets.find(item => item.id === settings.selectedCustomPresetId);
+        if (!preset) {
+            await pushMsg(t('settings.presets.messages.selectRequired') || 'Select a preset first');
+            return;
+        }
+
+        const message = (t('settings.presets.update.confirm') || 'Overwrite preset “${name}” with the current settings?')
+            .replace('${name}', preset.name);
+        confirm(
+            t('settings.presets.update.title') || 'Update Preset',
+            message,
+            async () => {
+                settings.customPresets = settings.customPresets.map(item =>
+                    item.id === preset.id
+                        ? { ...item, settings: getCurrentSettingsSnapshot() }
+                        : item
+                );
+                await saveSettings();
+                await pushMsg(t('settings.presets.messages.updated') || 'Preset updated');
+            }
+        );
     }
 
     async function deleteSelectedCustomPreset() {

@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
-    import { Protyle } from 'siyuan';
-    import { sql, getBlockDOM, getDoc, openBlock } from '../api';
+    import { Protyle, confirm } from 'siyuan';
+    import { sql, getBlockDOM, getDoc, openBlock, pushMsg, pushErrMsg } from '../api';
     import { t } from '../utils/i18n';
 
     export let plugin;
@@ -13,6 +13,7 @@
     let refreshInterval;
     let isLoading = false;
     let hasError = false;
+    let deletingFootnotes = new Set<string>();
     // 跟踪单个脚注的折叠状态
     let collapsedFootnotes = new Set();
 
@@ -306,6 +307,37 @@
         collapsedFootnotes = newCollapsedFootnotes;
     }
 
+    function deleteFootnote(footnote: Footnote) {
+        const message = (t('footnoteDock.deleteConfirm') || '确定删除脚注“${content}”吗？')
+            .replace('${content}', footnote.refBlockContent || footnote.content || footnote.id);
+        confirm(
+            t('footnoteDock.delete') || '删除脚注',
+            message,
+            async () => {
+                deletingFootnotes = new Set(deletingFootnotes).add(footnote.id);
+                try {
+                    const protyle = protyleInstances.get(footnote.id);
+                    protyle?.destroy?.();
+                    protyleInstances.delete(footnote.id);
+
+                    await plugin.deleteFootnoteById(currentDocId, footnote.id);
+                    await loadFootnotes();
+                    await pushMsg(t('footnoteDock.deleteSuccess') || '脚注已删除');
+                } catch (error) {
+                    console.error('Failed to delete footnote from dock:', error);
+                    await pushErrMsg(
+                        `${t('footnoteDock.deleteError') || '删除脚注失败'}: ${error?.message || error}`
+                    );
+                    await loadFootnotes();
+                } finally {
+                    const nextDeletingFootnotes = new Set(deletingFootnotes);
+                    nextDeletingFootnotes.delete(footnote.id);
+                    deletingFootnotes = nextDeletingFootnotes;
+                }
+            }
+        );
+    }
+
     onMount(async () => {
         console.log('FootnoteDock mounted');
         await loadFootnotes(); // 仅在初始加载时获取一次脚注
@@ -419,6 +451,20 @@
                                 {@html footnote.refBlockContent}
                             </span>
                         </div>
+                        <button
+                            class="footnote-item__delete b3-button b3-button--outline"
+                            on:click|stopPropagation={() => deleteFootnote(footnote)}
+                            title={t('footnoteDock.delete')}
+                            disabled={deletingFootnotes.has(footnote.id)}
+                        >
+                            <svg>
+                                <use
+                                    xlink:href={deletingFootnotes.has(footnote.id)
+                                        ? '#iconLoading'
+                                        : '#iconTrashcan'}
+                                ></use>
+                            </svg>
+                        </button>
                         <button
                             class="footnote-item__toggle b3-button b3-button--outline"
                             on:click={() => toggleFootnote(footnote.id)}
@@ -612,7 +658,8 @@
         display: none !important;
     }
 
-    .footnote-item__toggle {
+    .footnote-item__toggle,
+    .footnote-item__delete {
         padding: 2px;
         min-width: auto;
         height: 20px;
@@ -621,9 +668,14 @@
         align-self: flex-start;
     }
 
-    .footnote-item__toggle svg {
+    .footnote-item__toggle svg,
+    .footnote-item__delete svg {
         height: 14px;
         width: 14px;
+    }
+
+    .footnote-item__delete:hover:not(:disabled) {
+        color: var(--b3-theme-error);
     }
 
     .footnote-item__deleted {

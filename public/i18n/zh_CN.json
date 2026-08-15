@@ -78,6 +78,12 @@
                 "description": "将全部设置快速切换为所选预设",
                 "label": "应用"
             },
+            "update": {
+                "title": "更新预设",
+                "description": "使用当前全部设置覆盖所选预设，并保留预设名称",
+                "label": "更新",
+                "confirm": "确定使用当前设置覆盖预设“${name}”吗？"
+            },
             "delete": {
                 "title": "删除预设",
                 "description": "删除当前选择的自定义预设",
@@ -90,6 +96,7 @@
                 "selectRequired": "请先选择一个预设",
                 "created": "预设已创建",
                 "applied": "预设已应用",
+                "updated": "预设已更新",
                 "deleted": "预设已删除"
             }
         },
@@ -169,7 +176,11 @@
         "collapse": "折叠",
         "expand": "展开",
         "openFootnote": "打开脚注块",
-        "openOriginal": "打开原块"
+        "openOriginal": "打开原块",
+        "delete": "删除脚注",
+        "deleteConfirm": "确定删除脚注“${content}”吗？删除后无法撤销。",
+        "deleteSuccess": "脚注已删除",
+        "deleteError": "删除脚注失败"
     },
     "addFootnote": "添加脚注",
     "jumpToFootnote": "跳转到脚注"

@@ -78,6 +78,12 @@
                 "description": "Switch all settings to the selected preset",
                 "label": "Apply"
             },
+            "update": {
+                "title": "Update Preset",
+                "description": "Overwrite the selected preset with all current settings while keeping its name",
+                "label": "Update",
+                "confirm": "Overwrite preset “${name}” with the current settings?"
+            },
             "delete": {
                 "title": "Delete Preset",
                 "description": "Delete the selected custom preset",
@@ -90,6 +96,7 @@
                 "selectRequired": "Select a preset first",
                 "created": "Preset created",
                 "applied": "Preset applied",
+                "updated": "Preset updated",
                 "deleted": "Preset deleted"
             }
         },
@@ -170,7 +177,11 @@
         "collapse": "Collapse",
         "expand": "Expand",
         "openFootnote": "Open Footnote",
-        "openOriginal": "Open Original Block"
+        "openOriginal": "Open Original Block",
+        "delete": "Delete Footnote",
+        "deleteConfirm": "Delete footnote “${content}”? This action cannot be undone.",
+        "deleteSuccess": "Footnote deleted",
+        "deleteError": "Failed to delete footnote"
     },
     "addFootnote": "Add Footnote",
     "jumpToFootnote": "Jump to Footnote"

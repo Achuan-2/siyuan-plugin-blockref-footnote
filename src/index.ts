@@ -1462,6 +1462,81 @@ export default class PluginFootnote extends Plugin {
     }
 
     /**
+     * 从侧栏删除脚注：保留原选中文字，清理所有行内/块级引用后删除脚注内容块。
+     */
+    async deleteFootnoteById(docID: string, footnoteID: string) {
+        const docData = await getBlockDOM(docID);
+        if (!docData?.dom) {
+            throw new Error('Failed to load the current document');
+        }
+
+        const parsedDoc = new DOMParser().parseFromString(docData.dom, 'text/html');
+        const refs = Array.from(
+            parsedDoc.querySelectorAll<HTMLElement>(`[custom-footnote="${footnoteID}"]`)
+        );
+        const affectedBlocks = new Map<string, HTMLElement>();
+
+        const markContainingBlock = (element: HTMLElement) => {
+            const block = element.closest<HTMLElement>('[data-node-id]');
+            const blockID = block?.getAttribute('data-node-id');
+            if (block && blockID) affectedBlocks.set(blockID, block);
+        };
+
+        for (const ref of refs) {
+            if (ref.tagName === 'DIV') {
+                ref.removeAttribute('custom-footnote');
+                markContainingBlock(ref);
+                continue;
+            }
+
+            if (ref.hasAttribute('custom-footnote-selection-ref')) {
+                const parent = ref.parentElement;
+                const textNode = parsedDoc.createTextNode(ref.textContent || '');
+                ref.replaceWith(textNode);
+                if (parent) markContainingBlock(parent);
+                continue;
+            }
+
+            // 普通注脚删除锚文本，但保留此前选中的正文，并移除插件选择标记。
+            let previous = ref.previousElementSibling as HTMLElement | null;
+            const selectionMarks = [
+                `custom-footnote-selected-text-${footnoteID}`,
+                `custom-footnote-hidden-selected-text-${footnoteID}`,
+            ];
+            while (previous) {
+                const dataTypes = previous.getAttribute('data-type')?.split(/\s+/).filter(Boolean) || [];
+                if (!selectionMarks.some(mark => dataTypes.includes(mark))) break;
+                const cleanedTypes = dataTypes.filter(type => !selectionMarks.includes(type));
+                if (cleanedTypes.length > 0) {
+                    previous.setAttribute('data-type', cleanedTypes.join(' '));
+                } else {
+                    previous.removeAttribute('data-type');
+                }
+                previous = previous.previousElementSibling as HTMLElement | null;
+            }
+            const parent = ref.parentElement;
+            ref.remove();
+            if (parent) markContainingBlock(parent);
+        }
+
+        if (affectedBlocks.size > 0) {
+            await batchUpdateBlock(Array.from(affectedBlocks, ([id, block]) => ({
+                id,
+                dataType: 'dom',
+                data: block.outerHTML,
+            })));
+        }
+
+        await deleteBlock(footnoteID);
+        await refreshSql();
+
+        const settings = await this.loadSettings();
+        if (settings.enableOrderedFootnotes) {
+            await this.reorderFootnotes(docID, true);
+        }
+    }
+
+    /**
      * 获取或创建脚注文档（用于指定路径存放）
      * @param currentDocId 当前文档ID
      * @param currentDocTitle 当前文档标题
