@@ -6,7 +6,14 @@
  * API 文档见 [API_zh_CN.md](https://github.com/siyuan-note/siyuan/blob/master/API_zh_CN.md)
  */
 
-import { fetchPost, fetchSyncPost, openTab, IWebSocketData } from "siyuan";
+import {
+    fetchPost,
+    fetchSyncPost,
+    getFrontend,
+    openMobileFileById,
+    openTab,
+    IWebSocketData,
+} from "siyuan";
 
 
 export async function request(url: string, data: any) {
