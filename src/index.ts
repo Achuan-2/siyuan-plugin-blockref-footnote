@@ -13,6 +13,9 @@ import FootnoteDock from "@/components/FootnoteDock.svelte";
 const STORAGE_NAME = "stroage";
 export const SETTINGS_FILE = "config.json";
 const zeroWhite = "​"
+const contentPlaceholderType = "custom-footnote-content-placeholder";
+// 使用不会被思源索引清理的不换行空格承载标记；弹窗定位后会立即删除整个 span。
+const contentPlaceholder = `<span data-type="${contentPlaceholderType}">&nbsp;</span>`;
 
 
 
@@ -43,7 +46,14 @@ class FootnoteDialog {
         }
     };
 
-    constructor(title: string, blockId: string, onSubmit: () => void, x: number, y: number) {
+    constructor(
+        title: string,
+        blockId: string,
+        onSubmit: () => void,
+        x: number,
+        y: number,
+        focusContentPlaceholder: boolean,
+    ) {
         this.onSubmit = onSubmit;
         let i18n: typeof this.I18N.zh_CN = window.siyuan.config.lang in this.I18N ? this.I18N[window.siyuan.config.lang] : this.I18N.en_US;
 
@@ -93,7 +103,7 @@ class FootnoteDialog {
             blockId: blockId,
             rootId: blockId,
             mode: "wysiwyg",
-            action: ["cb-get-all", "cb-get-focus"],
+            action: focusContentPlaceholder ? ["cb-get-all"] : ["cb-get-all", "cb-get-focus"],
             click: {
                 preventInsetEmptyBlock: true
             },
@@ -107,7 +117,11 @@ class FootnoteDialog {
                 // 如果块被删除，需要关闭弹窗
                 this.dialog.close();
 
-            }
+            },
+            after: (protyle: Protyle) => {
+                if (!focusContentPlaceholder) return;
+                requestAnimationFrame(() => this.focusAtContentPlaceholder(protyle));
+            },
 
         });
 
@@ -144,6 +158,76 @@ class FootnoteDialog {
 
         // 确保 protyle 获得焦点，这样键盘事件才能被 dialog 捕获
         // this.protyle.focus();
+    }
+
+    /**
+     * 将浏览器选区和 Protyle 内部选区同步到模板的 ${content} 位置。
+     * 定位完成后删除临时标记并保存，避免占位标记残留在脚注正文中。
+     */
+    private focusAtContentPlaceholder(protyle: Protyle): boolean {
+        const wysiwyg = protyle.protyle.wysiwyg?.element;
+        if (!wysiwyg || !this.dialog?.isConnected) return false;
+
+        const placeholder = wysiwyg.querySelector<HTMLElement>(
+            `[data-type~="${contentPlaceholderType}"]`
+        );
+        if (placeholder) {
+            const containingBlock = placeholder.closest<HTMLElement>('[data-node-id]');
+            const range = document.createRange();
+            range.setStartAfter(placeholder);
+            range.collapse(true);
+            this.applyProtyleRange(protyle, wysiwyg, range, placeholder);
+
+            // Range 是实时对象；删除其前方的占位节点后，光标会自动留在原位置。
+            placeholder.remove();
+            this.syncCurrentSelection(protyle, wysiwyg);
+            saveViaTransaction(containingBlock ?? wysiwyg);
+            return true;
+        }
+
+        // 兼容旧数据：旧版本将 ${content} 替换为 U+200B。
+        const walker = document.createTreeWalker(wysiwyg, NodeFilter.SHOW_TEXT);
+        let textNode = walker.nextNode() as Text | null;
+        while (textNode) {
+            const placeholderOffset = textNode.data.indexOf(zeroWhite);
+            if (placeholderOffset !== -1) {
+                const containingBlock = textNode.parentElement?.closest<HTMLElement>('[data-node-id]');
+                const range = document.createRange();
+                range.setStart(textNode, placeholderOffset + zeroWhite.length);
+                range.collapse(true);
+                this.applyProtyleRange(protyle, wysiwyg, range, textNode.parentElement);
+
+                textNode.deleteData(placeholderOffset, zeroWhite.length);
+                this.syncCurrentSelection(protyle, wysiwyg);
+                saveViaTransaction(containingBlock ?? wysiwyg);
+                return true;
+            }
+            textNode = walker.nextNode() as Text | null;
+        }
+        return false;
+    }
+
+    private applyProtyleRange(
+        protyle: Protyle,
+        wysiwyg: HTMLElement,
+        range: Range,
+        scrollTarget: Element | null,
+    ) {
+        wysiwyg.focus({ preventScroll: true });
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        protyle.protyle.toolbar.range = range;
+        scrollTarget?.scrollIntoView({ block: 'nearest' });
+    }
+
+    private syncCurrentSelection(protyle: Protyle, wysiwyg: HTMLElement) {
+        const selection = window.getSelection();
+        if (!selection?.rangeCount) return;
+        const range = selection.getRangeAt(0);
+        if (wysiwyg.contains(range.startContainer)) {
+            protyle.protyle.toolbar.range = range;
+        }
     }
 
     /**
@@ -1043,6 +1127,7 @@ export default class PluginFootnote extends Plugin {
                 .replace(plainSpanPattern, '$1') // 保留span标签中的文本内容
                 .replace(plainSpanPattern2, '$1') // 保留span标签中的文本内容
             let templates = settings.templates;
+            const hasContentPlaceholder = templates.includes('${content}');
             templates = templates.replace(/\$\{selection\}/g, cleanSelection);
             // selectionText要对特殊符号进行处理，比如把英文双引号变为&quot;
             const escapeHtml = (text: string) => {
@@ -1058,7 +1143,10 @@ export default class PluginFootnote extends Plugin {
             const escapedSelectionText = escapeHtml(selectionText);
             templates = templates.replace(/\$\{selection:text\}/g, escapedSelectionText);
             templates = templates.replace(/\$\{selection:text\}/g, selectionText);
-            templates = templates.replace(/\$\{content\}/g, zeroWhite);
+            templates = templates.replace(
+                /\$\{content\}/g,
+                settings.floatDialogEnable && hasContentPlaceholder ? contentPlaceholder : zeroWhite,
+            );
             templates = templates.replace(/\$\{refID\}/g, currentBlockId);
             templates = templates.replace(/\$\{index\}/g, `<span data-type="custom-footnote-index a" data-href="siyuan://blocks/${currentBlockId}">${this.i18n.indexAnchor}</span>`); // 支持添加脚注编号
             templates = templates.replace(/\$\{index:text\}/g, `<span data-type="custom-footnote-index>${this.i18n.indexAnchor}</span>`); // 支持添加脚注编号
@@ -1301,7 +1389,8 @@ export default class PluginFootnote extends Plugin {
                         }
                     },
                     x,
-                    y // Position below cursor
+                    y, // Position below cursor
+                    hasContentPlaceholder,
                 );
             } else {
                 // 如果不显示脚注弹窗，在这里关闭进度条
@@ -1790,6 +1879,7 @@ export default class PluginFootnote extends Plugin {
 
         // 4. Prepare the template, handling special list formatting
         let templates = settings.templates;
+        const hasContentPlaceholder = templates.includes('${content}');
         let selectionReplaced = false;
 
         const listRegex = /^([\*\-]\s+)\$\{selection\}/m;
@@ -1825,7 +1915,10 @@ export default class PluginFootnote extends Plugin {
             templates = templates.replace(/\$\{selection:text\}/g, combinedKramdown);
         }
 
-        templates = templates.replace(/\$\{content\}/g, zeroWhite);
+        templates = templates.replace(
+            /\$\{content\}/g,
+            settings.floatDialogEnable && hasContentPlaceholder ? contentPlaceholder : zeroWhite,
+        );
         const firstBlockId = blocks[0].getAttribute('data-node-id');
         templates = templates.replace(/\$\{refID\}/g, firstBlockId);
         templates = templates.replace(/\$\{index\}/g, `<span data-type="custom-footnote-index a" data-href="siyuan://blocks/${firstBlockId}">${this.i18n.indexAnchor}</span>`);
@@ -1916,7 +2009,8 @@ export default class PluginFootnote extends Plugin {
                     }
                 },
                 rect.x,
-                rect.y + rect.height
+                rect.y + rect.height,
+                hasContentPlaceholder,
             );
         } else {
             if (settings.enableOrderedFootnotes) {
