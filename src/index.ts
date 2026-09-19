@@ -2,7 +2,7 @@ import { Plugin, fetchSyncPost, Dialog, Protyle, IProtyle } from "siyuan";
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
-import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, refreshSql, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, moveBlock, createDocWithMd, getDoc, getBlockKramdown, getBlockDOM, batchUpdateBlock, openBlock, getBlockByID } from "./api";
+import { appendBlock, deleteBlock, setBlockAttrs, getBlockAttrs, refreshSql, pushMsg, pushErrMsg, sql, renderSprig, getChildBlocks, insertBlock, renameDocByID, prependBlock, updateBlock, moveBlock, createDocWithMd, getDoc, getBlockKramdown, getBlockDOM, getBlockDOMs, batchUpdateBlock, openBlock, getBlockByID } from "./api";
 import { SettingUtils } from "./libs/setting-utils";
 import SettingPanel from "@/SettingPanel.svelte";
 import { getDefaultSettings } from "./defaultSettings";
@@ -407,7 +407,7 @@ export default class PluginFootnote extends Plugin {
                 if (activeElement) {
                     // 添加pushMsg
                     this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
-                    await this.reorderFootnotes(activeElement, true);
+                    await this.reorderFootnotes(activeElement, true, undefined, true);
                     this.closeLoadingDialog();
                     // 如果.sy__siyuan-plugin-blockref-footnotefootnote-dock.layout__tab--active, 则点击button.footnote-dock__refresh进行更新
                     if (document.querySelector(':not(.fn__none) .sy__siyuan-plugin-blockref-footnotefootnote-dock')) {
@@ -422,7 +422,7 @@ export default class PluginFootnote extends Plugin {
             editorCallback: async (protyle: any) => {
                 if (protyle.block?.rootID) {
                     this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
-                    await this.reorderFootnotes(protyle.block.rootID, true, protyle.wysiwyg.element);
+                    await this.reorderFootnotes(protyle.block.rootID, true, protyle.wysiwyg.element, true);
                     this.closeLoadingDialog();
                     // 如果.sy__siyuan-plugin-blockref-footnotefootnote-dock.layout__tab--active, 则点击button.footnote-dock__refresh进行更新
                     if (document.querySelector(':not(.fn__none) .sy__siyuan-plugin-blockref-footnotefootnote-dock')) {
@@ -1933,7 +1933,12 @@ export default class PluginFootnote extends Plugin {
         }
     }
 
-    private async reorderFootnotes(docID: string, reorderBlocks: boolean, editorDom?: ParentNode) {
+    private async reorderFootnotes(
+        docID: string,
+        reorderBlocks: boolean,
+        editorDom?: ParentNode,
+        verifyAllContentNumbers = false,
+    ) {
         const settings = await this.loadSettings();
         await refreshSql();
 
@@ -1951,65 +1956,62 @@ export default class PluginFootnote extends Plugin {
             currentDom = new DOMParser().parseFromString(doc.dom, 'text/html');
         }
 
-        // 2. 确定脚注容器文档ID (根据设置)
-        let footnoteContainerDocID = docID;
-        switch (settings.saveLocation) {
-            case 2: // Specified document
-                footnoteContainerDocID = settings.docID;
-                if (!footnoteContainerDocID) return;
-                break;
-            case 3: // Child document
-                const childDoc = await sql(
-                    `SELECT * FROM blocks WHERE type='d' AND ial like '%custom-plugin-footnote-parent="${docID}"%' LIMIT 1`
-                );
-                if (childDoc?.length > 0) {
-                    footnoteContainerDocID = childDoc[0].id;
+        // 仅在物理顺序确实变化时解析脚注容器，避免常规编号更新产生额外查询。
+        const resolveFootnoteContainerDocID = async (): Promise<string> => {
+            switch (String(settings.saveLocation)) {
+                case '2':
+                    return settings.docID || docID;
+                case '3': {
+                    const childDoc = await sql(
+                        `SELECT id FROM blocks WHERE type='d' AND ial like '%custom-plugin-footnote-parent="${docID}"%' LIMIT 1`
+                    );
+                    return childDoc?.[0]?.id || docID;
                 }
-                break;
-            case 5: // Custom path
-                // 从当前文档属性中获取绑定的脚注文档ID
-                const docAttrs = await getBlockAttrs(docID);
-                const boundDocId = docAttrs['custom-plugin-footnote-doc-id'];
-                if (boundDocId) {
-                    // 验证文档是否存在
-                    const footnoteDoc = await sql(`SELECT * FROM blocks WHERE id = '${boundDocId}' AND type = 'd' LIMIT 1`);
-                    if (footnoteDoc?.length > 0) {
-                        footnoteContainerDocID = boundDocId;
-                    }
+                case '5': {
+                    const docAttrs = await getBlockAttrs(docID);
+                    return docAttrs['custom-plugin-footnote-doc-id'] || docID;
                 }
-                break;
-        }
+                default:
+                    return docID;
+            }
+        };
 
         // 3. 遍历所有脚注引用，建立顺序映射，并记录锚点块和受影响的块
         const footnoteOrder = new Map<string, number>(); // 存储最终排序: 脚注ID -> 顺序编号 (1, 2, 3...)
         const refAnchorMap = new Map<string, string>();   // 存储首次出现位置: 脚注ID -> 锚点块ID
         const affectedRefBlocks = new Map<string, HTMLElement>(); // 存储受影响的引用块: 块ID -> 块元素
         const processedIds = new Set<string>();
+        const footnoteIdsNeedingContentUpdate = new Set<string>();
         let counter = 1;
 
         // 旧版本可能在整块回写的竞态中丢失 custom-footnote，但引用目标 ID 仍然存在。
         // 仅当目标块明确属于当前文档的脚注内容时才恢复，避免误认普通块引用。
-        const footnoteContentBlocks = await sql(`
-            SELECT id FROM blocks
-            WHERE ial like '%custom-plugin-footnote-content="${docID}"%'`);
-        const footnoteContentIds = new Set<string>(footnoteContentBlocks.map(block => block.id));
         const unmarkedReferences = currentDom.querySelectorAll<HTMLElement>(
-            'span[data-id]:not([custom-footnote]), span[data-href^="siyuan://blocks/"]:not([custom-footnote])'
+            'span[data-type~="sup"][data-id]:not([custom-footnote]), ' +
+            'span[data-type~="sup"][data-href^="siyuan://blocks/"]:not([custom-footnote]), ' +
+            'span[custom-footnote-selection-ref][data-id]:not([custom-footnote])'
         );
 
-        for (const ref of unmarkedReferences) {
-            const dataTypes = new Set((ref.getAttribute('data-type') || '').split(/\s+/).filter(Boolean));
-            if (!dataTypes.has('sup') && !ref.hasAttribute('custom-footnote-selection-ref')) continue;
+        if (unmarkedReferences.length > 0) {
+            const footnoteContentBlocks = await sql(`
+                SELECT id FROM blocks
+                WHERE ial like '%custom-plugin-footnote-content="${docID}"%'`);
+            const footnoteContentIds = new Set<string>(footnoteContentBlocks.map(block => block.id));
 
-            const hrefTarget = ref.getAttribute('data-href')?.match(/^siyuan:\/\/blocks\/([^/?#]+)/)?.[1];
-            const footnoteId = ref.getAttribute('data-id') || hrefTarget;
-            if (!footnoteId || !footnoteContentIds.has(footnoteId)) continue;
+            for (const ref of unmarkedReferences) {
+                const dataTypes = new Set((ref.getAttribute('data-type') || '').split(/\s+/).filter(Boolean));
+                if (!dataTypes.has('sup') && !ref.hasAttribute('custom-footnote-selection-ref')) continue;
 
-            ref.setAttribute('custom-footnote', footnoteId);
-            const containingBlock = ref.closest<HTMLElement>('[data-node-id][data-node-index]');
-            const blockId = containingBlock?.getAttribute('data-node-id');
-            if (containingBlock && blockId) {
-                affectedRefBlocks.set(blockId, containingBlock);
+                const hrefTarget = ref.getAttribute('data-href')?.match(/^siyuan:\/\/blocks\/([^/?#]+)/)?.[1];
+                const footnoteId = ref.getAttribute('data-id') || hrefTarget;
+                if (!footnoteId || !footnoteContentIds.has(footnoteId)) continue;
+
+                ref.setAttribute('custom-footnote', footnoteId);
+                const containingBlock = ref.closest<HTMLElement>('[data-node-id][data-node-index]');
+                const blockId = containingBlock?.getAttribute('data-node-id');
+                if (containingBlock && blockId) {
+                    affectedRefBlocks.set(blockId, containingBlock);
+                }
             }
         }
 
@@ -2043,6 +2045,10 @@ export default class PluginFootnote extends Plugin {
                 const currentNumber = currentNumberMatch ? parseInt(currentNumberMatch[1], 10) : null;
                 const targetNumber = footnoteOrder.get(footnoteId);
 
+                if (targetNumber && currentNumber !== targetNumber) {
+                    footnoteIdsNeedingContentUpdate.add(footnoteId);
+                }
+
                 // 记录包含此引用的块
                 const containingBlock = ref.closest('[data-node-id][data-node-index]') as HTMLElement;
                 if (containingBlock) {
@@ -2061,6 +2067,9 @@ export default class PluginFootnote extends Plugin {
                         }
                     }
                 }
+            } else if (footnoteId) {
+                // 块级脚注和“选中文字作为引用”模式不显示编号，无法从引用侧判断内容编号。
+                footnoteIdsNeedingContentUpdate.add(footnoteId);
             }
             // ================== MODIFICATION END ==================
         }
@@ -2099,34 +2108,38 @@ export default class PluginFootnote extends Plugin {
             }
         }
 
-        // 4.2 【优化】准备【脚注内容块】的更新负载
+        // 4.2 准备【脚注内容块】的更新负载。
+        // 自动更新只检查编号发生变化的脚注；手动重排则完整校验一次。
         if (footnoteOrder.size > 0) {
-            const footnoteIds = Array.from(footnoteOrder.keys());
+            const footnoteIds = verifyAllContentNumbers
+                ? Array.from(footnoteOrder.keys())
+                : Array.from(footnoteIdsNeedingContentUpdate);
             const numberExtractionRegex = /<span[^>]*data-type="[^"]*custom-footnote-index[^>]*>\[(\d+)\]<\/span>/;
+            let footnoteBlockDOMs: Record<string, string> = {};
 
-            // 并行获取所有脚注块的DOM，以提高效率
-            const footnoteBlockDOMs = await Promise.all(
-                footnoteIds.map(id => getBlockDOM(id).catch(e => {
-                    console.warn(`获取脚注内容块 ${id} 的DOM失败`, e);
-                    return null;
-                }))
-            );
+            if (footnoteIds.length > 0) {
+                try {
+                    // 使用思源批量接口，将 N 次 getBlockDOM 往返压缩为 1 次请求。
+                    footnoteBlockDOMs = await getBlockDOMs(footnoteIds);
+                } catch (error) {
+                    console.warn('批量获取脚注内容块 DOM 失败', error);
+                }
+            }
 
             let processedContentBlocks = 0;
-            const totalContentBlocks = footnoteOrder.size;
+            const totalContentBlocks = footnoteIds.length;
 
-            for (const footnoteBlockDOM of footnoteBlockDOMs) {
+            for (const footnoteId of footnoteIds) {
                 processedContentBlocks++;
 
                 if (processedContentBlocks % 5 === 0 || processedContentBlocks === totalContentBlocks) {
                     this.progressManager?.setMessage(this.i18n.reorderFootnotes, `正在检查脚注编号 ${processedContentBlocks}/${totalContentBlocks}`);
                 }
 
-                if (!footnoteBlockDOM?.dom || !footnoteBlockDOM.id) continue;
+                const originalDOM = footnoteBlockDOMs[footnoteId];
+                if (!originalDOM) continue;
 
-                const footnoteId = footnoteBlockDOM.id;
                 const newNumber = footnoteOrder.get(footnoteId);
-                const originalDOM = footnoteBlockDOM.dom;
 
                 const match = numberExtractionRegex.exec(originalDOM);
                 const currentNumber = match ? parseInt(match[1], 10) : NaN;
@@ -2141,6 +2154,8 @@ export default class PluginFootnote extends Plugin {
                     `$1[${newNumber}]$2`
                 );
 
+                if (updatedDOM === originalDOM) continue;
+
                 allBlocksToUpdate.push({
                     id: footnoteId,
                     dataType: "dom",
@@ -2151,55 +2166,65 @@ export default class PluginFootnote extends Plugin {
 
 
 
+        // 4.3 先统一写入编号，让可见更新不必等待后续的物理块移动。
+        if (allBlocksToUpdate.length > 0) {
+            try {
+                this.progressManager?.setMessage(this.i18n.reorderFootnotes, `正在批量更新 ${allBlocksToUpdate.length} 个块...`);
+                await batchUpdateBlock(allBlocksToUpdate);
+            } catch (error) {
+                console.error('Failed to batch update blocks (references or contents):', error);
+            }
+        }
+
         // 5. 如果需要，对脚注内容块进行物理排序
 
         if (reorderBlocks && footnoteOrder.size > 0) {
             // 1. 获取所有相关的脚注内容块，按其当前物理顺序
             const allFootnoteBlocks = await sql(`
-    SELECT * FROM blocks 
-    WHERE ial like '%custom-plugin-footnote-content="${docID}"%' 
+    SELECT id FROM blocks
+    WHERE ial like '%custom-plugin-footnote-content="${docID}"%'
     ORDER BY sort ASC`);
 
             const relevantBlocks = allFootnoteBlocks.filter(block => footnoteOrder.has(block.id));
 
             if (relevantBlocks.length > 0) {
-                const containerQuery = await sql(`
-        SELECT * FROM blocks 
-        WHERE root_id = '${footnoteContainerDocID}' 
-        AND ial like '%custom-plugin-footnote-parent="${docID}"%' 
-        LIMIT 1`);
+                // 1. 获取当前和目标物理顺序。不存在的脚注内容块不参与移动。
+                const currentOrderIds = relevantBlocks.map(block => block.id);
+                const existingIds = new Set(currentOrderIds);
+                const targetOrderIds = Array.from(footnoteOrder.keys()).filter(id => existingIds.has(id));
+                const orderMatches = currentOrderIds.length === targetOrderIds.length
+                    && currentOrderIds.every((id, index) => id === targetOrderIds[index]);
 
-                if (containerQuery.length > 0) {
-                    const containerId = containerQuery[0].id;
+                // 绝大多数新增/删除操作不会改变既有脚注块顺序，直接跳过排序计算和容器查询。
+                if (!orderMatches) {
+                    const footnoteContainerDocID = await resolveFootnoteContainerDocID();
+                    const containerQuery = await sql(`
+            SELECT id FROM blocks
+            WHERE root_id = '${footnoteContainerDocID}'
+            AND ial like '%custom-plugin-footnote-parent="${docID}"%'
+            LIMIT 1`);
 
-                    // 1. 获取当前物理顺序的ID数组
-                    const currentOrderIds = relevantBlocks.map(block => block.id);
-
-                    // 2. 获取目标顺序的ID数组
-                    const targetOrderIds = Array.from(footnoteOrder.keys());
-
-                    // 3. 【核心改进】使用LCS算法进行智能排序
-                    const lcsIds = findLCS(currentOrderIds, targetOrderIds);
-                    const lcsSet = new Set(lcsIds); // 使用Set以获得O(1)的查找性能
-
-                    console.log(`Target order has ${targetOrderIds.length} blocks. LCS has ${lcsSet.size} blocks. Moves needed: ${targetOrderIds.length - lcsSet.size}`);
-
-                    if (targetOrderIds.length !== lcsSet.size) { // 仅在需要移动时执行
+                    if (containerQuery.length > 0) {
+                        const containerId = containerQuery[0].id;
+                        // 两组 ID 唯一且相同，LCS 可转化为目标位置序列的 LIS，
+                        // 将计算复杂度从 O(n²) 降为 O(n log n)。
+                        const stableIds = findStableSubsequence(currentOrderIds, targetOrderIds);
+                        const stableIdSet = new Set(stableIds);
                         let previousID = containerId; // 移动操作的前一个锚点块
-                        let lcsIndex = 0;
+                        let stableIndex = 0;
 
                         // 计算需要移动的块数量
-                        const totalMovesNeeded = targetOrderIds.length - lcsSet.size;
+                        const totalMovesNeeded = targetOrderIds.length - stableIdSet.size;
                         let currentMoveIndex = 0;
 
                         for (let i = 0; i < targetOrderIds.length; i++) {
                             const targetId = targetOrderIds[i];
 
-                            // 检查当前目标块是否是LCS的一部分（即是否是稳定锚点）
-                            if (lcsIndex < lcsIds.length && targetId === lcsIds[lcsIndex]) {
+                            // 检查当前目标块是否是稳定子序列的一部分
+                            if (stableIndex < stableIds.length && targetId === stableIds[stableIndex]) {
                                 // 是稳定块，不移动它，只更新锚点
                                 previousID = targetId;
-                                lcsIndex++;
+                                stableIndex++;
                             } else {
                                 // 是需要移动的块
                                 currentMoveIndex++;
@@ -2225,62 +2250,43 @@ export default class PluginFootnote extends Plugin {
                             this.i18n.reorderFootnotes,
                             `块移动完成 (${totalMovesNeeded}/${totalMovesNeeded})`
                         );
-                    } else {
-                        console.log('Footnote blocks are already in the correct order. No move operation is needed.');
                     }
                 }
             }
         }
 
-        // 4.3 执行统一的批量更新
-        if (allBlocksToUpdate.length > 0) {
-            try {
-                console.log(`Batch updating ${allBlocksToUpdate.length} blocks in total (references and contents).`);
-                this.progressManager?.setMessage(this.i18n.reorderFootnotes, `正在批量更新 ${allBlocksToUpdate.length} 个块...`);
-                await batchUpdateBlock(allBlocksToUpdate);
-            } catch (error) {
-                console.error('Failed to batch update blocks (references or contents):', error);
-                // 注意：合并更新后，回退逻辑变得复杂，因为可能涉及多个文档。
-            }
-        }
+        function findStableSubsequence(currentIds: string[], targetIds: string[]): string[] {
+            const targetIndexes = new Map(targetIds.map((id, index) => [id, index]));
+            const positions = currentIds.map(id => targetIndexes.get(id));
+            const tails: number[] = [];
+            const predecessors = new Array(positions.length).fill(-1);
 
+            for (let index = 0; index < positions.length; index++) {
+                const position = positions[index];
+                if (position === undefined) continue;
 
-
-        /**
- * 查找两个数组的最长公共子序列 (LCS)
- * @param a - 数组A
- * @param b - 数组B
- * @returns {Array} - 包含LCS元素的数组
- */
-        function findLCS<T>(a: T[], b: T[]): T[] {
-            const m = a.length;
-            const n = b.length;
-            const dp = Array(m + 1).fill(0).map(() => Array(n + 1).fill(0));
-
-            for (let i = 1; i <= m; i++) {
-                for (let j = 1; j <= n; j++) {
-                    if (a[i - 1] === b[j - 1]) {
-                        dp[i][j] = dp[i - 1][j - 1] + 1;
+                let left = 0;
+                let right = tails.length;
+                while (left < right) {
+                    const middle = (left + right) >> 1;
+                    if (positions[tails[middle]]! < position) {
+                        left = middle + 1;
                     } else {
-                        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+                        right = middle;
                     }
                 }
+
+                if (left > 0) predecessors[index] = tails[left - 1];
+                tails[left] = index;
             }
 
-            const lcs: T[] = [];
-            let i = m, j = n;
-            while (i > 0 && j > 0) {
-                if (a[i - 1] === b[j - 1]) {
-                    lcs.unshift(a[i - 1]);
-                    i--;
-                    j--;
-                } else if (dp[i - 1][j] > dp[i][j - 1]) {
-                    i--;
-                } else {
-                    j--;
-                }
+            const stableIds: string[] = [];
+            let cursor = tails.length > 0 ? tails[tails.length - 1] : -1;
+            while (cursor >= 0) {
+                stableIds.push(currentIds[cursor]);
+                cursor = predecessors[cursor];
             }
-            return lcs;
+            return stableIds.reverse();
         }
     }
 

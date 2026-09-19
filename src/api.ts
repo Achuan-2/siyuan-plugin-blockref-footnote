@@ -360,6 +360,12 @@ export async function getBlockDOM(id: BlockId) {
     return request(url, data);
 }
 
+export async function getBlockDOMs(ids: BlockId[]): Promise<Record<string, string>> {
+    if (ids.length === 0) return {};
+    const result = await request('/api/block/getBlockDOMs', { ids });
+    return result ?? {};
+}
+
 export async function getChildBlocks(id: BlockId): Promise<IResGetChildBlock[]> {
     let data = {
         id: id
