@@ -422,7 +422,7 @@ export default class PluginFootnote extends Plugin {
             editorCallback: async (protyle: any) => {
                 if (protyle.block?.rootID) {
                     this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
-                    await this.reorderFootnotes(protyle.block.rootID, true);
+                    await this.reorderFootnotes(protyle.block.rootID, true, protyle.wysiwyg.element);
                     this.closeLoadingDialog();
                     // 如果.sy__siyuan-plugin-blockref-footnotefootnote-dock.layout__tab--active, 则点击button.footnote-dock__refresh进行更新
                     if (document.querySelector(':not(.fn__none) .sy__siyuan-plugin-blockref-footnotefootnote-dock')) {
@@ -830,7 +830,7 @@ export default class PluginFootnote extends Plugin {
                             // Wait a bit for DOM updates
                             await whenBlockSaved(null, 1000).then(async (msg) => { console.log("saved") });
                             this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
-                            await this.reorderFootnotes(docID, true);
+                            await this.reorderFootnotes(docID, true, detail.protyle.wysiwyg.element);
                             this.closeLoadingDialog();
                             await pushMsg(this.i18n.reorderFootnotes + " Finished");
                         }
@@ -1249,13 +1249,15 @@ export default class PluginFootnote extends Plugin {
                 }
             }
 
-            // // 给脚注块引添加属性，方便后续查找，添加其他功能
+            let referenceSaved: Promise<any> | null = null;
+
+            // 给脚注块引添加属性，方便后续查找和编号。
             if (memoELement) {
-
                 memoELement.setAttribute("custom-footnote", newBlockId);
-                // 保存脚注块引添加的自定义属性值
-
-                saveViaTransaction(memoELement)
+                // 必须先监听再触发 input，否则可能错过当前块的 transactions 消息，
+                // 后续从数据库读取到旧 DOM 时会把刚添加的 custom-footnote 覆盖掉。
+                referenceSaved = whenBlockSaved();
+                saveViaTransaction(memoELement);
             }
 
 
@@ -1263,9 +1265,12 @@ export default class PluginFootnote extends Plugin {
             protyle.toolbar.element.classList.add("fn__none")
 
             // 等待保存数据
-            await whenBlockSaved().then(async (msg) => { console.log("saved") });
+            if (referenceSaved) {
+                await referenceSaved;
+            }
             // 新增脚注后，将当前文档内已有的行内脚注引用统一为当前设置的格式。
-            await this.syncFootnoteReferenceMode(protyle.block.rootID, settings);
+            // 使用编辑器内的最新 DOM，避免数据库尚未同步时用旧块覆盖新引用。
+            await this.syncFootnoteReferenceMode(protyle.block.rootID, settings, protyle.wysiwyg.element);
             // --------------------------添加脚注引用 END-------------------------- //
 
             // --------------------------脚注弹窗 Start-------------------------- // 
@@ -1282,7 +1287,7 @@ export default class PluginFootnote extends Plugin {
                     async () => {
                         if (settings.enableOrderedFootnotes) {
                             this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
-                            await this.reorderFootnotes(protyle.block.rootID, true);
+                            await this.reorderFootnotes(protyle.block.rootID, true, protyle.wysiwyg.element);
                             this.closeLoadingDialog();
                             await pushMsg(this.i18n.reorderFootnotes + " Finished");
                         }
@@ -1303,7 +1308,7 @@ export default class PluginFootnote extends Plugin {
                 if (settings.enableOrderedFootnotes) {
                     // 保持进度条显示，更新消息
                     this.progressManager?.setMessage(this.i18n.reorderFootnotes + " ...");
-                    await this.reorderFootnotes(protyle.block.rootID, true);
+                    await this.reorderFootnotes(protyle.block.rootID, true, protyle.wysiwyg.element);
                     this.closeLoadingDialog();
                     await pushMsg(this.i18n.reorderFootnotes + " Finished");
                 } else {
@@ -1367,12 +1372,16 @@ export default class PluginFootnote extends Plugin {
      * 将当前文档内已有的行内脚注引用同步为当前设置的插入格式。
      * 块级脚注（DIV）不参与转换。
      */
-    private async syncFootnoteReferenceMode(docID: string, settings: any) {
+    private async syncFootnoteReferenceMode(docID: string, settings: any, editorDom?: ParentNode) {
         try {
-            const docData = await getBlockDOM(docID);
-            if (!docData?.dom) return;
-
-            const parsedDoc = new DOMParser().parseFromString(docData.dom, 'text/html');
+            let parsedDoc: ParentNode;
+            if (editorDom) {
+                parsedDoc = editorDom;
+            } else {
+                const docData = await getBlockDOM(docID);
+                if (!docData?.dom) return;
+                parsedDoc = new DOMParser().parseFromString(docData.dom, 'text/html');
+            }
             const refs = Array.from(parsedDoc.querySelectorAll<HTMLElement>('[custom-footnote]'));
             const affectedBlocks = new Map<string, HTMLElement>();
             const useSelectedTextAsReference = settings.referenceInsertMode === '2';
@@ -1388,6 +1397,7 @@ export default class PluginFootnote extends Plugin {
 
                 const footnoteID = ref.getAttribute('custom-footnote');
                 if (!footnoteID) continue;
+                const originalReferenceDOM = ref.outerHTML;
                 const isSelectedTextReference = ref.hasAttribute('custom-footnote-selection-ref');
 
                 if (useSelectedTextAsReference && !isSelectedTextReference) {
@@ -1415,13 +1425,15 @@ export default class PluginFootnote extends Plugin {
                     ref.setAttribute('custom-footnote-selection-ref', 'true');
                     ref.removeAttribute('data-href');
                     selectionElements.forEach(element => element.remove());
-                    markContainingBlock(ref);
+                    if (ref.outerHTML !== originalReferenceDOM) {
+                        markContainingBlock(ref);
+                    }
                     continue;
                 }
 
                 if (!useSelectedTextAsReference) {
                     if (isSelectedTextReference) {
-                        const selectionElement = parsedDoc.createElement('span');
+                        const selectionElement = document.createElement('span');
                         selectionElement.textContent = ref.textContent || '';
                         const selectionMark = settings.selectFontStyle === '2'
                             ? `custom-footnote-selected-text-${footnoteID}`
@@ -1445,7 +1457,9 @@ export default class PluginFootnote extends Plugin {
                         ref.setAttribute('data-subtype', 's');
                         ref.removeAttribute('data-href');
                     }
-                    markContainingBlock(ref);
+                    if (ref.outerHTML !== originalReferenceDOM) {
+                        markContainingBlock(ref);
+                    }
                 }
             }
 
@@ -1875,8 +1889,10 @@ export default class PluginFootnote extends Plugin {
 
         // 6. Add a reference attribute to the first selected block
         await setBlockAttrs(firstBlockId, { "custom-footnote": newBlockId });
+        firstBlockElement.setAttribute("custom-footnote", newBlockId);
+        const editorDom = firstBlockElement.closest<HTMLElement>('.protyle-wysiwyg') ?? undefined;
         // 块级新增脚注后，也同步当前文档中已有的行内脚注引用格式。
-        await this.syncFootnoteReferenceMode(docRootId, settings);
+        await this.syncFootnoteReferenceMode(docRootId, settings, editorDom);
 
 
         // 如果是指定路径存放且显示了加载对话框，现在关闭它
@@ -1894,7 +1910,7 @@ export default class PluginFootnote extends Plugin {
                 async () => {
                     if (settings.enableOrderedFootnotes) {
                         this.showLoadingDialog(this.i18n.reorderFootnotes + " ...");
-                        await this.reorderFootnotes(docRootId, true);
+                        await this.reorderFootnotes(docRootId, true, editorDom);
                         this.closeLoadingDialog();
                         await pushMsg(this.i18n.reorderFootnotes + " Finished");
                     }
@@ -1905,7 +1921,7 @@ export default class PluginFootnote extends Plugin {
         } else {
             if (settings.enableOrderedFootnotes) {
                 this.showLoadingDialog(this.i18n.reorderFootnotes + " ...");
-                await this.reorderFootnotes(docRootId, true);
+                await this.reorderFootnotes(docRootId, true, editorDom);
                 this.closeLoadingDialog();
                 await pushMsg(this.i18n.reorderFootnotes + " Finished");
             }
@@ -1917,7 +1933,7 @@ export default class PluginFootnote extends Plugin {
         }
     }
 
-    private async reorderFootnotes(docID: string, reorderBlocks: boolean, protyle?: any) {
+    private async reorderFootnotes(docID: string, reorderBlocks: boolean, editorDom?: ParentNode) {
         const settings = await this.loadSettings();
         await refreshSql();
 
@@ -1926,9 +1942,9 @@ export default class PluginFootnote extends Plugin {
         this.progressManager?.nextStep(this.i18n.reorderFootnotes, "正在获取文档DOM...");
 
         // 1. 获取当前文档的DOM
-        let currentDom;
-        if (protyle) {
-            currentDom = protyle.wysiwyg.element;
+        let currentDom: ParentNode;
+        if (editorDom) {
+            currentDom = editorDom;
         } else {
             const doc = await getBlockDOM(docID);
             if (!doc) return;
@@ -1964,14 +1980,40 @@ export default class PluginFootnote extends Plugin {
                 break;
         }
 
-
         // 3. 遍历所有脚注引用，建立顺序映射，并记录锚点块和受影响的块
-        const footnoteRefs = currentDom.querySelectorAll('[custom-footnote]');
         const footnoteOrder = new Map<string, number>(); // 存储最终排序: 脚注ID -> 顺序编号 (1, 2, 3...)
         const refAnchorMap = new Map<string, string>();   // 存储首次出现位置: 脚注ID -> 锚点块ID
         const affectedRefBlocks = new Map<string, HTMLElement>(); // 存储受影响的引用块: 块ID -> 块元素
         const processedIds = new Set<string>();
         let counter = 1;
+
+        // 旧版本可能在整块回写的竞态中丢失 custom-footnote，但引用目标 ID 仍然存在。
+        // 仅当目标块明确属于当前文档的脚注内容时才恢复，避免误认普通块引用。
+        const footnoteContentBlocks = await sql(`
+            SELECT id FROM blocks
+            WHERE ial like '%custom-plugin-footnote-content="${docID}"%'`);
+        const footnoteContentIds = new Set<string>(footnoteContentBlocks.map(block => block.id));
+        const unmarkedReferences = currentDom.querySelectorAll<HTMLElement>(
+            'span[data-id]:not([custom-footnote]), span[data-href^="siyuan://blocks/"]:not([custom-footnote])'
+        );
+
+        for (const ref of unmarkedReferences) {
+            const dataTypes = new Set((ref.getAttribute('data-type') || '').split(/\s+/).filter(Boolean));
+            if (!dataTypes.has('sup') && !ref.hasAttribute('custom-footnote-selection-ref')) continue;
+
+            const hrefTarget = ref.getAttribute('data-href')?.match(/^siyuan:\/\/blocks\/([^/?#]+)/)?.[1];
+            const footnoteId = ref.getAttribute('data-id') || hrefTarget;
+            if (!footnoteId || !footnoteContentIds.has(footnoteId)) continue;
+
+            ref.setAttribute('custom-footnote', footnoteId);
+            const containingBlock = ref.closest<HTMLElement>('[data-node-id][data-node-index]');
+            const blockId = containingBlock?.getAttribute('data-node-id');
+            if (containingBlock && blockId) {
+                affectedRefBlocks.set(blockId, containingBlock);
+            }
+        }
+
+        const footnoteRefs = currentDom.querySelectorAll<HTMLElement>('[custom-footnote]');
 
         // 新增：存储每个块内的脚注引用信息，用于编号一致性检查
         const blockRefInfo = new Map<string, Array<{ footnoteId: string, currentNumber: number | null, targetNumber: number }>>();
