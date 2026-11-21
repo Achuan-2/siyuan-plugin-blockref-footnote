@@ -10,8 +10,9 @@ import LoadingDialog from "./components/LoadingDialog.svelte";
 import { setPluginInstance, t } from "./utils/i18n";
 import FootnoteDock from "@/components/FootnoteDock.svelte";
 import {
-    adjacentInlineElement, clearFootnoteSelectionMarks, footnoteSelectionMark, getInlineTypes,
-    prepareFootnoteRange, selectionSpanSelector, underlineSpanSelector, visibleFootnoteMark,
+    adjacentInlineElement, clearFootnoteSelectionMarks, ensureUnderlineBoundaries, footnoteSelectionMark,
+    getInlineTypes, moveCaretAcrossUnderline, prepareFootnoteRange, removeUnderlineBoundaries,
+    selectionSpanSelector, underlineSpanSelector, visibleFootnoteMark,
 } from "./footnoteUnderline";
 
 const STORAGE_NAME = "stroage";
@@ -629,9 +630,15 @@ export default class PluginFootnote extends Plugin {
         this.eventBus.on("open-menu-link", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
         this.eventBus.on("click-blockicon", this.onBlockMenuOpen.bind(this));
         this.eventBus.on('click-editorcontent', this.openUnderlineMenu);
+        this.eventBus.on('loaded-protyle-static', ({ detail }) => this.watchUnderlineBoundaries(detail.protyle.wysiwyg.element));
         this.eventBus.on('destroy-protyle', ({ detail }) => {
             if (detail.protyle === this.underlineEdit?.target.protyle) this.cancelUnderlineEdit();
+            const editor = detail.protyle.wysiwyg?.element;
+            this.underlineBoundaryObservers.get(editor)?.disconnect();
+            this.underlineBoundaryObservers.delete(editor);
         });
+        document.querySelectorAll<HTMLElement>('.protyle-wysiwyg').forEach(this.watchUnderlineBoundaries);
+        document.addEventListener('keydown', this.handleUnderlineBoundaryKeys, true);
         document.addEventListener('keydown', this.handleUnderlineEditKeys, true);
         document.addEventListener('beforeinput', this.captureAnchorDeletion, true);
         document.addEventListener('input', this.cleanDeletedAnchorMarks, true);
@@ -745,7 +752,7 @@ export default class PluginFootnote extends Plugin {
             // 1. Define selectors based on whether we are showing or hiding
             const sourcePrefix = show ? 'custom-footnote-hidden-selected-text-' : 'custom-footnote-selected-text-';
             const targetPrefix = show ? 'custom-footnote-selected-text-' : 'custom-footnote-hidden-selected-text-';
-            const sourceSelector = `[data-type^="${sourcePrefix}"]`;
+            const sourceSelector = `span[data-type*="${sourcePrefix}"]`;
 
             // 2. Get the document's DOM
             const docResp = await getBlockDOM(docId);
@@ -765,8 +772,13 @@ export default class PluginFootnote extends Plugin {
 
             spans.forEach((span: HTMLElement) => {
                 // Modify the data-type attribute
-                const currentType = span.getAttribute('data-type');
-                span.setAttribute('data-type', currentType.replace(sourcePrefix, targetPrefix));
+                const types = getInlineTypes(span);
+                const updatedTypes = types.map(type => type.startsWith(sourcePrefix) && footnoteSelectionMark.test(type)
+                    ? targetPrefix + type.slice(sourcePrefix.length)
+                    : type);
+                if (types.every((type, index) => type === updatedTypes[index])) return;
+                span.setAttribute('data-type', updatedTypes.join(' '));
+                if (!show && !span.matches(underlineSpanSelector)) removeUnderlineBoundaries(span);
 
                 // Find the parent block and add it to our map of blocks to update
                 const blockElement = span.closest('[data-node-id]') as HTMLElement;
@@ -781,6 +793,7 @@ export default class PluginFootnote extends Plugin {
             // 4. Prepare the payload for batch update
             const blocksToUpdate = [];
             for (const [blockId, blockElement] of affectedBlocks) {
+                if (show) ensureUnderlineBoundaries(blockElement);
                 blocksToUpdate.push({
                     id: blockId,
                     dataType: "dom",
@@ -896,6 +909,9 @@ export default class PluginFootnote extends Plugin {
 
     onunload() {
         this.cancelUnderlineEdit();
+        this.underlineBoundaryObservers.forEach(observer => observer.disconnect());
+        this.underlineBoundaryObservers.clear();
+        document.removeEventListener('keydown', this.handleUnderlineBoundaryKeys, true);
         document.removeEventListener('keydown', this.handleUnderlineEditKeys, true);
         document.removeEventListener('beforeinput', this.captureAnchorDeletion, true);
         document.removeEventListener('input', this.cleanDeletedAnchorMarks, true);
@@ -934,6 +950,44 @@ export default class PluginFootnote extends Plugin {
 
     private footnoteUnderlinesEnabled = false;
     private underlineEdit?: { target: UnderlineTarget; bar: HTMLElement };
+    private underlineBoundaryObservers = new Map<HTMLElement, MutationObserver>();
+
+    private watchUnderlineBoundaries = (editor: HTMLElement) => {
+        if (!editor || this.underlineBoundaryObservers.has(editor)) return;
+        ensureUnderlineBoundaries(editor);
+        const observer = new MutationObserver(records => {
+            const changed = new Set<HTMLElement>();
+            for (const record of records) {
+                const target = record.target instanceof HTMLElement ? record.target : record.target.parentElement;
+                const editable = target?.closest<HTMLElement>('[contenteditable="true"]');
+                if (editable) {
+                    changed.add(editable);
+                } else {
+                    for (const node of record.addedNodes) {
+                        if (node instanceof HTMLElement) changed.add(node);
+                    }
+                }
+            }
+            for (const root of changed) {
+                if (editor.contains(root)) ensureUnderlineBoundaries(root);
+            }
+        });
+        observer.observe(editor, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['data-type'] });
+        this.underlineBoundaryObservers.set(editor, observer);
+    };
+
+    private handleUnderlineBoundaryKeys = (event: KeyboardEvent) => {
+        if ((event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') || event.isComposing ||
+            event.shiftKey || event.ctrlKey || event.metaKey || event.altKey || event.defaultPrevented) return;
+        const selection = window.getSelection();
+        const editable = selection?.anchorNode?.parentElement?.closest<HTMLElement>('[contenteditable="true"]');
+        const editor = editable?.closest('.protyle-wysiwyg:not([data-readonly="true"])');
+        if (!selection?.isCollapsed || !editor?.contains(event.target as Node)) return;
+        const rtl = getComputedStyle(editable).direction === 'rtl';
+        if (!moveCaretAcrossUnderline(selection, (event.key === 'ArrowRight') !== rtl)) return;
+        event.preventDefault();
+        event.stopPropagation();
+    };
 
     private getUnderlineTarget(protyle: IProtyle, element: Element, footnoteID?: string): UnderlineTarget | undefined {
         if (protyle.disabled || !protyle.wysiwyg.element.contains(element)) return;
@@ -1075,7 +1129,10 @@ export default class PluginFootnote extends Plugin {
             void pushMsg(t('underline.select'));
             return;
         }
-        protyle.getInstance().updateBatchTransaction([block], () => this.clearUnderline(target, mark()));
+        protyle.getInstance().updateBatchTransaction([block], () => {
+            this.clearUnderline(target, mark());
+            ensureUnderlineBoundaries(editable);
+        });
         selection.removeAllRanges();
         protyle.toolbar?.element.classList.add('fn__none');
         this.cancelUnderlineEdit();
@@ -1500,6 +1557,9 @@ export default class PluginFootnote extends Plugin {
             const referenceBlockId = memoELement?.closest('[data-node-id]')?.getAttribute('data-node-id');
             if (!referenceBlockId) throw new Error('Footnote reference was not inserted');
             memoELement.setAttribute('custom-footnote', newBlockId);
+            if (!useSelectedTextAsBlockRef && settings.selectFontStyle === '2') {
+                ensureUnderlineBoundaries(memoELement.closest('[data-node-id]'));
+            }
             const referenceSaved = whenBlockSaved(referenceBlockId, newBlockId);
             saveViaTransaction(memoELement);
             protyle.toolbar.element.classList.add('fn__none');
@@ -1686,7 +1746,7 @@ export default class PluginFootnote extends Plugin {
                     const block = ref.closest('[data-node-id]');
                     const marks = block?.querySelectorAll(`[data-type~="${visibleMark}"], [data-type~="${hiddenMark}"]`);
                     if (marks?.length !== selectionElements.length) continue;
-                    const selectedText = selectionElements.map(element => element.textContent || '').join('');
+                    const selectedText = selectionElements.map(element => element.textContent.replace(/^\u2060|\u2060$/g, '')).join('');
                     if (!selectedText) continue;
 
                     ref.textContent = selectedText;
@@ -1695,7 +1755,10 @@ export default class PluginFootnote extends Plugin {
                     ref.setAttribute('data-subtype', 's');
                     ref.setAttribute('custom-footnote-selection-ref', 'true');
                     ref.removeAttribute('data-href');
-                    selectionElements.forEach(element => element.remove());
+                    selectionElements.forEach(element => {
+                        removeUnderlineBoundaries(element);
+                        element.remove();
+                    });
                     if (ref.outerHTML !== originalReferenceDOM) {
                         markContainingBlock(ref);
                     }
