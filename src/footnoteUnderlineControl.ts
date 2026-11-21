@@ -7,6 +7,7 @@ export type UnderlineOption = {
     label: string;
     getSpans: () => Element[];
     getReference: () => HTMLElement | undefined;
+    hasReferenceAfter: (span: Element) => boolean;
     apply: (range: Range) => void;
     remove: () => void;
 };
@@ -105,7 +106,8 @@ export class FootnoteUnderlineControl {
         this.resizeObserver.observe(editable);
         this.resizeObserver.observe(viewport);
         this.mutationObserver.observe(editable, {
-            subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['data-type'],
+            subtree: true, childList: true, characterData: true, attributes: true,
+            attributeFilter: ['custom-footnote', 'custom-footnote-selection-ref', 'data-id', 'data-href', 'data-type'],
         });
         this.scheduleRender();
     }
@@ -128,8 +130,8 @@ export class FootnoteUnderlineControl {
         return button;
     }
 
-    private getRanges() {
-        return this.option.getSpans().map(span => {
+    private getRanges(spans = this.option.getSpans()) {
+        return spans.map(span => {
             const range = document.createRange();
             range.selectNodeContents(span);
             return range;
@@ -162,7 +164,8 @@ export class FootnoteUnderlineControl {
 
     private render() {
         if (!this.editable.isConnected) return this.close();
-        const ranges = this.getRanges();
+        const spans = this.option.getSpans();
+        const ranges = this.getRanges(spans);
         const reference = this.option.getReference();
         if (!ranges.length && !reference) return this.close();
 
@@ -199,8 +202,10 @@ export class FootnoteUnderlineControl {
             handle.hidden = !reference || !point || !visible(point.bottom) || point.x < left || point.x > right;
             if (!handle.hidden) Object.assign(handle.style, { left: `${point.x}px`, top: `${point.bottom}px` });
         }
-        this.remove.hidden = ranges.length === 0;
-        this.actions.hidden = !lastLine || !!this.drag;
+        const lastSpan = spans[spans.length - 1];
+        this.remove.hidden = !lastSpan || this.option.hasReferenceAfter(lastSpan);
+        this.actions.hidden = !lastLine || !!this.drag ||
+            (this.remove.hidden && this.actions.firstElementChild === this.remove);
         if (!this.actions.hidden) {
             const width = this.actions.offsetWidth;
             const beside = lastLine.right + 20;

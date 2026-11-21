@@ -1018,6 +1018,11 @@ export default class PluginFootnote extends Plugin {
                     legacySpans.includes(span) ||
                     (footnoteID && getInlineTypes(span).includes(`${visibleFootnoteMark}-${footnoteID}`))),
                 getReference,
+                hasReferenceAfter: span => {
+                    const next = adjacentInlineElement(span, 'nextSibling');
+                    return !!next?.matches(footnoteReferenceSelector) &&
+                        blockIDPattern.test(getMarkedFootnoteId(next) || getReferenceTarget(next) || '');
+                },
                 apply: range => {
                     if (!isEditable() || !getReference()) return;
                     const mark = prepareFootnoteRange(editable, range, footnoteID, legacySpans);
