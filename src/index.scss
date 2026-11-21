@@ -23,3 +23,25 @@
     border: 1px solid var(--b3-theme-on-background);
     border-radius: 0px;
 }
+
+.footnote-underline-edit {
+    position: fixed;
+    inset-block-end: max(24px, env(safe-area-inset-bottom));
+    inset-inline-start: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
+    padding: 8px 12px;
+    border: 1px solid var(--b3-border-color);
+    border-radius: 6px;
+    background: var(--b3-theme-surface);
+    color: var(--b3-theme-on-surface);
+    box-shadow: var(--b3-dialog-shadow);
+}

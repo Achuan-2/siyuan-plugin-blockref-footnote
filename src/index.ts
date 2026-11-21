@@ -1,4 +1,4 @@
-import { Plugin, Dialog, Protyle, IProtyle } from "siyuan";
+import { Plugin, Dialog, Menu, Protyle, IProtyle } from "siyuan";
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
@@ -9,6 +9,10 @@ import { getDefaultSettings } from "./defaultSettings";
 import LoadingDialog from "./components/LoadingDialog.svelte";
 import { setPluginInstance, t } from "./utils/i18n";
 import FootnoteDock from "@/components/FootnoteDock.svelte";
+import {
+    adjacentInlineElement, clearFootnoteSelectionMarks, footnoteSelectionMark, getInlineTypes,
+    prepareFootnoteRange, selectionSpanSelector, underlineSpanSelector, visibleFootnoteMark,
+} from "./footnoteUnderline";
 
 const STORAGE_NAME = "stroage";
 export const SETTINGS_FILE = "config.json";
@@ -21,7 +25,6 @@ const footnoteContentSelector = '[data-node-id][custom-plugin-footnote-content]'
 const footnoteReferenceSelector = '[data-node-id][custom-footnote], span[custom-footnote], ' +
     'span[custom-footnote-selection-ref], span[data-type~="sup"][data-id], ' +
     'span[data-type~="sup"][data-href^="siyuan://blocks/"]';
-const footnoteSelectionMark = /^custom-footnote-(?:hidden-)?selected-text-(\d{14}-[a-z0-9]{7})$/;
 const blockIDPattern = /^\d{14}-[a-z0-9]{7}$/;
 
 function getReferenceTarget(ref: Element) {
@@ -33,21 +36,13 @@ function getMarkedFootnoteId(ref: Element) {
     return id === 'true' ? getReferenceTarget(ref) : id;
 }
 
-function clearFootnoteSelectionMarks(element: Element, footnoteIds: ReadonlySet<string>, clearLegacy = false) {
-    const types = element.getAttribute('data-type')?.split(/\s+/).filter(Boolean) || [];
-    const remainingTypes = types.filter(type => {
-        const id = type.match(footnoteSelectionMark)?.[1];
-        if (id) return !footnoteIds.has(id);
-        return !clearLegacy || (type !== 'custom-footnote-selected-text' && type !== 'custom-footnote-hidden-selected-text');
-    });
-    if (remainingTypes.length === types.length) return false;
-    if (remainingTypes.length > 0) {
-        element.setAttribute('data-type', remainingTypes.join(' '));
-    } else {
-        element.replaceWith(...element.childNodes);
-    }
-    return true;
-}
+type UnderlineTarget = {
+    protyle: IProtyle;
+    block: HTMLElement;
+    editable: HTMLElement;
+    footnoteID?: string;
+    legacySpans?: Element[];
+};
 
 function assignCopiedBlockIds(kramdown: string) {
     // 保留围栏代码中的原文，只替换思源在块属性行中导出的 ID。
@@ -633,6 +628,11 @@ export default class PluginFootnote extends Plugin {
         this.eventBus.on("open-menu-blockref", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
         this.eventBus.on("open-menu-link", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
         this.eventBus.on("click-blockicon", this.onBlockMenuOpen.bind(this));
+        this.eventBus.on('click-editorcontent', this.openUnderlineMenu);
+        this.eventBus.on('destroy-protyle', ({ detail }) => {
+            if (detail.protyle === this.underlineEdit?.target.protyle) this.cancelUnderlineEdit();
+        });
+        document.addEventListener('keydown', this.handleUnderlineEditKeys, true);
         document.addEventListener('beforeinput', this.captureAnchorDeletion, true);
         document.addEventListener('input', this.cleanDeletedAnchorMarks, true);
 
@@ -643,6 +643,7 @@ export default class PluginFootnote extends Plugin {
         document.head.appendChild(this.styleElement);
         const settings = await this.loadSettings();
         this.updateCSS(settings.css);
+        this.footnoteUnderlinesEnabled = settings.selectFontStyle === '2';
 
         // 初始化脚注Dock栏
         await this.initFootnoteDock();
@@ -871,6 +872,8 @@ export default class PluginFootnote extends Plugin {
      */
     async saveSettings(settings: any) {
         await this.saveData(SETTINGS_FILE, settings);
+        this.footnoteUnderlinesEnabled = settings.selectFontStyle === '2';
+        if (!this.footnoteUnderlinesEnabled) this.cancelUnderlineEdit();
 
     }
 
@@ -892,6 +895,8 @@ export default class PluginFootnote extends Plugin {
     }
 
     onunload() {
+        this.cancelUnderlineEdit();
+        document.removeEventListener('keydown', this.handleUnderlineEditKeys, true);
         document.removeEventListener('beforeinput', this.captureAnchorDeletion, true);
         document.removeEventListener('input', this.cleanDeletedAnchorMarks, true);
         if (this.footnoteDock) {
@@ -905,6 +910,18 @@ export default class PluginFootnote extends Plugin {
         const footnoteId = getMarkedFootnoteId(ref);
         if (!footnoteId || !blockIDPattern.test(footnoteId)) return;
 
+        if (this.footnoteUnderlinesEnabled && !ref.hasAttribute('custom-footnote-selection-ref')) {
+            const target = this.getUnderlineTarget(detail.protyle, ref, footnoteId);
+            if (target) {
+                target.legacySpans = this.getLegacyUnderlineRun(adjacentInlineElement(ref, 'previousSibling'));
+                detail.menu.addItem({
+                    icon: 'iconEdit',
+                    label: t('underline.adjust'),
+                    click: () => this.startUnderlineEdit(target),
+                });
+            }
+        }
+
         detail.menu.addItem({
             icon: 'iconTrashcan',
             label: this.i18n.deleteFootnote,
@@ -913,6 +930,170 @@ export default class PluginFootnote extends Plugin {
                 await this.deleteFootnoteById(detail.protyle.block.rootID, footnoteId);
             },
         });
+    };
+
+    private footnoteUnderlinesEnabled = false;
+    private underlineEdit?: { target: UnderlineTarget; bar: HTMLElement };
+
+    private getUnderlineTarget(protyle: IProtyle, element: Element, footnoteID?: string): UnderlineTarget | undefined {
+        if (protyle.disabled || !protyle.wysiwyg.element.contains(element)) return;
+        const block = element.closest<HTMLElement>('[data-node-id]');
+        const editable = element.closest<HTMLElement>('[contenteditable="true"]');
+        if (!block || !block.contains(editable)) return;
+        return { protyle, block, editable, footnoteID };
+    }
+
+    private getLegacyUnderlineRun(element: Element | null): Element[] {
+        const isLegacy = (span: Element | null) => span?.matches(underlineSpanSelector) &&
+            getInlineTypes(span).includes(visibleFootnoteMark);
+        if (!isLegacy(element)) return [];
+        let start = element;
+        for (let previous = adjacentInlineElement(start, 'previousSibling'); isLegacy(previous);
+            previous = adjacentInlineElement(previous, 'previousSibling')) start = previous;
+        const spans: Element[] = [];
+        for (let span = start; isLegacy(span); span = adjacentInlineElement(span, 'nextSibling')) spans.push(span);
+        return spans;
+    }
+
+    private getUnderlineReference(block: Element, id: string) {
+        return Array.from(block.querySelectorAll<HTMLElement>(footnoteReferenceSelector)).find(ref =>
+            ref.tagName === 'SPAN' && !ref.hasAttribute('custom-footnote-selection-ref') &&
+            (getMarkedFootnoteId(ref) || getReferenceTarget(ref)) === id);
+    }
+
+    private openUnderlineMenu = ({ detail }: CustomEvent<{ protyle: IProtyle; event: MouseEvent }>) => {
+        const { protyle, event } = detail;
+        if (this.underlineEdit || event.button !== 0 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey ||
+            !window.getSelection()?.isCollapsed || !(event.target instanceof Element)) return;
+
+        const span = event.target.closest(underlineSpanSelector);
+        if (!span || span.closest('[custom-footnote]')) return;
+        const target = this.getUnderlineTarget(protyle, span);
+        if (!target) return;
+        const types = getInlineTypes(span);
+        const ids = types.filter(type => type.startsWith(`${visibleFootnoteMark}-`))
+            .map(type => type.match(footnoteSelectionMark)?.[1]).filter(Boolean);
+        const legacySpans = this.getLegacyUnderlineRun(span);
+        if (ids.length === 0 && legacySpans.length === 0) return;
+
+        // 等编辑器完成点击后的菜单收尾，再打开下划线菜单。
+        requestAnimationFrame(() => {
+            if (!span.isConnected || this.underlineEdit) return;
+            const menu = new Menu('blockref-footnote-underline');
+            for (const id of ids) {
+                const ref = this.getUnderlineReference(target.block, id);
+                const entry = { ...target, footnoteID: id };
+                const suffix = ids.length > 1 && ref ? ` ${window.Lute.EscapeHTMLStr(ref.textContent.trim())}` : '';
+                if (ref) {
+                    menu.addItem({
+                        icon: 'iconEdit',
+                        label: t('underline.adjust') + suffix,
+                        click: () => this.startUnderlineEdit(entry),
+                    });
+                }
+                menu.addItem({
+                    icon: 'iconClose',
+                    label: t('underline.remove') + suffix,
+                    click: () => this.removeUnderline(entry),
+                });
+            }
+            if (legacySpans.length > 0) {
+                menu.addItem({
+                    icon: 'iconClose',
+                    label: t('underline.remove'),
+                    click: () => this.removeUnderline({ ...target, legacySpans }),
+                });
+            }
+            menu.open({ x: event.clientX, y: event.clientY });
+        });
+    };
+
+    private clearUnderline(target: UnderlineTarget, keep: ReadonlySet<Element> = new Set()) {
+        const { block, footnoteID, legacySpans } = target;
+        const ids = new Set(footnoteID ? [footnoteID] : []);
+        if (footnoteID) {
+            for (const span of block.querySelectorAll(selectionSpanSelector)) {
+                if (!keep.has(span)) clearFootnoteSelectionMarks(span, ids);
+            }
+        }
+        for (const span of legacySpans ?? []) {
+            if (block.contains(span)) clearFootnoteSelectionMarks(span, ids, true);
+        }
+    }
+
+    private removeUnderline(target: UnderlineTarget) {
+        const { block, protyle } = target;
+        if (!protyle.disabled && protyle.wysiwyg.element.contains(block)) {
+            protyle.getInstance().updateBatchTransaction([block], () => this.clearUnderline(target));
+        }
+    }
+
+    private startUnderlineEdit(target: UnderlineTarget) {
+        this.cancelUnderlineEdit();
+        const bar = document.createElement('div');
+        bar.className = 'footnote-underline-edit';
+        bar.setAttribute('role', 'group');
+        bar.setAttribute('aria-label', t('underline.adjust'));
+        const hint = document.createElement('span');
+        hint.textContent = t('underline.select');
+        const apply = document.createElement('button');
+        apply.type = 'button';
+        apply.className = 'b3-button';
+        apply.textContent = t('underline.apply');
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'b3-button b3-button--cancel';
+        cancel.textContent = t('underline.cancel');
+        // 点击按钮时仍需读取编辑器的原生选区。
+        bar.addEventListener('mousedown', event => event.preventDefault());
+        apply.addEventListener('click', this.applyUnderlineEdit);
+        cancel.addEventListener('click', this.cancelUnderlineEdit);
+        bar.append(hint, apply, cancel);
+        document.body.append(bar);
+        this.underlineEdit = { target, bar };
+    }
+
+    private cancelUnderlineEdit = () => {
+        this.underlineEdit?.bar.remove();
+        this.underlineEdit = undefined;
+    };
+
+    private applyUnderlineEdit = () => {
+        const target = this.underlineEdit?.target;
+        if (!target) return;
+        const selection = window.getSelection();
+        const range = selection?.rangeCount ? selection.getRangeAt(0) : undefined;
+        const { block, editable, protyle, footnoteID } = target;
+        if (protyle.disabled || !protyle.wysiwyg.element.contains(block) || !this.getUnderlineReference(block, footnoteID)) {
+            this.cancelUnderlineEdit();
+            return;
+        }
+        const mark = range && !range.collapsed && editable.contains(range.startContainer) && editable.contains(range.endContainer)
+            ? prepareFootnoteRange(editable, range, footnoteID, target.legacySpans)
+            : undefined;
+        if (!mark) {
+            void pushMsg(t('underline.select'));
+            return;
+        }
+        protyle.getInstance().updateBatchTransaction([block], () => this.clearUnderline(target, mark()));
+        selection.removeAllRanges();
+        protyle.toolbar?.element.classList.add('fn__none');
+        this.cancelUnderlineEdit();
+    };
+
+    private handleUnderlineEditKeys = (event: KeyboardEvent) => {
+        const edit = this.underlineEdit;
+        if (!edit || event.isComposing) return;
+        if (event.key === 'Escape') {
+            this.cancelUnderlineEdit();
+        } else if (event.key === 'Enter' && !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey &&
+            !edit.bar.contains(event.target as Node) && edit.target.editable.contains(window.getSelection()?.anchorNode)) {
+            this.applyUnderlineEdit();
+        } else {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
     };
 
     private pendingAnchorDeletions = new WeakMap<Element, { block: Element; ids: Set<string> }>();
@@ -1490,19 +1671,21 @@ export default class PluginFootnote extends Plugin {
 
                 if (useSelectedTextAsReference && !isSelectedTextReference) {
                     const selectionElements: HTMLElement[] = [];
-                    let previous = ref.previousElementSibling as HTMLElement | null;
                     const visibleMark = `custom-footnote-selected-text-${footnoteID}`;
                     const hiddenMark = `custom-footnote-hidden-selected-text-${footnoteID}`;
 
-                    while (previous) {
-                        const dataTypes = previous.getAttribute('data-type')?.split(/\s+/) || [];
+                    for (let previous = adjacentInlineElement(ref, 'previousSibling'); previous;
+                        previous = adjacentInlineElement(previous, 'previousSibling')) {
+                        const dataTypes = getInlineTypes(previous);
                         if (!dataTypes.includes(visibleMark) && !dataTypes.includes(hiddenMark)) break;
                         selectionElements.unshift(previous);
-                        previous = previous.previousElementSibling as HTMLElement | null;
                     }
 
-                    // 老数据若找不到对应的选中文字，保留原锚文本，避免丢失正文。
+                    // 手动调整后，下划线可能已移离锚文本。仅转换紧挨锚文本的完整范围。
                     if (selectionElements.length === 0) continue;
+                    const block = ref.closest('[data-node-id]');
+                    const marks = block?.querySelectorAll(`[data-type~="${visibleMark}"], [data-type~="${hiddenMark}"]`);
+                    if (marks?.length !== selectionElements.length) continue;
                     const selectedText = selectionElements.map(element => element.textContent || '').join('');
                     if (!selectedText) continue;
 

@@ -153,6 +153,13 @@
         }
     },
     "deleteFootnote": "删除脚注",
+    "underline": {
+        "adjust": "调整下划线范围",
+        "remove": "移除下划线",
+        "select": "在同一段正文内选中新的下划线范围",
+        "apply": "应用",
+        "cancel": "取消"
+    },
     "reorderFootnotes": "脚注编号",
     "cancelReorderFootnotes": "取消脚注编号",
     "errors": {

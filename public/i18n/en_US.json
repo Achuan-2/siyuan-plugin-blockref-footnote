@@ -154,6 +154,13 @@
         }
     },
     "deleteFootnote": "Delete Footnote",
+    "underline": {
+        "adjust": "Adjust Underline Range",
+        "remove": "Remove Underline",
+        "select": "Select a new underline range within the same text block",
+        "apply": "Apply",
+        "cancel": "Cancel"
+    },
     "reorderFootnotes": "Reorder Footnotes",
     "cancelReorderFootnotes": "Cancel Reorder Footnotes",
     "errors": {
