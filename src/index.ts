@@ -1,4 +1,4 @@
-import { Plugin, Dialog, Menu, Protyle, IProtyle } from "siyuan";
+import { Plugin, Dialog, Protyle, IProtyle } from "siyuan";
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
@@ -13,6 +13,7 @@ import {
     adjacentInlineElement, clearFootnoteSelectionMarks, footnoteSelectionMark, getInlineTypes,
     prepareFootnoteRange, selectionSpanSelector, underlineSpanSelector, visibleFootnoteMark,
 } from "./footnoteUnderline";
+import { FootnoteUnderlineControl, type UnderlineOption } from "./footnoteUnderlineControl";
 
 const STORAGE_NAME = "stroage";
 export const SETTINGS_FILE = "config.json";
@@ -628,11 +629,8 @@ export default class PluginFootnote extends Plugin {
         this.eventBus.on("open-menu-blockref", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
         this.eventBus.on("open-menu-link", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
         this.eventBus.on("click-blockicon", this.onBlockMenuOpen.bind(this));
-        this.eventBus.on('click-editorcontent', this.openUnderlineMenu);
-        this.eventBus.on('destroy-protyle', ({ detail }) => {
-            if (detail.protyle === this.underlineEdit?.target.protyle) this.cancelUnderlineEdit();
-        });
-        document.addEventListener('keydown', this.handleUnderlineEditKeys, true);
+        this.eventBus.on('click-editorcontent', this.openUnderlineControl);
+        this.eventBus.on('destroy-protyle', this.closeDestroyedUnderlineControl);
         document.addEventListener('beforeinput', this.captureAnchorDeletion, true);
         document.addEventListener('input', this.cleanDeletedAnchorMarks, true);
 
@@ -873,7 +871,7 @@ export default class PluginFootnote extends Plugin {
     async saveSettings(settings: any) {
         await this.saveData(SETTINGS_FILE, settings);
         this.footnoteUnderlinesEnabled = settings.selectFontStyle === '2';
-        if (!this.footnoteUnderlinesEnabled) this.cancelUnderlineEdit();
+        if (!this.footnoteUnderlinesEnabled) this.underlineControl?.control.close();
 
     }
 
@@ -895,8 +893,9 @@ export default class PluginFootnote extends Plugin {
     }
 
     onunload() {
-        this.cancelUnderlineEdit();
-        document.removeEventListener('keydown', this.handleUnderlineEditKeys, true);
+        this.underlineControl?.control.close();
+        this.eventBus.off('click-editorcontent', this.openUnderlineControl);
+        this.eventBus.off('destroy-protyle', this.closeDestroyedUnderlineControl);
         document.removeEventListener('beforeinput', this.captureAnchorDeletion, true);
         document.removeEventListener('input', this.cleanDeletedAnchorMarks, true);
         if (this.footnoteDock) {
@@ -917,7 +916,7 @@ export default class PluginFootnote extends Plugin {
                 detail.menu.addItem({
                     icon: 'iconEdit',
                     label: t('underline.adjust'),
-                    click: () => this.startUnderlineEdit(target),
+                    click: () => this.showUnderlineControl([target]),
                 });
             }
         }
@@ -933,13 +932,17 @@ export default class PluginFootnote extends Plugin {
     };
 
     private footnoteUnderlinesEnabled = false;
-    private underlineEdit?: { target: UnderlineTarget; bar: HTMLElement };
+    private underlineControl?: { protyle: IProtyle; control: FootnoteUnderlineControl };
+
+    private closeDestroyedUnderlineControl = ({ detail }: CustomEvent<{ protyle: IProtyle }>) => {
+        if (detail.protyle === this.underlineControl?.protyle) this.underlineControl.control.close();
+    };
 
     private getUnderlineTarget(protyle: IProtyle, element: Element, footnoteID?: string): UnderlineTarget | undefined {
         if (protyle.disabled || !protyle.wysiwyg.element.contains(element)) return;
         const block = element.closest<HTMLElement>('[data-node-id]');
         const editable = element.closest<HTMLElement>('[contenteditable="true"]');
-        if (!block || !block.contains(editable)) return;
+        if (!block || !editable || !block.contains(editable)) return;
         return { protyle, block, editable, footnoteID };
     }
 
@@ -961,51 +964,28 @@ export default class PluginFootnote extends Plugin {
             (getMarkedFootnoteId(ref) || getReferenceTarget(ref)) === id);
     }
 
-    private openUnderlineMenu = ({ detail }: CustomEvent<{ protyle: IProtyle; event: MouseEvent }>) => {
+    private openUnderlineControl = ({ detail }: CustomEvent<{ protyle: IProtyle; event: MouseEvent }>) => {
         const { protyle, event } = detail;
-        if (this.underlineEdit || event.button !== 0 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey ||
+        if (!this.footnoteUnderlinesEnabled || event.button !== 0 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey ||
             !window.getSelection()?.isCollapsed || !(event.target instanceof Element)) return;
 
         const span = event.target.closest(underlineSpanSelector);
         if (!span || span.closest('[custom-footnote]')) return;
         const target = this.getUnderlineTarget(protyle, span);
         if (!target) return;
-        const types = getInlineTypes(span);
-        const ids = types.filter(type => type.startsWith(`${visibleFootnoteMark}-`))
+        const ids = getInlineTypes(span).filter(type => type.startsWith(`${visibleFootnoteMark}-`))
             .map(type => type.match(footnoteSelectionMark)?.[1]).filter(Boolean);
+        const targets = ids.map(footnoteID => ({ ...target, footnoteID }));
         const legacySpans = this.getLegacyUnderlineRun(span);
-        if (ids.length === 0 && legacySpans.length === 0) return;
-
-        // 等编辑器完成点击后的菜单收尾，再打开下划线菜单。
-        requestAnimationFrame(() => {
-            if (!span.isConnected || this.underlineEdit) return;
-            const menu = new Menu('blockref-footnote-underline');
-            for (const id of ids) {
-                const ref = this.getUnderlineReference(target.block, id);
-                const entry = { ...target, footnoteID: id };
-                const suffix = ids.length > 1 && ref ? ` ${window.Lute.EscapeHTMLStr(ref.textContent.trim())}` : '';
-                if (ref) {
-                    menu.addItem({
-                        icon: 'iconEdit',
-                        label: t('underline.adjust') + suffix,
-                        click: () => this.startUnderlineEdit(entry),
-                    });
-                }
-                menu.addItem({
-                    icon: 'iconClose',
-                    label: t('underline.remove') + suffix,
-                    click: () => this.removeUnderline(entry),
-                });
-            }
-            if (legacySpans.length > 0) {
-                menu.addItem({
-                    icon: 'iconClose',
-                    label: t('underline.remove'),
-                    click: () => this.removeUnderline({ ...target, legacySpans }),
-                });
-            }
-            menu.open({ x: event.clientX, y: event.clientY });
-        });
+        if (legacySpans.length) {
+            const ref = adjacentInlineElement(legacySpans[legacySpans.length - 1], 'nextSibling');
+            const id = ref?.matches(footnoteReferenceSelector) && (getMarkedFootnoteId(ref) || getReferenceTarget(ref));
+            const footnoteID = id && blockIDPattern.test(id) ? id : undefined;
+            const existing = targets.find(entry => entry.footnoteID === footnoteID);
+            if (existing) existing.legacySpans = legacySpans;
+            else targets.push({ ...target, footnoteID, legacySpans });
+        }
+        if (targets.length) this.showUnderlineControl(targets);
     };
 
     private clearUnderline(target: UnderlineTarget, keep: ReadonlySet<Element> = new Set()) {
@@ -1021,80 +1001,38 @@ export default class PluginFootnote extends Plugin {
         }
     }
 
-    private removeUnderline(target: UnderlineTarget) {
-        const { block, protyle } = target;
-        if (!protyle.disabled && protyle.wysiwyg.element.contains(block)) {
-            protyle.getInstance().updateBatchTransaction([block], () => this.clearUnderline(target));
-        }
+    private showUnderlineControl(targets: UnderlineTarget[]) {
+        if (!this.footnoteUnderlinesEnabled) return;
+        const { protyle, editable } = targets[0];
+        this.underlineControl?.control.close();
+        const options: UnderlineOption[] = targets.map(target => {
+            const { block, footnoteID, legacySpans = [] } = target;
+            const isEditable = () => !protyle.disabled && protyle.wysiwyg.element.contains(block) && block.contains(editable);
+            const getReference = () => {
+                const ref = footnoteID && this.getUnderlineReference(block, footnoteID);
+                return ref && editable.contains(ref) ? ref : undefined;
+            };
+            return {
+                label: getReference()?.textContent.trim() || '',
+                getSpans: () => Array.from(editable.querySelectorAll(underlineSpanSelector)).filter(span =>
+                    legacySpans.includes(span) ||
+                    (footnoteID && getInlineTypes(span).includes(`${visibleFootnoteMark}-${footnoteID}`))),
+                getReference,
+                apply: range => {
+                    if (!isEditable() || !getReference()) return;
+                    const mark = prepareFootnoteRange(editable, range, footnoteID, legacySpans);
+                    if (mark) protyle.getInstance().updateBatchTransaction([block], () => this.clearUnderline(target, mark()));
+                },
+                remove: () => {
+                    if (isEditable()) protyle.getInstance().updateBatchTransaction([block], () => this.clearUnderline(target));
+                },
+            };
+        });
+        const control = new FootnoteUnderlineControl(editable, protyle.contentElement, options, () => {
+            this.underlineControl = undefined;
+        });
+        this.underlineControl = { protyle, control };
     }
-
-    private startUnderlineEdit(target: UnderlineTarget) {
-        this.cancelUnderlineEdit();
-        const bar = document.createElement('div');
-        bar.className = 'footnote-underline-edit';
-        bar.setAttribute('role', 'group');
-        bar.setAttribute('aria-label', t('underline.adjust'));
-        const hint = document.createElement('span');
-        hint.textContent = t('underline.select');
-        const apply = document.createElement('button');
-        apply.type = 'button';
-        apply.className = 'b3-button';
-        apply.textContent = t('underline.apply');
-        const cancel = document.createElement('button');
-        cancel.type = 'button';
-        cancel.className = 'b3-button b3-button--cancel';
-        cancel.textContent = t('underline.cancel');
-        // 点击按钮时仍需读取编辑器的原生选区。
-        bar.addEventListener('mousedown', event => event.preventDefault());
-        apply.addEventListener('click', this.applyUnderlineEdit);
-        cancel.addEventListener('click', this.cancelUnderlineEdit);
-        bar.append(hint, apply, cancel);
-        document.body.append(bar);
-        this.underlineEdit = { target, bar };
-    }
-
-    private cancelUnderlineEdit = () => {
-        this.underlineEdit?.bar.remove();
-        this.underlineEdit = undefined;
-    };
-
-    private applyUnderlineEdit = () => {
-        const target = this.underlineEdit?.target;
-        if (!target) return;
-        const selection = window.getSelection();
-        const range = selection?.rangeCount ? selection.getRangeAt(0) : undefined;
-        const { block, editable, protyle, footnoteID } = target;
-        if (protyle.disabled || !protyle.wysiwyg.element.contains(block) || !this.getUnderlineReference(block, footnoteID)) {
-            this.cancelUnderlineEdit();
-            return;
-        }
-        const mark = range && !range.collapsed && editable.contains(range.startContainer) && editable.contains(range.endContainer)
-            ? prepareFootnoteRange(editable, range, footnoteID, target.legacySpans)
-            : undefined;
-        if (!mark) {
-            void pushMsg(t('underline.select'));
-            return;
-        }
-        protyle.getInstance().updateBatchTransaction([block], () => this.clearUnderline(target, mark()));
-        selection.removeAllRanges();
-        protyle.toolbar?.element.classList.add('fn__none');
-        this.cancelUnderlineEdit();
-    };
-
-    private handleUnderlineEditKeys = (event: KeyboardEvent) => {
-        const edit = this.underlineEdit;
-        if (!edit || event.isComposing) return;
-        if (event.key === 'Escape') {
-            this.cancelUnderlineEdit();
-        } else if (event.key === 'Enter' && !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey &&
-            !edit.bar.contains(event.target as Node) && edit.target.editable.contains(window.getSelection()?.anchorNode)) {
-            this.applyUnderlineEdit();
-        } else {
-            return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-    };
 
     private pendingAnchorDeletions = new WeakMap<Element, { block: Element; ids: Set<string> }>();
 

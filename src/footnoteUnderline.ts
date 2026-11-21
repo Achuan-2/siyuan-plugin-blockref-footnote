@@ -33,23 +33,28 @@ export function clearFootnoteSelectionMarks(element: Element, footnoteIds: Reado
     return true;
 }
 
+export function* footnoteTextRanges(editable: HTMLElement, range: Range) {
+    for (const node of Array.from(editable.childNodes)) {
+        if (!range.intersectsNode(node)) continue;
+        const span = node instanceof HTMLSpanElement ? node : null;
+        if (node.nodeType !== Node.TEXT_NODE && (!span || span.matches(atomicInlineSelector))) continue;
+
+        const selected = editable.ownerDocument.createRange();
+        selected.selectNodeContents(node);
+        if (node.contains(range.startContainer)) selected.setStart(range.startContainer, range.startOffset);
+        if (node.contains(range.endContainer)) selected.setEnd(range.endContainer, range.endOffset);
+        if (!selected.toString().replace(/[\u200b\u2060\ufeff]/g, '')) continue;
+        yield { node, span, selected };
+    }
+}
+
 /** Split only the editable inline runs touched by the range, keeping other formatting on each fragment. */
 export function prepareFootnoteRange(editable: HTMLElement, range: Range, footnoteID: string, legacySpans: Element[] = []) {
     const markedSpans = new Set<Element>();
     const replacements = new Map<Node, DocumentFragment>();
     const mark = `${visibleFootnoteMark}-${footnoteID}`;
     const owner = editable.ownerDocument;
-    for (const node of Array.from(editable.childNodes)) {
-        if (!range.intersectsNode(node)) continue;
-        const span = node instanceof HTMLSpanElement ? node : null;
-        if (node.nodeType !== Node.TEXT_NODE && (!span || span.matches(atomicInlineSelector))) continue;
-
-        const selected = owner.createRange();
-        selected.selectNodeContents(node);
-        if (node.contains(range.startContainer)) selected.setStart(range.startContainer, range.startOffset);
-        if (node.contains(range.endContainer)) selected.setEnd(range.endContainer, range.endOffset);
-        if (!selected.toString().replace(/[\u200b\u2060\ufeff]/g, '')) continue;
-
+    for (const { node, span, selected } of footnoteTextRanges(editable, range)) {
         const before = owner.createRange();
         before.selectNodeContents(node);
         before.setEnd(selected.startContainer, selected.startOffset);

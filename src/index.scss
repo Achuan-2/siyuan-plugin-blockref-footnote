@@ -24,24 +24,85 @@
     border-radius: 0px;
 }
 
-.footnote-underline-edit {
+.footnote-underline-control {
+    z-index: 6;
     position: fixed;
-    inset-block-end: max(24px, env(safe-area-inset-bottom));
-    inset-inline-start: 50%;
-    transform: translateX(-50%);
-    z-index: 5;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    width: max-content;
-    max-width: calc(100vw - 32px);
-    box-sizing: border-box;
-    padding: 8px 12px;
-    border: 1px solid var(--b3-border-color);
-    border-radius: 6px;
-    background: var(--b3-theme-surface);
-    color: var(--b3-theme-on-surface);
-    box-shadow: var(--b3-dialog-shadow);
+    inset: 0;
+    pointer-events: none;
+    user-select: none;
+
+    [hidden] {
+        display: none;
+    }
+
+    &__line, &__handle, &__actions {
+        position: absolute;
+    }
+
+    &__line {
+        height: 2px;
+        background: var(--b3-theme-primary);
+    }
+
+    &__handle {
+        width: 18px;
+        height: 19px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--b3-theme-primary);
+        pointer-events: auto;
+        touch-action: none;
+        cursor: ew-resize;
+
+        &::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            inset-inline-start: 0;
+            width: 8px;
+            height: 10px;
+            border-radius: 0 0 5px 5px;
+            background: currentColor;
+        }
+
+        &.is-start {
+            transform: translateX(-100%);
+
+            &::before {
+                inset-inline-start: auto;
+                inset-inline-end: 0;
+            }
+        }
+
+        &:hover::before, &:focus-visible::before {
+            box-shadow: 0 0 0 2px var(--b3-theme-background), 0 0 0 3px currentColor;
+        }
+    }
+
+    &__actions {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        pointer-events: auto;
+
+        select, button {
+            height: 21px;
+            padding: 0 4px;
+            border: 1px solid var(--b3-border-color);
+            border-radius: 4px;
+            background: var(--b3-theme-surface);
+            color: var(--b3-theme-on-surface);
+            font-size: 12px;
+            cursor: pointer;
+        }
+    }
+
+    &__remove {
+        min-width: 21px;
+
+        &:hover {
+            color: var(--b3-theme-error);
+        }
+    }
 }

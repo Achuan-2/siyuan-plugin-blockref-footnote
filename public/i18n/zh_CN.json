@@ -156,9 +156,9 @@
     "underline": {
         "adjust": "调整下划线范围",
         "remove": "移除下划线",
-        "select": "在同一段正文内选中新的下划线范围",
-        "apply": "应用",
-        "cancel": "取消"
+        "start": "拖动以调整下划线起点",
+        "end": "拖动以调整下划线终点",
+        "footnote": "选择要调整的脚注"
     },
     "reorderFootnotes": "脚注编号",
     "cancelReorderFootnotes": "取消脚注编号",

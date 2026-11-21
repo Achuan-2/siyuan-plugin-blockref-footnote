@@ -157,9 +157,9 @@
     "underline": {
         "adjust": "Adjust Underline Range",
         "remove": "Remove Underline",
-        "select": "Select a new underline range within the same text block",
-        "apply": "Apply",
-        "cancel": "Cancel"
+        "start": "Drag to adjust the underline start",
+        "end": "Drag to adjust the underline end",
+        "footnote": "Choose the footnote to adjust"
     },
     "reorderFootnotes": "Reorder Footnotes",
     "cancelReorderFootnotes": "Cancel Reorder Footnotes",
