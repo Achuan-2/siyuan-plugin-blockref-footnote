@@ -160,6 +160,7 @@
         "noDocId": "[Block Ref Footnote Plugin] Please fill in the specified document ID",
         "noNotebook": "[Block Ref Footnote Plugin] Please select a notebook for footnotes",
         "createDocFailed": "[Block Ref Footnote Plugin] Failed to create footnote document",
+        "insertFootnoteFailed": "Could not write the footnote to the target document",
         "selectTextForBlockRef": "Select the text to use as a reference first"
     },
     "creatingFootnoteDoc": "Creating footnote document...",

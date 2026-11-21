@@ -49,6 +49,13 @@ function clearFootnoteSelectionMarks(element: Element, footnoteIds: ReadonlySet<
     return true;
 }
 
+function assignCopiedBlockIds(kramdown: string) {
+    // 保留围栏代码中的原文，只替换思源在块属性行中导出的 ID。
+    const fencedCodeOrBlockId = /^(?<prefix>[ \t]*(?:>[ \t]*)*)(?<fence>`{3,}|~{3,})[^\r\n]*\n[\s\S]*?^\k<prefix>\k<fence>[ \t]*\r?$|^(?<ial>[ \t]*(?:>[ \t]*)*\{:[ \t]+)id="\d{14}-[a-z0-9]{7}"(?=[ \t}])/gm;
+    return kramdown.replace(fencedCodeOrBlockId, (match, _prefix, _fence, ial) =>
+        ial ? `${ial}id="${window.Lute.NewNodeID()}"` : match);
+}
+
 
 
 class FootnoteDialog {
@@ -656,7 +663,13 @@ export default class PluginFootnote extends Plugin {
                 icon: "iconFootnote",
                 label: this.i18n.addFootnote || "Add Footnote",
                 click: async () => {
-                    await this.createFootnoteForBlocks(detail.blockElements, detail.protyle.block.rootID);
+                    try {
+                        await this.createFootnoteForBlocks(detail.blockElements, detail.protyle.block.rootID);
+                    } catch (error) {
+                        this.closeLoadingDialog();
+                        console.error('Error in createFootnoteForBlocks:', error);
+                        await pushErrMsg(error.message);
+                    }
                 }
             });
         }
@@ -1245,56 +1258,13 @@ export default class PluginFootnote extends Plugin {
                         }
                         break;
                 }
-            }
-            else {
-                switch (settings.order) {
-                    case '2':
-                        // 倒序
-                        if (settings.saveLocation != 3) {
-                            back = await this.safeAppendToContainer("markdown", templates, footnoteContainerID);
-                        } else {
-                            // 子文档的 ID 一定是可容纳子块的文档块。新建文档尚未进入 SQL
-                            // 索引时，safePrependToContainer 会误判为叶子块，并把文档 ID
-                            // 当作 nextID 传给 insertBlock，可能触发内核 transaction panic。
-                            back = await prependBlock("markdown", templates, footnoteContainerID);
-                        }
-                        break;
-                    case '1':
-                    default:
-                        if (settings.saveLocation != 3) {
-
-                            let footnoteContainerDom = (await getBlockDOM(docID)).dom;
-                            // 默认顺序插入
-                            const parser = new DOMParser();
-                            // 将DOM字符串解析为DOM文档
-                            const doc = parser.parseFromString(footnoteContainerDom, 'text/html');
-
-                            // 查找所有符合条件的div元素
-                            const footnotes = doc.querySelectorAll(`div[custom-plugin-footnote-content="${protyle.block.rootID}"]`);
-                            if (footnotes.length > 0) {
-                                const lastFootnote = footnotes[footnotes.length - 1];
-                                let lastFootnoteID = lastFootnote.getAttribute('data-node-id');
-                                back = await insertBlock(
-                                    "markdown",
-                                    templates,
-                                    undefined, // nextID 
-                                    lastFootnoteID, // previousID - 放在最后一个子块后面
-                                    undefined // parentID
-                                );
-                            } else {
-                                // 如果没有找到子块,直接在标题下添加
-                                back = await this.safeAppendToContainer("markdown", templates, footnoteContainerID);
-                            }
-                        }
-                        else {
-                            // 同上，直接使用文档容器 API，避免依赖新建文档的 SQL 索引状态。
-                            back = await appendBlock("markdown", templates, footnoteContainerID);
-                        }
-                        break;
-                }
+            } else {
+                back = await this.insertFootnoteInContainer(templates, docID, footnoteContainerID, protyle.block.rootID, settings);
             }
 
-            let newBlockId = back[0].doOperations[0].id
+            const newBlockId = back?.[0]?.doOperations?.[0]?.id;
+            if (!newBlockId) throw new Error(t('errors.insertFootnoteFailed'));
+
             // 添加脚注内容属性
             await setBlockAttrs(newBlockId, { "custom-plugin-footnote-content": protyle.block.rootID });
             await setBlockAttrs(newBlockId, { "alias": settings.footnoteAlias });
@@ -1460,16 +1430,34 @@ export default class PluginFootnote extends Plugin {
         return await insertBlock(dataType, data, undefined, containerID, undefined);
     }
 
-    /**
-     * 安全地在容器开头添加内容：若容器为叶子块（如标题、段落），
-     * 则使用 nextID 将新块插入到容器之前
-     */
-    private async safePrependToContainer(dataType: "markdown" | "dom", data: string, containerID: string) {
-        const container = await getBlockByID(containerID);
-        if (container && this.isContainerBlockType(container.type)) {
-            return await prependBlock(dataType, data, containerID);
+    private async insertFootnoteInContainer(
+        markdown: string,
+        docID: string,
+        containerID: string,
+        sourceDocID: string,
+        settings: { saveLocation: string; order: string },
+    ) {
+        // 子文档和指定路径的容器都是文档本身，新建时无需通过 SQL 判断块类型。
+        const containerIsDocument = containerID === docID;
+        if (settings.order === '2') {
+            return containerIsDocument
+                ? prependBlock('markdown', markdown, docID)
+                : this.safeAppendToContainer('markdown', markdown, containerID);
         }
-        return await insertBlock(dataType, data, containerID, undefined, undefined);
+        if (settings.saveLocation === '3') {
+            return appendBlock('markdown', markdown, docID);
+        }
+
+        const doc = await getBlockDOM(docID);
+        if (doc?.dom) {
+            const parsed = new DOMParser().parseFromString(doc.dom, 'text/html');
+            const footnotes = parsed.querySelectorAll(`[data-node-id][custom-plugin-footnote-content="${sourceDocID}"]`);
+            const lastFootnoteID = footnotes[footnotes.length - 1]?.getAttribute('data-node-id');
+            if (lastFootnoteID) return insertBlock('markdown', markdown, undefined, lastFootnoteID);
+        }
+        return containerIsDocument
+            ? appendBlock('markdown', markdown, docID)
+            : this.safeAppendToContainer('markdown', markdown, containerID);
     }
 
     /**
@@ -1800,13 +1788,12 @@ export default class PluginFootnote extends Plugin {
             const blockId = blockEl.getAttribute('data-node-id');
             if (blockId) {
                 const kramdown = await getBlockKramdown(blockId);
-                combinedKramdown += kramdown.kramdown + "\n\n";
+                combinedKramdown += assignCopiedBlockIds(kramdown.kramdown) + "\n\n";
             }
         }
         combinedKramdown = combinedKramdown.trim();
         combinedKramdown = `{{{row\n${combinedKramdown}\n}}}`; // Wrap in a super block
         combinedKramdown = combinedKramdown.replace(/custom-footnote="[^"]*"\s/g, '');
-        // combinedKramdown = combinedKramdown.replace(/{: id="[^"]*"/g, '{: ');
         // 2. Determine footnote container and title based on settings
         let currentDoc = await sql(`SELECT * FROM blocks WHERE id = '${docRootId}' LIMIT 1`);
         let currentDocTitle = currentDoc[0].content;
@@ -1897,7 +1884,7 @@ export default class PluginFootnote extends Plugin {
             // Handle special list block format for Siyuan
             const marker = listMatch[1];
             const indentedKramdown = combinedKramdown.split('\n').map(line => '  ' + line).join('\n');
-            const listBlockContent = `${marker}\n  {: id="20250719092338-0gmazer"}\n\n${indentedKramdown}\n`;
+            const listBlockContent = `${marker}\n  {: id="${window.Lute.NewNodeID()}"}\n\n${indentedKramdown}\n`;
 
             templates = templates.replace(listRegex, listBlockContent);
             selectionReplaced = true;
@@ -1933,7 +1920,6 @@ export default class PluginFootnote extends Plugin {
         templates = templates.replace(/\$\{index:text\}/g, `<span data-type="custom-footnote-index">${this.i18n.indexAnchor}</span>`);
         // 5. Insert the new footnote content block
         let back;
-        // (The logic for inserting the block remains the same as the previous version)
         if (settings.saveLocation == '4') {
             switch (settings.order) {
                 case '2': // Reverse order
@@ -1960,32 +1946,11 @@ export default class PluginFootnote extends Plugin {
                     break;
             }
         } else {
-            switch (settings.order) {
-                case '2': // Reverse order
-                    back = (settings.saveLocation != '3')
-                        ? await this.safeAppendToContainer("markdown", templates, footnoteContainerID)
-                        : await prependBlock("markdown", templates, footnoteContainerID);
-                    break;
-                case '1': default: // Default order
-                    if (settings.saveLocation != '3') {
-                        const docDom = (await getBlockDOM(docID)).dom;
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(docDom, 'text/html');
-                        const footnotes = doc.querySelectorAll(`div[custom-plugin-footnote-content="${docRootId}"]`);
-                        if (footnotes.length > 0) {
-                            const lastFootnoteID = footnotes[footnotes.length - 1].getAttribute('data-node-id');
-                            back = await insertBlock("markdown", templates, undefined, lastFootnoteID, undefined);
-                        } else {
-                            back = await this.safeAppendToContainer("markdown", templates, footnoteContainerID);
-                        }
-                    } else {
-                        back = await appendBlock("markdown", templates, footnoteContainerID);
-                    }
-                    break;
-            }
+            back = await this.insertFootnoteInContainer(templates, docID, footnoteContainerID, docRootId, settings);
         }
 
-        let newBlockId = back[0].doOperations[0].id;
+        const newBlockId = back?.[0]?.doOperations?.[0]?.id;
+        if (!newBlockId) throw new Error(t('errors.insertFootnoteFailed'));
         await setBlockAttrs(newBlockId, { "custom-plugin-footnote-content": docRootId, "alias": settings.footnoteAlias });
 
         // 6. Add a reference attribute to the first selected block

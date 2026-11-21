@@ -159,6 +159,7 @@
         "noDocId": "【块引脚注插件】请填写指定文档ID",
         "noNotebook": "【块引脚注插件】请选择存放脚注的笔记本",
         "createDocFailed": "【块引脚注插件】创建脚注文档失败",
+        "insertFootnoteFailed": "无法将脚注内容写入目标文档",
         "selectTextForBlockRef": "请先选择要设为引用的文本"
     },
     "creatingFootnoteDoc": "正在创建脚注文档...",
