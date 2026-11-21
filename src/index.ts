@@ -1,4 +1,4 @@
-import { Plugin, fetchSyncPost, Dialog, Protyle, IProtyle } from "siyuan";
+import { Plugin, Dialog, Protyle, IProtyle } from "siyuan";
 import "@/index.scss";
 import { IMenuItem } from "siyuan/types";
 
@@ -16,6 +16,38 @@ const zeroWhite = "​"
 const contentPlaceholderType = "custom-footnote-content-placeholder";
 // 使用不会被思源索引清理的不换行空格承载标记；弹窗定位后会立即删除整个 span。
 const contentPlaceholder = `<span data-type="${contentPlaceholderType}">&nbsp;</span>`;
+
+const footnoteContentSelector = '[data-node-id][custom-plugin-footnote-content]';
+const footnoteReferenceSelector = '[data-node-id][custom-footnote], span[custom-footnote], ' +
+    'span[custom-footnote-selection-ref], span[data-type~="sup"][data-id], ' +
+    'span[data-type~="sup"][data-href^="siyuan://blocks/"]';
+const footnoteSelectionMark = /^custom-footnote-(?:hidden-)?selected-text-(\d{14}-[a-z0-9]{7})$/;
+const blockIDPattern = /^\d{14}-[a-z0-9]{7}$/;
+
+function getReferenceTarget(ref: Element) {
+    return ref.getAttribute('data-id') || ref.getAttribute('data-href')?.match(/^siyuan:\/\/blocks\/([^/?#]+)/)?.[1];
+}
+
+function getMarkedFootnoteId(ref: Element) {
+    const id = ref.getAttribute('custom-footnote');
+    return id === 'true' ? getReferenceTarget(ref) : id;
+}
+
+function clearFootnoteSelectionMarks(element: Element, footnoteIds: ReadonlySet<string>, clearLegacy = false) {
+    const types = element.getAttribute('data-type')?.split(/\s+/).filter(Boolean) || [];
+    const remainingTypes = types.filter(type => {
+        const id = type.match(footnoteSelectionMark)?.[1];
+        if (id) return !footnoteIds.has(id);
+        return !clearLegacy || (type !== 'custom-footnote-selected-text' && type !== 'custom-footnote-hidden-selected-text');
+    });
+    if (remainingTypes.length === types.length) return false;
+    if (remainingTypes.length > 0) {
+        element.setAttribute('data-type', remainingTypes.join(' '));
+    } else {
+        element.replaceWith(...element.childNodes);
+    }
+    return true;
+}
 
 
 
@@ -233,7 +265,7 @@ class FootnoteDialog {
     /**
      * 统一的销毁方法，负责所有清理工作
      */
-    private destroy = () => {
+    private destroy = async () => {
         // 不需要恢复全局交互（未修改过 body 样式）
 
         // 【关键改动】移除在 document 和 dialog 上添加的事件监听器
@@ -246,12 +278,13 @@ class FootnoteDialog {
         window.visualViewport?.removeEventListener('resize', this.handleViewportChange);
         window.visualViewport?.removeEventListener('scroll', this.handleViewportChange);
 
-        // 销毁 Protyle 实例，释放资源 (这是一个好习惯)
-        if (this.protyle) {
-            this.protyle.destroy();
+        const editor = this.protyle as Protyle & { flushPendingTransactions?: () => Promise<void> };
+        try {
+            await editor?.flushPendingTransactions?.();
+        } finally {
+            editor?.destroy();
+            this.dialog.remove();
         }
-
-        this.dialog.remove();
         this.onSubmit();
     }
 
@@ -491,7 +524,7 @@ export default class PluginFootnote extends Plugin {
                 if (activeElement) {
                     // 添加pushMsg
                     this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
-                    await this.reorderFootnotes(activeElement, true, undefined, true);
+                    await this.reorderFootnotes(activeElement, true);
                     this.closeLoadingDialog();
                     // 如果.sy__siyuan-plugin-blockref-footnotefootnote-dock.layout__tab--active, 则点击button.footnote-dock__refresh进行更新
                     if (document.querySelector(':not(.fn__none) .sy__siyuan-plugin-blockref-footnotefootnote-dock')) {
@@ -506,7 +539,8 @@ export default class PluginFootnote extends Plugin {
             editorCallback: async (protyle: any) => {
                 if (protyle.block?.rootID) {
                     this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
-                    await this.reorderFootnotes(protyle.block.rootID, true, protyle.wysiwyg.element, true);
+                    await protyle.wysiwyg.flushPendingInput?.();
+                    await this.reorderFootnotes(protyle.block.rootID, true);
                     this.closeLoadingDialog();
                     // 如果.sy__siyuan-plugin-blockref-footnotefootnote-dock.layout__tab--active, 则点击button.footnote-dock__refresh进行更新
                     if (document.querySelector(':not(.fn__none) .sy__siyuan-plugin-blockref-footnotefootnote-dock')) {
@@ -530,7 +564,7 @@ export default class PluginFootnote extends Plugin {
                 if (activeElement) {
                     // 添加pushMsg
                     this.showLoadingDialog(this.i18n.cancelReorderFootnotes + " ...");
-                    await this.cancelReorderFootnotes(activeElement, true);
+                    await this.cancelReorderFootnotes(activeElement);
                     this.closeLoadingDialog();
                     // 如果.sy__siyuan-plugin-blockref-footnotefootnote-dock.layout__tab--active, 则点击button.footnote-dock__refresh进行更新
                     if (document.querySelector(':not(.fn__none) .sy__siyuan-plugin-blockref-footnotefootnote-dock')) {
@@ -545,7 +579,8 @@ export default class PluginFootnote extends Plugin {
             editorCallback: async (protyle: any) => {
                 if (protyle.block?.rootID) {
                     this.showLoadingDialog(this.i18n.cancelReorderFootnotes + " ...");
-                    await this.reorderFootnotes(protyle.block.rootID, true);
+                    await protyle.wysiwyg.flushPendingInput?.();
+                    await this.cancelReorderFootnotes(protyle.block.rootID);
                     this.closeLoadingDialog();
                     // 如果.sy__siyuan-plugin-blockref-footnotefootnote-dock.layout__tab--active, 则点击button.footnote-dock__refresh进行更新
                     if (document.querySelector(':not(.fn__none) .sy__siyuan-plugin-blockref-footnotefootnote-dock')) {
@@ -591,6 +626,8 @@ export default class PluginFootnote extends Plugin {
         this.eventBus.on("open-menu-blockref", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
         this.eventBus.on("open-menu-link", this.deleteMemo.bind(this)); // 注意：事件回调函数中的 this 指向发生了改变。需要bind
         this.eventBus.on("click-blockicon", this.onBlockMenuOpen.bind(this));
+        document.addEventListener('beforeinput', this.captureAnchorDeletion, true);
+        document.addEventListener('input', this.cleanDeletedAnchorMarks, true);
 
 
         // Create style element
@@ -842,87 +879,59 @@ export default class PluginFootnote extends Plugin {
     }
 
     onunload() {
+        document.removeEventListener('beforeinput', this.captureAnchorDeletion, true);
+        document.removeEventListener('input', this.cleanDeletedAnchorMarks, true);
         if (this.footnoteDock) {
             this.footnoteDock.$destroy();
         }
     }
 
     private deleteMemo = ({ detail }: any) => {
-        if (detail.element && detail.element.getAttribute("custom-footnote")) {
-            detail.menu.addItem({
-                icon: "iconTrashcan",
-                label: this.i18n.deleteFootnote,
-                click: async () => {
-                    const footnote_content_id = detail.element.getAttribute("custom-footnote");
+        const ref = detail.element as HTMLElement | undefined;
+        if (!ref?.hasAttribute('custom-footnote')) return;
+        const footnoteId = getMarkedFootnoteId(ref);
+        if (!footnoteId || !blockIDPattern.test(footnoteId)) return;
 
-                    // Clean up styled text before the footnote reference
-                    let currentElement = detail.element;
-                    while (currentElement.previousElementSibling) {
-                        const prevElement = currentElement.previousElementSibling;
-                        if (prevElement.tagName === 'SPAN' &&
-                            prevElement.getAttribute('data-type')?.includes('custom-footnote-selected-text')) {
-                            // Remove the custom style from data-type
-                            const currentDataType = prevElement.getAttribute('data-type');
-                            const newDataType = currentDataType
-                                .replace(/\s*custom-footnote-selected-text(?!-)\s*/g, '') // 只匹配后面没有连字符的情况
-                                .replace(new RegExp(`\\s*custom-footnote-selected-text-${footnote_content_id}\\s*`, 'g'), '')
-                                .trim();
+        detail.menu.addItem({
+            icon: 'iconTrashcan',
+            label: this.i18n.deleteFootnote,
+            click: async () => {
+                await detail.protyle.wysiwyg.flushPendingInput?.();
+                await this.deleteFootnoteById(detail.protyle.block.rootID, footnoteId);
+            },
+        });
+    };
 
+    private pendingAnchorDeletions = new WeakMap<Element, { block: Element; ids: Set<string> }>();
 
+    private captureAnchorDeletion = (event: InputEvent) => {
+        const editor = (event.target as Element).closest('.protyle-wysiwyg');
+        if (!editor) return;
+        this.pendingAnchorDeletions.delete(editor);
+        if (!event.isTrusted || !event.inputType?.startsWith('delete')) return;
 
-                            if (newDataType) {
-                                prevElement.setAttribute('data-type', newDataType);
-                            } else {
-                                prevElement.removeAttribute('data-type');
-                            }
-                        } else {
-                            break; // Stop if we find an element without the custom style
-                        }
-                        currentElement = prevElement;
-                    }
-                    saveViaTransaction(currentElement);
-                    // Delete footnote content block
-                    if (footnote_content_id && footnote_content_id != "true") {
-                        deleteBlock(footnote_content_id);
-                    } else {
-                        // Handle legacy format
-                        let id;
-                        if (detail.element.getAttribute("data-id")) {
-                            id = detail.element.getAttribute("data-id");
-                        } else {
-                            id = detail.element.getAttribute("data-href").match(/blocks\/([^\/]+)/)?.[1];
-                        }
-                        deleteBlock(id);
-                    }
+        const node = event.getTargetRanges?.()[0]?.startContainer ?? document.getSelection()?.anchorNode;
+        const block = (node instanceof Element ? node : node?.parentElement)?.closest('[data-node-id]');
+        if (!block || !editor.contains(block)) return;
+        const ids = new Set(Array.from(block.querySelectorAll('span[custom-footnote]'), getMarkedFootnoteId).filter(Boolean));
+        if (ids.size > 0) this.pendingAnchorDeletions.set(editor, { block, ids });
+    };
 
-                    // 删除普通脚注锚文本；“选中文本引用”模式则只移除引用标记，保留原文字。
-                    const referenceElement = detail.element as HTMLElement;
-                    const referenceParent = referenceElement.parentElement;
-                    if (referenceElement.hasAttribute('custom-footnote-selection-ref')) {
-                        referenceElement.replaceWith(document.createTextNode(referenceElement.textContent || ''));
-                    } else {
-                        referenceElement.remove();
-                    }
-                    saveViaTransaction(referenceParent);
+    private cleanDeletedAnchorMarks = (event: InputEvent) => {
+        if (!event.isTrusted) return;
+        const editor = (event.target as Element).closest('.protyle-wysiwyg');
+        const pending = this.pendingAnchorDeletions.get(editor);
+        if (!pending) return;
+        this.pendingAnchorDeletions.delete(editor);
+        if (!editor.contains(pending.block)) return;
 
-                    // Get current document ID and reorder footnotes if enabled
-                    const settings = await this.loadSettings();
-                    if (settings.enableOrderedFootnotes) {
-                        // 获取docID
-                        const docID = detail.protyle.block.rootID;
-                        if (docID) {
-                            // Wait a bit for DOM updates
-                            await whenBlockSaved(null, 1000).then(async (msg) => { console.log("saved") });
-                            this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
-                            await this.reorderFootnotes(docID, true, detail.protyle.wysiwyg.element);
-                            this.closeLoadingDialog();
-                            await pushMsg(this.i18n.reorderFootnotes + " Finished");
-                        }
-                    }
-                }
-            });
-        }
-    }
+        // 在思源保存这次输入前，只移除本次删除的脚注标记。
+        pending.block.querySelectorAll('span[custom-footnote]').forEach(ref => pending.ids.delete(getMarkedFootnoteId(ref)));
+        if (pending.ids.size === 0) return;
+        pending.block.querySelectorAll('span[data-type*="selected-text"]').forEach(span => {
+            clearFootnoteSelectionMarks(span, pending.ids);
+        });
+    };
 
     private async addMemoBlock(protyle: IProtyle) {
         // 在函数开始时就显示进度条，覆盖整个添加脚注的过程
@@ -1149,7 +1158,7 @@ export default class PluginFootnote extends Plugin {
             );
             templates = templates.replace(/\$\{refID\}/g, currentBlockId);
             templates = templates.replace(/\$\{index\}/g, `<span data-type="custom-footnote-index a" data-href="siyuan://blocks/${currentBlockId}">${this.i18n.indexAnchor}</span>`); // 支持添加脚注编号
-            templates = templates.replace(/\$\{index:text\}/g, `<span data-type="custom-footnote-index>${this.i18n.indexAnchor}</span>`); // 支持添加脚注编号
+            templates = templates.replace(/\$\{index:text\}/g, `<span data-type="custom-footnote-index">${this.i18n.indexAnchor}</span>`); // 支持添加脚注编号
             templates = await renderTemplates(templates);
 
             async function renderTemplates(templates: string): Promise<string> {
@@ -1337,28 +1346,34 @@ export default class PluginFootnote extends Plugin {
                 }
             }
 
-            let referenceSaved: Promise<any> | null = null;
-
-            // 给脚注块引添加属性，方便后续查找和编号。
-            if (memoELement) {
-                memoELement.setAttribute("custom-footnote", newBlockId);
-                // 必须先监听再触发 input，否则可能错过当前块的 transactions 消息，
-                // 后续从数据库读取到旧 DOM 时会把刚添加的 custom-footnote 覆盖掉。
-                referenceSaved = whenBlockSaved();
-                saveViaTransaction(memoELement);
+            const referenceBlockId = memoELement?.closest('[data-node-id]')?.getAttribute('data-node-id');
+            if (!referenceBlockId) throw new Error('Footnote reference was not inserted');
+            memoELement.setAttribute('custom-footnote', newBlockId);
+            const referenceSaved = whenBlockSaved(referenceBlockId, newBlockId);
+            saveViaTransaction(memoELement);
+            protyle.toolbar.element.classList.add('fn__none');
+            await (protyle.wysiwyg as typeof protyle.wysiwyg & { flushPendingInput?: () => Promise<void> }).flushPendingInput?.();
+            if (!(await referenceSaved)) {
+                // 有些编辑器会话不广播自身事务。检查内核已保存的引用，只补写缺失的属性。
+                await refreshSql();
+                const saved = await getBlockDOM(referenceBlockId);
+                const blockDOM = new DOMParser().parseFromString(saved?.dom || '', 'text/html');
+                const ref = Array.from(blockDOM.querySelectorAll('span[data-id], span[data-href]'))
+                    .find(element => getReferenceTarget(element) === newBlockId);
+                const block = ref?.closest('[data-node-id]');
+                if (!block) throw new Error('Footnote reference was not saved');
+                if (ref.getAttribute('custom-footnote') !== newBlockId ||
+                    (useSelectedTextAsBlockRef && !ref.hasAttribute('custom-footnote-selection-ref'))) {
+                    ref.setAttribute('custom-footnote', newBlockId);
+                    if (useSelectedTextAsBlockRef) ref.setAttribute('custom-footnote-selection-ref', 'true');
+                    if (!(await updateBlock('dom', block.outerHTML, referenceBlockId))) {
+                        throw new Error('Failed to save footnote reference attributes');
+                    }
+                }
             }
 
-
-            // 关闭工具栏
-            protyle.toolbar.element.classList.add("fn__none")
-
-            // 等待保存数据
-            if (referenceSaved) {
-                await referenceSaved;
-            }
             // 新增脚注后，将当前文档内已有的行内脚注引用统一为当前设置的格式。
-            // 使用编辑器内的最新 DOM，避免数据库尚未同步时用旧块覆盖新引用。
-            await this.syncFootnoteReferenceMode(protyle.block.rootID, settings, protyle.wysiwyg.element);
+            await this.syncFootnoteReferenceMode(protyle.block.rootID, settings);
             // --------------------------添加脚注引用 END-------------------------- //
 
             // --------------------------脚注弹窗 Start-------------------------- // 
@@ -1375,7 +1390,7 @@ export default class PluginFootnote extends Plugin {
                     async () => {
                         if (settings.enableOrderedFootnotes) {
                             this.showLoadingDialog(this.i18n.reorderFootnotes + " ...")
-                            await this.reorderFootnotes(protyle.block.rootID, true, protyle.wysiwyg.element);
+                            await this.reorderFootnotes(protyle.block.rootID, true);
                             this.closeLoadingDialog();
                             await pushMsg(this.i18n.reorderFootnotes + " Finished");
                         }
@@ -1397,7 +1412,7 @@ export default class PluginFootnote extends Plugin {
                 if (settings.enableOrderedFootnotes) {
                     // 保持进度条显示，更新消息
                     this.progressManager?.setMessage(this.i18n.reorderFootnotes + " ...");
-                    await this.reorderFootnotes(protyle.block.rootID, true, protyle.wysiwyg.element);
+                    await this.reorderFootnotes(protyle.block.rootID, true);
                     this.closeLoadingDialog();
                     await pushMsg(this.i18n.reorderFootnotes + " Finished");
                 } else {
@@ -1461,17 +1476,13 @@ export default class PluginFootnote extends Plugin {
      * 将当前文档内已有的行内脚注引用同步为当前设置的插入格式。
      * 块级脚注（DIV）不参与转换。
      */
-    private async syncFootnoteReferenceMode(docID: string, settings: any, editorDom?: ParentNode) {
+    private async syncFootnoteReferenceMode(docID: string, settings: any) {
         try {
-            let parsedDoc: ParentNode;
-            if (editorDom) {
-                parsedDoc = editorDom;
-            } else {
-                const docData = await getBlockDOM(docID);
-                if (!docData?.dom) return;
-                parsedDoc = new DOMParser().parseFromString(docData.dom, 'text/html');
-            }
-            const refs = Array.from(parsedDoc.querySelectorAll<HTMLElement>('[custom-footnote]'));
+            await refreshSql();
+            const docData = await getBlockDOM(docID);
+            if (!docData?.dom) return;
+            const parsedDoc = new DOMParser().parseFromString(docData.dom, 'text/html');
+            const refs = parsedDoc.querySelectorAll<HTMLElement>('span[custom-footnote]');
             const affectedBlocks = new Map<string, HTMLElement>();
             const useSelectedTextAsReference = settings.referenceInsertMode === '2';
 
@@ -1482,10 +1493,10 @@ export default class PluginFootnote extends Plugin {
             };
 
             for (const ref of refs) {
-                if (ref.tagName === 'DIV') continue;
-
-                const footnoteID = ref.getAttribute('custom-footnote');
-                if (!footnoteID) continue;
+                if (ref.closest(footnoteContentSelector)) continue;
+                const footnoteID = getMarkedFootnoteId(ref);
+                // 目标与脚注标记冲突时，交给编号流程核对实际存在的脚注块。
+                if (!footnoteID || getReferenceTarget(ref) !== footnoteID) continue;
                 const originalReferenceDOM = ref.outerHTML;
                 const isSelectedTextReference = ref.hasAttribute('custom-footnote-selection-ref');
 
@@ -1568,70 +1579,67 @@ export default class PluginFootnote extends Plugin {
      * 从侧栏删除脚注：保留原选中文字，清理所有行内/块级引用后删除脚注内容块。
      */
     async deleteFootnoteById(docID: string, footnoteID: string) {
+        if (!blockIDPattern.test(footnoteID)) return;
+        await refreshSql();
         const docData = await getBlockDOM(docID);
         if (!docData?.dom) {
             throw new Error('Failed to load the current document');
         }
 
         const parsedDoc = new DOMParser().parseFromString(docData.dom, 'text/html');
-        const refs = Array.from(
-            parsedDoc.querySelectorAll<HTMLElement>(`[custom-footnote="${footnoteID}"]`)
-        );
         const affectedBlocks = new Map<string, HTMLElement>();
+        const blockLevelRefs: string[] = [];
+        const removedIds = new Set([footnoteID]);
 
-        const markContainingBlock = (element: HTMLElement) => {
-            const block = element.closest<HTMLElement>('[data-node-id]');
-            const blockID = block?.getAttribute('data-node-id');
-            if (block && blockID) affectedBlocks.set(blockID, block);
-        };
+        for (const ref of parsedDoc.querySelectorAll<HTMLElement>(footnoteReferenceSelector)) {
+            const id = getMarkedFootnoteId(ref) || getReferenceTarget(ref);
+            if (id !== footnoteID) continue;
 
-        for (const ref of refs) {
-            if (ref.tagName === 'DIV') {
-                ref.removeAttribute('custom-footnote');
-                markContainingBlock(ref);
+            const block = ref.closest<HTMLElement>('[data-node-id]');
+            if (!block) continue;
+            const blockID = block.getAttribute('data-node-id');
+            if (ref === block) {
+                block.removeAttribute('custom-footnote');
+                blockLevelRefs.push(blockID);
                 continue;
             }
 
+            // 老版本的标记不带 ID，只清理紧挨着相应脚注的标记。
+            for (let previous = ref.previousElementSibling; previous?.tagName === 'SPAN';) {
+                const before = previous.previousElementSibling;
+                if (!clearFootnoteSelectionMarks(previous, removedIds, true)) break;
+                previous = before;
+            }
             if (ref.hasAttribute('custom-footnote-selection-ref')) {
-                const parent = ref.parentElement;
-                const textNode = parsedDoc.createTextNode(ref.textContent || '');
-                ref.replaceWith(textNode);
-                if (parent) markContainingBlock(parent);
-                continue;
+                ref.replaceWith(parsedDoc.createTextNode(ref.textContent || ''));
+            } else {
+                ref.remove();
             }
+            affectedBlocks.set(blockID, block);
+        }
 
-            // 普通注脚删除锚文本，但保留此前选中的正文，并移除插件选择标记。
-            let previous = ref.previousElementSibling as HTMLElement | null;
-            const selectionMarks = [
-                `custom-footnote-selected-text-${footnoteID}`,
-                `custom-footnote-hidden-selected-text-${footnoteID}`,
-            ];
-            while (previous) {
-                const dataTypes = previous.getAttribute('data-type')?.split(/\s+/).filter(Boolean) || [];
-                if (!selectionMarks.some(mark => dataTypes.includes(mark))) break;
-                const cleanedTypes = dataTypes.filter(type => !selectionMarks.includes(type));
-                if (cleanedTypes.length > 0) {
-                    previous.setAttribute('data-type', cleanedTypes.join(' '));
-                } else {
-                    previous.removeAttribute('data-type');
-                }
-                previous = previous.previousElementSibling as HTMLElement | null;
+        for (const span of parsedDoc.querySelectorAll('span[data-type*="selected-text"]')) {
+            const block = span.closest<HTMLElement>('[data-node-id]');
+            if (block && clearFootnoteSelectionMarks(span, removedIds)) {
+                affectedBlocks.set(block.getAttribute('data-node-id'), block);
             }
-            const parent = ref.parentElement;
-            ref.remove();
-            if (parent) markContainingBlock(parent);
         }
 
         if (affectedBlocks.size > 0) {
-            await batchUpdateBlock(Array.from(affectedBlocks, ([id, block]) => ({
+            const updated = await batchUpdateBlock(Array.from(affectedBlocks, ([id, block]) => ({
                 id,
                 dataType: 'dom',
                 data: block.outerHTML,
             })));
+            if (!updated) throw new Error('Failed to remove the footnote references');
+        }
+        for (const id of blockLevelRefs) {
+            if (!affectedBlocks.has(id)) await setBlockAttrs(id, { 'custom-footnote': '' });
         }
 
-        await deleteBlock(footnoteID);
-        await refreshSql();
+        // 引用已写回，之后才删除目标块，避免留下指向已删除块的编号。
+        const attrs = await getBlockAttrs(footnoteID);
+        if (attrs?.['custom-plugin-footnote-content'] === docID) await deleteBlock(footnoteID);
 
         const settings = await this.loadSettings();
         if (settings.enableOrderedFootnotes) {
@@ -1922,7 +1930,7 @@ export default class PluginFootnote extends Plugin {
         const firstBlockId = blocks[0].getAttribute('data-node-id');
         templates = templates.replace(/\$\{refID\}/g, firstBlockId);
         templates = templates.replace(/\$\{index\}/g, `<span data-type="custom-footnote-index a" data-href="siyuan://blocks/${firstBlockId}">${this.i18n.indexAnchor}</span>`);
-        templates = templates.replace(/\$\{index:text\}/g, `<span data-type="custom-footnote-index>${this.i18n.indexAnchor}</span>`);
+        templates = templates.replace(/\$\{index:text\}/g, `<span data-type="custom-footnote-index">${this.i18n.indexAnchor}</span>`);
         // 5. Insert the new footnote content block
         let back;
         // (The logic for inserting the block remains the same as the previous version)
@@ -1983,9 +1991,8 @@ export default class PluginFootnote extends Plugin {
         // 6. Add a reference attribute to the first selected block
         await setBlockAttrs(firstBlockId, { "custom-footnote": newBlockId });
         firstBlockElement.setAttribute("custom-footnote", newBlockId);
-        const editorDom = firstBlockElement.closest<HTMLElement>('.protyle-wysiwyg') ?? undefined;
         // 块级新增脚注后，也同步当前文档中已有的行内脚注引用格式。
-        await this.syncFootnoteReferenceMode(docRootId, settings, editorDom);
+        await this.syncFootnoteReferenceMode(docRootId, settings);
 
 
         // 如果是指定路径存放且显示了加载对话框，现在关闭它
@@ -2003,7 +2010,7 @@ export default class PluginFootnote extends Plugin {
                 async () => {
                     if (settings.enableOrderedFootnotes) {
                         this.showLoadingDialog(this.i18n.reorderFootnotes + " ...");
-                        await this.reorderFootnotes(docRootId, true, editorDom);
+                        await this.reorderFootnotes(docRootId, true);
                         this.closeLoadingDialog();
                         await pushMsg(this.i18n.reorderFootnotes + " Finished");
                     }
@@ -2015,7 +2022,7 @@ export default class PluginFootnote extends Plugin {
         } else {
             if (settings.enableOrderedFootnotes) {
                 this.showLoadingDialog(this.i18n.reorderFootnotes + " ...");
-                await this.reorderFootnotes(docRootId, true, editorDom);
+                await this.reorderFootnotes(docRootId, true);
                 this.closeLoadingDialog();
                 await pushMsg(this.i18n.reorderFootnotes + " Finished");
             }
@@ -2027,483 +2034,248 @@ export default class PluginFootnote extends Plugin {
         }
     }
 
-    private async reorderFootnotes(
-        docID: string,
-        reorderBlocks: boolean,
-        editorDom?: ParentNode,
-        verifyAllContentNumbers = false,
-    ) {
-        const settings = await this.loadSettings();
+    private async reorderFootnotes(docID: string, reorderBlocks: boolean) {
+        await this.updateFootnoteNumbers(docID, true, reorderBlocks);
+    }
+
+    private async cancelReorderFootnotes(docID: string) {
+        await this.updateFootnoteNumbers(docID, false, false);
+    }
+
+    private async updateFootnoteNumbers(docID: string, numbered: boolean, reorderBlocks: boolean) {
+        const action = numbered ? this.i18n.reorderFootnotes : this.i18n.cancelReorderFootnotes;
+        this.progressManager?.setTotalSteps(3);
+        this.progressManager?.nextStep(action, '正在读取完整文档...');
         await refreshSql();
+        const doc = await getBlockDOM(docID);
+        if (!doc?.dom) return;
 
-        // 初始化进度管理 (由于合并了步骤，总步数可以调整，但为简化，我们只合并逻辑)
-        this.progressManager?.setTotalSteps(3); // 1. 获取DOM, 2. 更新块, 3. 排序块
-        this.progressManager?.nextStep(this.i18n.reorderFootnotes, "正在获取文档DOM...");
-
-        // 1. 获取当前文档的DOM
-        let currentDom: ParentNode;
-        if (editorDom) {
-            currentDom = editorDom;
-        } else {
-            const doc = await getBlockDOM(docID);
-            if (!doc) return;
-            currentDom = new DOMParser().parseFromString(doc.dom, 'text/html');
+        // 编辑器可能只加载文档的一部分。用内核的完整文档计算顺序和生成更新。
+        const parser = new DOMParser();
+        const documentDOM = parser.parseFromString(doc.dom, 'text/html');
+        const settings = await this.loadSettings();
+        const contents = await sql(`
+            SELECT id, root_id FROM blocks
+            WHERE ial LIKE '%custom-plugin-footnote-content="${docID}"%'`);
+        if (!contents) throw new Error('Failed to load footnote content blocks');
+        const contentIDs = new Set<string>(contents.map(block => block.id));
+        const contentDOMs = new Map<string, HTMLElement>();
+        for (const element of documentDOM.querySelectorAll<HTMLElement>(footnoteContentSelector)) {
+            const id = element.getAttribute('data-node-id');
+            if (contentIDs.has(id)) contentDOMs.set(id, element);
+        }
+        const externalDOMs = await getBlockDOMs(contents.filter(block => !contentDOMs.has(block.id)).map(block => block.id));
+        for (const [id, html] of Object.entries(externalDOMs)) {
+            const element = parser.parseFromString(html, 'text/html').querySelector<HTMLElement>(`[data-node-id="${id}"]`);
+            if (element) contentDOMs.set(id, element);
         }
 
-        // 仅在物理顺序确实变化时解析脚注容器，避免常规编号更新产生额外查询。
-        const resolveFootnoteContainerDocID = async (): Promise<string> => {
-            switch (String(settings.saveLocation)) {
-                case '2':
-                    return settings.docID || docID;
-                case '3': {
-                    const childDoc = await sql(
-                        `SELECT id FROM blocks WHERE type='d' AND ial like '%custom-plugin-footnote-parent="${docID}"%' LIMIT 1`
-                    );
-                    return childDoc?.[0]?.id || docID;
-                }
-                case '5': {
-                    const docAttrs = await getBlockAttrs(docID);
-                    return docAttrs['custom-plugin-footnote-doc-id'] || docID;
-                }
-                default:
-                    return docID;
-            }
-        };
-
-        // 3. 遍历所有脚注引用，建立顺序映射，并记录锚点块和受影响的块
-        const footnoteOrder = new Map<string, number>(); // 存储最终排序: 脚注ID -> 顺序编号 (1, 2, 3...)
-        const refAnchorMap = new Map<string, string>();   // 存储首次出现位置: 脚注ID -> 锚点块ID
-        const affectedRefBlocks = new Map<string, HTMLElement>(); // 存储受影响的引用块: 块ID -> 块元素
-        const processedIds = new Set<string>();
-        const footnoteIdsNeedingContentUpdate = new Set<string>();
-        let counter = 1;
-
-        // 旧版本可能在整块回写的竞态中丢失 custom-footnote，但引用目标 ID 仍然存在。
-        // 仅当目标块明确属于当前文档的脚注内容时才恢复，避免误认普通块引用。
-        const unmarkedReferences = currentDom.querySelectorAll<HTMLElement>(
-            'span[data-type~="sup"][data-id]:not([custom-footnote]), ' +
-            'span[data-type~="sup"][data-href^="siyuan://blocks/"]:not([custom-footnote]), ' +
-            'span[custom-footnote-selection-ref][data-id]:not([custom-footnote])'
-        );
-
-        if (unmarkedReferences.length > 0) {
-            const footnoteContentBlocks = await sql(`
-                SELECT id FROM blocks
-                WHERE ial like '%custom-plugin-footnote-content="${docID}"%'`);
-            const footnoteContentIds = new Set<string>(footnoteContentBlocks.map(block => block.id));
-
-            for (const ref of unmarkedReferences) {
-                const dataTypes = new Set((ref.getAttribute('data-type') || '').split(/\s+/).filter(Boolean));
-                if (!dataTypes.has('sup') && !ref.hasAttribute('custom-footnote-selection-ref')) continue;
-
-                const hrefTarget = ref.getAttribute('data-href')?.match(/^siyuan:\/\/blocks\/([^/?#]+)/)?.[1];
-                const footnoteId = ref.getAttribute('data-id') || hrefTarget;
-                if (!footnoteId || !footnoteContentIds.has(footnoteId)) continue;
-
-                ref.setAttribute('custom-footnote', footnoteId);
-                const containingBlock = ref.closest<HTMLElement>('[data-node-id][data-node-index]');
-                const blockId = containingBlock?.getAttribute('data-node-id');
-                if (containingBlock && blockId) {
-                    affectedRefBlocks.set(blockId, containingBlock);
+        const indexSelector = 'span[data-type~="custom-footnote-index"]';
+        const indexesById = new Map(Array.from(contentDOMs, ([id, content]) => [id, Array.from(
+            content.querySelectorAll<HTMLElement>(indexSelector),
+        ).filter(index => index.closest(footnoteContentSelector) === content)]));
+        const references = Array.from(documentDOM.querySelectorAll<HTMLElement>(footnoteReferenceSelector)).flatMap(ref => {
+            // 脚注模板里的正文副本不会参与编号。
+            if (ref.closest(footnoteContentSelector)) return [];
+            const block = ref.closest<HTMLElement>('[data-node-id]');
+            if (!block) return [];
+            const markedID = getMarkedFootnoteId(ref);
+            const targetID = ref === block ? null : getReferenceTarget(ref);
+            const id = [markedID, targetID].find(candidate => contentIDs.has(candidate));
+            return [{ ref, block, markedID, targetID, id }];
+        });
+        const claimedIDs = new Set(references.map(reference => reference.id).filter(Boolean));
+        const unresolvedByBlock = new Map<HTMLElement, typeof references>();
+        for (const reference of references) {
+            if (reference.id || reference.ref === reference.block ||
+                (!reference.ref.hasAttribute('custom-footnote') && !reference.ref.hasAttribute('custom-footnote-selection-ref'))) continue;
+            const unresolved = unresolvedByBlock.get(reference.block) ?? [];
+            unresolved.push(reference);
+            unresolvedByBlock.set(reference.block, unresolved);
+        }
+        const unclaimedBySource = new Map<string, Set<string>>();
+        if (unresolvedByBlock.size > 0) {
+            for (const [id, indexes] of indexesById) {
+                if (claimedIDs.has(id)) continue;
+                for (const index of indexes) {
+                    const sourceID = getReferenceTarget(index);
+                    if (!sourceID) continue;
+                    const candidates = unclaimedBySource.get(sourceID) ?? new Set<string>();
+                    candidates.add(id);
+                    unclaimedBySource.set(sourceID, candidates);
                 }
             }
         }
 
-        const footnoteRefs = currentDom.querySelectorAll<HTMLElement>('[custom-footnote]');
-
-        // 新增：存储每个块内的脚注引用信息，用于编号一致性检查
-        const blockRefInfo = new Map<string, Array<{ footnoteId: string, currentNumber: number | null, targetNumber: number }>>();
-
-        for (const ref of footnoteRefs) {
-            const footnoteId = ref.getAttribute('custom-footnote');
-
-            // 记录每个脚注的锚点块ID（仅第一次出现时记录）
-            if (!refAnchorMap.has(footnoteId)) {
-                const anchorBlock = ref.closest('[data-node-id][data-node-index]');
-                if (anchorBlock) {
-                    refAnchorMap.set(footnoteId, anchorBlock.getAttribute('data-node-id'));
-                }
-            }
-
-            // 为脚注分配新的顺序编号
-            if (!processedIds.has(footnoteId)) {
-                footnoteOrder.set(footnoteId, counter);
-                processedIds.add(footnoteId);
-                counter++;
-            }
-
-            // ================== MODIFICATION START ==================
-            // Only process for numbering updates if it's NOT a block-level footnote (DIV)
-            if (ref.tagName !== 'DIV' && !ref.hasAttribute('custom-footnote-selection-ref')) {
-                const currentNumberMatch = ref.textContent?.match(/\[(\d+)\]/);
-                const currentNumber = currentNumberMatch ? parseInt(currentNumberMatch[1], 10) : null;
-                const targetNumber = footnoteOrder.get(footnoteId);
-
-                if (targetNumber && currentNumber !== targetNumber) {
-                    footnoteIdsNeedingContentUpdate.add(footnoteId);
-                }
-
-                // 记录包含此引用的块
-                const containingBlock = ref.closest('[data-node-id][data-node-index]') as HTMLElement;
-                if (containingBlock) {
-                    const blockId = containingBlock.getAttribute('data-node-id');
-                    if (blockId) {
-                        // 初始化块的脚注引用信息
-                        if (!blockRefInfo.has(blockId)) {
-                            blockRefInfo.set(blockId, []);
-                        }
-                        // 添加当前脚注的编号信息
-                        blockRefInfo.get(blockId)!.push({ footnoteId, currentNumber, targetNumber });
-
-                        // 更新脚注引用的显示（临时更新 DOM，稍后决定是否需要持久化）
-                        if (targetNumber) {
-                            ref.textContent = `[${targetNumber}]`;
-                        }
-                    }
-                }
-            } else if (footnoteId) {
-                // 块级脚注和“选中文字作为引用”模式不显示编号，无法从引用侧判断内容编号。
-                footnoteIdsNeedingContentUpdate.add(footnoteId);
-            }
-            // ================== MODIFICATION END ==================
+        const updatedBlocks = new Map<string, HTMLElement>();
+        const order = new Map<string, number>();
+        const retainedIDs = new Set<string>();
+        const sourceByCandidate = new Map<string, number>();
+        for (const ids of unclaimedBySource.values()) {
+            for (const id of ids) sourceByCandidate.set(id, (sourceByCandidate.get(id) ?? 0) + 1);
         }
+        for (const reference of references) {
+            const { ref, block, markedID, targetID } = reference;
+            const blockID = block.getAttribute('data-node-id');
+            let { id } = reference;
+            const unresolved = unresolvedByBlock.get(block);
+            if (!id && unresolved?.length === 1 && unresolved[0] === reference) {
+                // 失效引用只在正文块和脚注回链一一对应时恢复，避免按旧编号猜测。
+                const candidates = unclaimedBySource.get(blockID);
+                const candidate = candidates?.values().next().value;
+                if (candidates?.size === 1 && sourceByCandidate.get(candidate) === 1) id = candidate;
+            }
+            if (!id) {
+                if (markedID) retainedIDs.add(markedID);
+                continue;
+            }
 
-        // 检查每个块的编号一致性，仅将需要更新的块加入 affectedRefBlocks
-        for (const [blockId, refs] of blockRefInfo) {
-            const needsUpdate = refs.some(ref => ref.currentNumber !== ref.targetNumber);
-            if (needsUpdate) {
-                const blockElement = currentDom.querySelector(`[data-node-id="${blockId}"]`) as HTMLElement;
-                if (blockElement) {
-                    affectedRefBlocks.set(blockId, blockElement);
+            retainedIDs.add(id);
+            if (!order.has(id)) order.set(id, order.size + 1);
+            if (ref === block) continue;
+
+            const original = ref.outerHTML;
+            ref.setAttribute('custom-footnote', id);
+            const isSelectionReference = ref.hasAttribute('custom-footnote-selection-ref');
+            if (targetID !== id) {
+                const types = new Set(ref.getAttribute('data-type')?.split(/\s+/).filter(Boolean) || []);
+                if (!types.has('a') && !types.has('block-ref')) {
+                    // 思源可能把指向已不存在块的块引降级为文本，只留下脚注属性。
+                    types.add(!isSelectionReference && settings.footnoteRefStyle === '2' ? 'a' : 'block-ref');
+                    if (!isSelectionReference) types.add('sup');
+                    ref.setAttribute('data-type', Array.from(types).join(' '));
+                }
+                if (types.has('block-ref')) {
+                    ref.setAttribute('data-id', id);
+                    ref.setAttribute('data-subtype', 's');
+                } else {
+                    ref.setAttribute('data-href', `siyuan://blocks/${id}`);
+                }
+            }
+            if (!isSelectionReference) {
+                const label = numbered ? `[${order.get(id)}]` : settings.footnoteBlockref;
+                const currentLabel = ref.textContent?.replace(/^[\u200b\u2060\ufeff]+|[\u200b\u2060\ufeff]+$/g, '');
+                if (currentLabel !== label) ref.textContent = label;
+            }
+            if (original !== ref.outerHTML) updatedBlocks.set(blockID, block);
+
+            if (markedID && markedID !== id && !contentIDs.has(markedID)) {
+                for (const span of block.querySelectorAll('span[data-type*="selected-text"]')) {
+                    const types = span.getAttribute('data-type').split(/\s+/);
+                    const newTypes = types.map(type => type.match(footnoteSelectionMark)?.[1] === markedID
+                        ? type.slice(0, -markedID.length) + id
+                        : type);
+                    if (types.join(' ') === newTypes.join(' ')) continue;
+                    span.setAttribute('data-type', newTypes.join(' '));
+                    updatedBlocks.set(blockID, block);
                 }
             }
         }
 
-        // 4. 【合并更新：一次性准备并批量更新所有受影响的块（包括引用块和内容块）】
-        this.progressManager?.nextStep(this.i18n.reorderFootnotes, "正在准备更新所有受影响的块...");
-
-        const allBlocksToUpdate = [];
-
-        // 4.1 准备【引用块】的更新负载
-        if (affectedRefBlocks.size > 0) {
-            let processedRefBlocks = 0;
-            const totalRefBlocks = affectedRefBlocks.size;
-            for (const [blockId, blockElement] of affectedRefBlocks) {
-                allBlocksToUpdate.push({
-                    id: blockId,
-                    dataType: "dom",
-                    data: blockElement.outerHTML,
-                });
-
-                processedRefBlocks++;
-                if (processedRefBlocks % 5 === 0 || processedRefBlocks === totalRefBlocks) {
-                    this.progressManager?.setMessage(this.i18n.reorderFootnotes, `正在处理引用块 ${processedRefBlocks}/${totalRefBlocks}`);
-                }
+        for (const span of documentDOM.querySelectorAll('span[data-type*="selected-text"]')) {
+            if (span.closest(footnoteContentSelector)) continue;
+            const ids = new Set(span.getAttribute('data-type').split(/\s+/)
+                .map(type => type.match(footnoteSelectionMark)?.[1]).filter(id => id && !retainedIDs.has(id)));
+            const block = span.closest<HTMLElement>('[data-node-id]');
+            if (block && ids.size > 0 && clearFootnoteSelectionMarks(span, ids)) {
+                updatedBlocks.set(block.getAttribute('data-node-id'), block);
             }
         }
 
-        // 4.2 准备【脚注内容块】的更新负载。
-        // 自动更新只检查编号发生变化的脚注；手动重排则完整校验一次。
-        if (footnoteOrder.size > 0) {
-            const footnoteIds = verifyAllContentNumbers
-                ? Array.from(footnoteOrder.keys())
-                : Array.from(footnoteIdsNeedingContentUpdate);
-            const numberExtractionRegex = /<span[^>]*data-type="[^"]*custom-footnote-index[^>]*>\[(\d+)\]<\/span>/;
-            let footnoteBlockDOMs: Record<string, string> = {};
-
-            if (footnoteIds.length > 0) {
-                try {
-                    // 使用思源批量接口，将 N 次 getBlockDOM 往返压缩为 1 次请求。
-                    footnoteBlockDOMs = await getBlockDOMs(footnoteIds);
-                } catch (error) {
-                    console.warn('批量获取脚注内容块 DOM 失败', error);
-                }
-            }
-
-            let processedContentBlocks = 0;
-            const totalContentBlocks = footnoteIds.length;
-
-            for (const footnoteId of footnoteIds) {
-                processedContentBlocks++;
-
-                if (processedContentBlocks % 5 === 0 || processedContentBlocks === totalContentBlocks) {
-                    this.progressManager?.setMessage(this.i18n.reorderFootnotes, `正在检查脚注编号 ${processedContentBlocks}/${totalContentBlocks}`);
-                }
-
-                const originalDOM = footnoteBlockDOMs[footnoteId];
-                if (!originalDOM) continue;
-
-                const newNumber = footnoteOrder.get(footnoteId);
-
-                const match = numberExtractionRegex.exec(originalDOM);
-                const currentNumber = match ? parseInt(match[1], 10) : NaN;
-
-                // 【核心改进】仅当编号确实需要更新时才执行操作
-                if (currentNumber === newNumber) {
-                    continue; // 编号已正确，无需更新
-                }
-
-                const updatedDOM = originalDOM.replace(
-                    /(<span[^>]*data-type="[^"]*custom-footnote-index[^"]*"[^>]*>)\[[^\]]*\](<\/span>)/g,
-                    `$1[${newNumber}]$2`
-                );
-
-                if (updatedDOM === originalDOM) continue;
-
-                allBlocksToUpdate.push({
-                    id: footnoteId,
-                    dataType: "dom",
-                    data: updatedDOM,
-                });
+        for (const [id, number] of order) {
+            const label = numbered ? `[${number}]` : this.i18n.indexAnchor;
+            for (const index of indexesById.get(id) ?? []) {
+                if (index.textContent === label) continue;
+                const block = index.closest<HTMLElement>('[data-node-id]');
+                if (!block) continue;
+                index.textContent = label;
+                updatedBlocks.set(block.getAttribute('data-node-id'), block);
             }
         }
 
-
-
-        // 4.3 先统一写入编号，让可见更新不必等待后续的物理块移动。
-        if (allBlocksToUpdate.length > 0) {
-            try {
-                this.progressManager?.setMessage(this.i18n.reorderFootnotes, `正在批量更新 ${allBlocksToUpdate.length} 个块...`);
-                await batchUpdateBlock(allBlocksToUpdate);
-            } catch (error) {
-                console.error('Failed to batch update blocks (references or contents):', error);
-            }
+        this.progressManager?.nextStep(action, `正在更新 ${updatedBlocks.size} 个块...`);
+        if (updatedBlocks.size > 0) {
+            const updated = await batchUpdateBlock(Array.from(updatedBlocks, ([id, block]) => ({
+                id,
+                dataType: 'dom',
+                data: block.outerHTML,
+            })));
+            if (!updated) throw new Error('Failed to write footnote numbers');
         }
-
-        // 5. 如果需要，对脚注内容块进行物理排序
-
-        if (reorderBlocks && footnoteOrder.size > 0) {
-            // 1. 获取所有相关的脚注内容块，按其当前物理顺序
-            const allFootnoteBlocks = await sql(`
-    SELECT id FROM blocks
-    WHERE ial like '%custom-plugin-footnote-content="${docID}"%'
-    ORDER BY sort ASC`);
-
-            const relevantBlocks = allFootnoteBlocks.filter(block => footnoteOrder.has(block.id));
-
-            if (relevantBlocks.length > 0) {
-                // 1. 获取当前和目标物理顺序。不存在的脚注内容块不参与移动。
-                const currentOrderIds = relevantBlocks.map(block => block.id);
-                const existingIds = new Set(currentOrderIds);
-                const targetOrderIds = Array.from(footnoteOrder.keys()).filter(id => existingIds.has(id));
-                const orderMatches = currentOrderIds.length === targetOrderIds.length
-                    && currentOrderIds.every((id, index) => id === targetOrderIds[index]);
-
-                // 绝大多数新增/删除操作不会改变既有脚注块顺序，直接跳过排序计算和容器查询。
-                if (!orderMatches) {
-                    const footnoteContainerDocID = await resolveFootnoteContainerDocID();
-                    const containerQuery = await sql(`
-            SELECT id FROM blocks
-            WHERE root_id = '${footnoteContainerDocID}'
-            AND ial like '%custom-plugin-footnote-parent="${docID}"%'
-            LIMIT 1`);
-
-                    if (containerQuery.length > 0) {
-                        const containerId = containerQuery[0].id;
-                        // 两组 ID 唯一且相同，LCS 可转化为目标位置序列的 LIS，
-                        // 将计算复杂度从 O(n²) 降为 O(n log n)。
-                        const stableIds = findStableSubsequence(currentOrderIds, targetOrderIds);
-                        const stableIdSet = new Set(stableIds);
-                        let previousID = containerId; // 移动操作的前一个锚点块
-                        let stableIndex = 0;
-
-                        // 计算需要移动的块数量
-                        const totalMovesNeeded = targetOrderIds.length - stableIdSet.size;
-                        let currentMoveIndex = 0;
-
-                        for (let i = 0; i < targetOrderIds.length; i++) {
-                            const targetId = targetOrderIds[i];
-
-                            // 检查当前目标块是否是稳定子序列的一部分
-                            if (stableIndex < stableIds.length && targetId === stableIds[stableIndex]) {
-                                // 是稳定块，不移动它，只更新锚点
-                                previousID = targetId;
-                                stableIndex++;
-                            } else {
-                                // 是需要移动的块
-                                currentMoveIndex++;
-                                try {
-                                    // 更新进度显示
-                                    this.progressManager?.setMessage(
-                                        this.i18n.reorderFootnotes,
-                                        `正在移动块 ${currentMoveIndex}/${totalMovesNeeded}...`
-                                    );
-
-                                    // console.log(`Moving ${targetId} after ${previousID}`);
-                                    await moveBlock(targetId, previousID, containerId);
-                                    // 移动后，它成为新的锚点
-                                    previousID = targetId;
-                                } catch (error) {
-                                    console.warn('Failed to move block:', targetId, error);
-                                }
-                            }
-                        }
-
-                        // 移动完成后的最终状态更新
-                        this.progressManager?.setMessage(
-                            this.i18n.reorderFootnotes,
-                            `块移动完成 (${totalMovesNeeded}/${totalMovesNeeded})`
-                        );
-                    }
-                }
+        this.progressManager?.nextStep(action, reorderBlocks ? '正在调整脚注块顺序...' : '脚注编号已更新');
+        if (reorderBlocks) {
+            const rootIDs = new Set<string>(contents.filter(block => order.has(block.id)).map(block => block.root_id));
+            for (const rootID of rootIDs) {
+                const rootDOM = rootID === docID ? documentDOM : parser.parseFromString((await getBlockDOM(rootID))?.dom ?? '', 'text/html');
+                await this.reorderFootnoteSiblings(rootID, rootDOM, order);
             }
-        }
-
-        function findStableSubsequence(currentIds: string[], targetIds: string[]): string[] {
-            const targetIndexes = new Map(targetIds.map((id, index) => [id, index]));
-            const positions = currentIds.map(id => targetIndexes.get(id));
-            const tails: number[] = [];
-            const predecessors = new Array(positions.length).fill(-1);
-
-            for (let index = 0; index < positions.length; index++) {
-                const position = positions[index];
-                if (position === undefined) continue;
-
-                let left = 0;
-                let right = tails.length;
-                while (left < right) {
-                    const middle = (left + right) >> 1;
-                    if (positions[tails[middle]]! < position) {
-                        left = middle + 1;
-                    } else {
-                        right = middle;
-                    }
-                }
-
-                if (left > 0) predecessors[index] = tails[left - 1];
-                tails[left] = index;
-            }
-
-            const stableIds: string[] = [];
-            let cursor = tails.length > 0 ? tails[tails.length - 1] : -1;
-            while (cursor >= 0) {
-                stableIds.push(currentIds[cursor]);
-                cursor = predecessors[cursor];
-            }
-            return stableIds.reverse();
         }
     }
 
-    /**
-     * 取消脚注的重新编号，将所有引用和内容块的编号重置为占位符。
-     * 参考 reorderFootnotes 的批量处理逻辑进行了优化。
-     * @param docID - 当前文档的ID。
-     * @param reorderBlocks - (此函数中未使用，但保留签名以保持一致性)
-     */
-    private async cancelReorderFootnotes(docID: string, reorderBlocks: boolean) {
-        const settings = await this.loadSettings();
-
-        // 初始化进度管理
-        this.progressManager?.setTotalSteps(3); // 1. 获取DOM, 2. 准备更新, 3. 执行更新
-        this.progressManager?.nextStep("取消脚注编号", "正在获取文档DOM...");
-
-        // 1. 获取当前文档的DOM
-        const doc = await getBlockDOM(docID);
-        if (!doc) {
-            return;
-        }
-        const currentDom = new DOMParser().parseFromString(doc.dom, 'text/html');
-
-        // 存储所有需要批量更新的块
-        const allBlocksToUpdate = [];
-        // 存储所有独特的脚注内容块ID
-        const allFootnoteIds = new Set<string>();
-        // 存储受影响的引用块，避免重复处理
-        const affectedRefBlocks = new Map<string, HTMLElement>();
-
-        // 2. 准备【引用块】的更新负载
-        this.progressManager?.nextStep("取消脚注编号", "正在处理脚注引用...");
-
-        // ================== MODIFICATION START ==================
-        // 1. Generalize selector to find all footnote references
-        const footnoteRefs = currentDom.querySelectorAll('[custom-footnote]');
-
-        // 2. Add conditional logic to handle inline vs block-level refs
-        footnoteRefs.forEach((ref: HTMLElement) => {
-            const footnoteId = ref.getAttribute('custom-footnote');
-
-            // Only modify the DOM for INLINE footnotes (SPANs)
-            if (ref.tagName !== 'DIV' && !ref.hasAttribute('custom-footnote-selection-ref')) {
-                ref.textContent = settings.footnoteBlockref;
-
-                if (footnoteId) {
-                    allFootnoteIds.add(footnoteId);
+    private async reorderFootnoteSiblings(rootID: string, dom: Document, order: ReadonlyMap<string, number>) {
+        // SQL 的 sort 是块类型权重。按照文档里的实际兄弟顺序重排，各组留在原来的容器。
+        const parents = new Set(Array.from(dom.querySelectorAll(footnoteContentSelector), element => element.parentElement));
+        for (const parent of parents) {
+            const siblings = Array.from(parent.children).filter(element => element.hasAttribute('data-node-id'));
+            let previous: Element | null = null;
+            let group: string[] = [];
+            for (const sibling of [...siblings, null]) {
+                const id = sibling?.getAttribute('data-node-id');
+                if (id && sibling.matches(footnoteContentSelector) && order.has(id)) {
+                    group.push(id);
+                    continue;
                 }
-
-                const containingBlock = ref.closest('[data-node-id]') as HTMLElement;
-                if (containingBlock) {
-                    const blockId = containingBlock.getAttribute('data-node-id');
-                    if (blockId && !affectedRefBlocks.has(blockId)) {
-                        affectedRefBlocks.set(blockId, containingBlock);
+                if (group.length > 1) {
+                    const target = [...group].sort((left, right) => order.get(left) - order.get(right));
+                    // 思源会把移到折叠标题之后的块放到标题内容末尾。保留第一个目标块作为锚点。
+                    const stableGroup = previous?.matches('[data-type="NodeHeading"][fold="1"]')
+                        ? group.slice(group.indexOf(target[0]))
+                        : group;
+                    const stableIDs = new Set(this.findStableSubsequence(stableGroup, target));
+                    let previousID = previous?.getAttribute('data-node-id');
+                    for (const targetID of target) {
+                        if (!stableIDs.has(targetID)) await moveBlock(targetID, previousID, parent.getAttribute('data-node-id') || rootID);
+                        previousID = targetID;
                     }
                 }
-            } else {
-                // For DIVs, just collect the ID to reset the content block later.
-                // Do not modify the DIV itself.
-                if (footnoteId) {
-                    allFootnoteIds.add(footnoteId);
+                group = [];
+                previous = sibling;
+            }
+        }
+    }
+
+    private findStableSubsequence(currentIds: string[], targetIds: string[]): string[] {
+        const targetIndexes = new Map(targetIds.map((id, index) => [id, index]));
+        const positions = currentIds.map(id => targetIndexes.get(id));
+        const tails: number[] = [];
+        const predecessors = new Array(positions.length).fill(-1);
+
+        for (let index = 0; index < positions.length; index++) {
+            const position = positions[index];
+            if (position === undefined) continue;
+
+            let left = 0;
+            let right = tails.length;
+            while (left < right) {
+                const middle = (left + right) >> 1;
+                if (positions[tails[middle]]! < position) {
+                    left = middle + 1;
+                } else {
+                    right = middle;
                 }
             }
-        });
-        // ================== MODIFICATION END ==================
 
-        // 将所有需要更新的引用块的DOM数据添加到批量更新数组中
-        for (const [blockId, blockElement] of affectedRefBlocks) {
-            allBlocksToUpdate.push({
-                id: blockId,
-                dataType: "dom",
-                data: blockElement.outerHTML,
-            });
+            if (left > 0) predecessors[index] = tails[left - 1];
+            tails[left] = index;
         }
 
-        // 3. 准备【脚注内容块】的更新负载
-        if (allFootnoteIds.size > 0) {
-            this.progressManager?.setMessage("取消脚注编号", `正在获取 ${allFootnoteIds.size} 个脚注内容块...`);
-
-            // 并行获取所有脚注内容块的DOM
-            const footnoteBlockDOMs = await Promise.all(
-                Array.from(allFootnoteIds).map(id => getBlockDOM(id).catch(() => null))
-            );
-
-            const totalContentBlocks = footnoteBlockDOMs.length;
-            let processedContentBlocks = 0;
-
-            for (const footnoteBlockDOM of footnoteBlockDOMs) {
-                processedContentBlocks++;
-                this.progressManager?.setMessage("取消脚注编号", `正在处理内容块 ${processedContentBlocks}/${totalContentBlocks}...`);
-
-                if (!footnoteBlockDOM?.dom || !footnoteBlockDOM.id) continue;
-
-                // 使用正则表达式将内容块中的索引数字替换为占位符
-                const updatedDOM = footnoteBlockDOM.dom.replace(
-                    /(<span[^>]*data-type="[^"]*custom-footnote-index[^"]*"[^>]*>)[^<]*(<\/span>)/g,
-                    `$1${this.i18n.indexAnchor}$2`
-                );
-
-                // 如果DOM内容发生变化，则加入更新列表
-                if (updatedDOM !== footnoteBlockDOM.dom) {
-                    allBlocksToUpdate.push({
-                        id: footnoteBlockDOM.id,
-                        dataType: "dom",
-                        data: updatedDOM,
-                    });
-                }
-            }
+        const stableIds: string[] = [];
+        let cursor = tails.length > 0 ? tails[tails.length - 1] : -1;
+        while (cursor >= 0) {
+            stableIds.push(currentIds[cursor]);
+            cursor = predecessors[cursor];
         }
-
-        // 4. 执行统一的批量更新
-        if (allBlocksToUpdate.length > 0) {
-            this.progressManager?.nextStep("取消脚注编号", `正在批量更新 ${allBlocksToUpdate.length} 个块...`);
-            try {
-                console.log(`Batch canceling numbering for ${allBlocksToUpdate.length} blocks.`);
-                await batchUpdateBlock(allBlocksToUpdate);
-            } catch (error) {
-                console.error('Failed to batch cancel footnote numbering:', error);
-                // 可以添加更详细的错误处理逻辑
-            } finally {
-            }
-        } else {
-        }
+        return stableIds.reverse();
     }
 
     private getDocumentId() {
@@ -2569,52 +2341,28 @@ export function saveViaTransaction(protyleElem) {
     protyle.dispatchEvent(e)
 }
 
-/**
- * 等待一个块保存的 WebSocket 消息。
- * @param {function|null} filter - 一个可选的过滤函数，用于检查消息。如果函数返回 true，则 promise 被兑现。
- * @param {number} timeout - 超时时间（毫秒），默认为 1000ms。
- * @returns {Promise<any>} - 在收到消息时兑现 (resolve) promise，超时或出错时拒绝 (reject) promise。
- */
-function whenBlockSaved(filter = null, timeout = 500) {
-    return new Promise((resolve, reject) => {
+// 工具栏插入和给引用补属性是两次编辑。只等待带脚注属性的那次块更新。
+function whenBlockSaved(blockID: string, footnoteID: string) {
+    return new Promise<boolean>(resolve => {
         const ws = window.siyuan.ws.ws;
-        let timeoutId = null;
-
-        // 清理函数，用于移除监听器和定时器
-        const cleanup = () => {
+        const finish = (saved: boolean) => {
             ws.removeEventListener('message', handler);
-            if (timeoutId) {
-                clearTimeout(timeoutId);
-            }
+            clearTimeout(timeout);
+            resolve(saved);
         };
-
-        const handler = (event) => {
+        const handler = (event: MessageEvent<string>) => {
             try {
                 const msg = JSON.parse(event.data);
-
-                // 检查是否是我们关心的 "transactions" 消息
-                if (msg.cmd === "transactions") {
-                    // 如果有过滤器，则使用它；否则直接认为是匹配的
-                    const isMatch = typeof filter === 'function' ? filter(msg) : true;
-
-                    if (isMatch) {
-                        cleanup(); // 成功，清理并兑现
-                        resolve(msg);
-                    }
+                if (msg.cmd === 'transactions' && Array.isArray(msg.data) && msg.data.some(transaction =>
+                    transaction.doOperations?.some(operation => operation.id === blockID &&
+                        typeof operation.data === 'string' && operation.data.includes(`custom-footnote="${footnoteID}"`)))) {
+                    finish(true);
                 }
-            } catch (e) {
-                cleanup(); // 出错，清理并拒绝
-                reject(e);
+            } catch {
+                // 其他 WebSocket 消息无需处理。
             }
         };
-
-        // 设置超时
-        timeoutId = setTimeout(() => {
-            cleanup(); // 超时，清理并拒绝
-            resolve(null)
-        }, timeout);
-
-        // 添加事件监听器
+        const timeout = setTimeout(() => finish(false), 1000);
         ws.addEventListener('message', handler);
     });
 }

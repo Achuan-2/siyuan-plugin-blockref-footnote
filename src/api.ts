@@ -281,7 +281,7 @@ export async function updateBlock(dataType: DataType, data: string, id: BlockId)
 
 
 
-export async function batchUpdateBlock(blocks: Block[]): Promise<IResdoOperations[]> {
+export async function batchUpdateBlock(blocks: { id: BlockId; dataType: DataType; data: string }[]): Promise<IResdoOperations[]> {
     let payload = {
         blocks: blocks
         //     blocks=[
